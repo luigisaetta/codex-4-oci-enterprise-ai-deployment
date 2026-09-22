@@ -211,6 +211,12 @@ reported all layers as pushed and the manifest digest
 This verifies OCIR publication only; OCI Enterprise AI deployment compatibility
 has not been verified.
 
+2026-09-22: after a subsequent local rebuild and separate explicit push
+authorization, Docker retagged and pushed the same image to the same Frankfurt
+region-key target. All image layers were already present, and Docker again
+reported digest
+`sha256:45533f02a491be15c28d8be4446bef7e65db057c5be482e1b9de1a1fa5fdf363`.
+
 2026-09-22: based on the successful Frankfurt region-key endpoint verification,
 the supported registry resolution changed from region-identifier endpoints to
 explicit region-key mappings. Bash syntax checks passed for both OCIR scripts;

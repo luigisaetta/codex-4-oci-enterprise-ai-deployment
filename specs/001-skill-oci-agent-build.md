@@ -315,6 +315,13 @@ output to the terminal while retaining its temporary failure-analysis log. A cac
 `hello-world:0.1.0` build exited 0 in 4 seconds and reported the expected image ID and
 size. Timeout and stream-write failure paths were not re-exercised for this change.
 
+Latest local check on 2026-09-22: preflight reported Docker server 29.5.2 with the
+Rancher Desktop builder, an aarch64 daemon, and amd64 emulation. The cached
+`hello-world:0.1.0` build exited 0 in 2 seconds. Verification exited 0: static
+architecture was `linux/amd64`, runtime architecture was `x86_64`, readiness took
+5 seconds, and `POST /hello` with `{"name":"Luigi"}` returned
+`{"message":"Hello Luigi"}`. No OCI operation was performed.
+
 ### Installed image packages
 
 Observed using `importlib.metadata.distributions()` in the final image under a

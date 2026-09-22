@@ -76,7 +76,7 @@ compartment_id="$(oci --region "$OCI_REGION" iam compartment list \
   --name "$OCI_COMPARTMENT_NAME" \
   --compartment-id-in-subtree true \
   --all \
-  --query "${active_compartment_query}[0].id" \
+  --query "(${active_compartment_query})[0].id" \
   --raw-output)"
 
 repository_count="$(oci --region "$OCI_REGION" artifacts container repository list \
@@ -84,7 +84,7 @@ repository_count="$(oci --region "$OCI_REGION" artifacts container repository li
   --display-name "$OCIR_REPOSITORY" \
   --lifecycle-state AVAILABLE \
   --all \
-  --query 'length(data)' \
+  --query 'length(data.items)' \
   --raw-output)"
 
 if [[ "$repository_count" == '1' ]]; then
@@ -93,7 +93,7 @@ if [[ "$repository_count" == '1' ]]; then
     --display-name "$OCIR_REPOSITORY" \
     --lifecycle-state AVAILABLE \
     --all \
-    --query 'data[0].id' \
+    --query 'data.items[0].id' \
     --raw-output)"
   printf 'OCIR repository already exists: %s\n' "$repository_id"
   exit 0

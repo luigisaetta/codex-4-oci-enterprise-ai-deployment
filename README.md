@@ -72,12 +72,13 @@ OCI_REGION=eu-frankfurt-1
 OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
 OCIR_REPOSITORY=agents/hello-world
-OCIR_USERNAME=replace-with-oci-username
+OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
-For OC1, the registry domain is derived as `${OCI_REGION}.ocir.io`; for example,
-the Frankfurt target is `eu-frankfurt-1.ocir.io/<namespace>/<repository>:<tag>`.
-Load only these non-secret variables in your shell before using the skill:
+For the currently supported OC1 regions, the skill maps the region identifier to
+the OCIR region-key endpoint: `eu-frankfurt-1` maps to `fra.ocir.io`, and
+`us-chicago-1` maps to `ord.ocir.io`. Load only these non-secret variables in
+your shell before using the skill:
 
 ```bash
 set -a
@@ -85,10 +86,21 @@ set -a
 set +a
 ```
 
+Resolve the registry hostname before login, tagging, or push:
+
+```bash
+OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"
+```
+
+`OCIR_USERNAME` is the complete OCIR login username, normally
+`<tenancy-namespace>/<username>` (or
+`<tenancy-namespace>/<identity-domain>/<username>` for applicable identity-domain
+tenancies). It is not merely the OCI Console username.
+
 Authenticate separately, after checking Docker's credential-store behavior:
 
 ```bash
-docker login --username "$OCIR_USERNAME" "${OCI_REGION}.ocir.io"
+docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"
 ```
 
 Enter the OCI auth token only at Docker's password prompt. Do not put it in
@@ -99,6 +111,11 @@ authorize the operation, creates it as private and mutable before asking for a
 separate push authorization. A successful push is registry evidence, not OCI
 Enterprise AI deployment verification. See [the push skill](skills/oci-agent-push/SKILL.md)
 for the authorization, creation, push, verification, and cleanup workflow.
+
+Docker credentials are scoped to the exact registry hostname. For example,
+`fra.ocir.io` and `eu-frankfurt-1.ocir.io` are valid Frankfurt endpoints, but a
+login to one does not authenticate Docker to the other. Use the resolved
+`$OCIR_REGISTRY` consistently for login, tagging, and push.
 
 Before any repository mutation, inspect the compartment and repository with:
 

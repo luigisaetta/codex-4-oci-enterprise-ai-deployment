@@ -2,15 +2,15 @@
 
 Reviewed 2026-09-22.
 
-This skill supports the OC1 realm only. Given `OCI_REGION=eu-frankfurt-1`, use
-the Container Registry domain `eu-frankfurt-1.ocir.io`. The Frankfurt region-key
-alias `fra.ocir.io` is also valid, but this workflow uses the region identifier
-to avoid a separate region-key mapping.
+This skill supports the OC1 realm only. It currently resolves two OCI region
+identifiers to OCIR region-key endpoints: `eu-frankfurt-1` to `fra.ocir.io`, and
+`us-chicago-1` to `ord.ocir.io`. It stops for any other region rather than
+guessing a region key.
 
 Use this image-reference format:
 
 ```text
-${OCI_REGION}.ocir.io/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
+${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
 ```
 
 Authenticate interactively:
@@ -24,6 +24,9 @@ tenancies can require `<tenancy-namespace>/<identity-domain>/<username>`. Enter
 the OCI auth token only when Docker prompts for its password. OCI shows a newly
 generated auth token only once. Do not use `--password`, record the token in a
 file, or pass it to a repository script.
+
+Docker credentials are scoped to an exact registry hostname. Use the same
+resolved `$OCIR_REGISTRY` value for login, tagging, and pushing.
 
 Before a push, the operator needs Docker access, an OCI auth token, and IAM
 access to the target repository. OCI policies use the `repos` resource type and

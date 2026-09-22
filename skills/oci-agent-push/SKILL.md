@@ -21,14 +21,26 @@ The root `.env` holds only `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
 auth token, password, private key, or Docker credential in it, in a prompt, or
 in command arguments.
 
+`OCIR_USERNAME` must be the complete OCIR login username, normally
+`<tenancy-namespace>/<username>` (or
+`<tenancy-namespace>/<identity-domain>/<username>` for applicable identity-domain
+tenancies), rather than only the OCI Console username.
+
 ## Workflow
 
 1. Confirm the local image and its user-supplied semantic tag. Check that all
    required non-secret settings are configured; do not print unrelated `.env`
    content. Confirm OCI CLI availability and profile access.
-2. For OC1, derive `OCIR_REGISTRY="${OCI_REGION}.ocir.io"` and show the exact
-   target: `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>`.
-   Stop if the realm is not OC1 or a setting is missing.
+2. Resolve `OCI_REGION` to the supported OCIR region-key endpoint and show the
+   exact target. This currently supports `eu-frankfurt-1` as `fra.ocir.io` and
+   `us-chicago-1` as `ord.ocir.io`; stop for any other region.
+
+   ```bash
+   OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"
+   ```
+
+   The target is
+   `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>`.
 3. Resolve `OCI_COMPARTMENT_NAME` and inspect the target with the non-mutating
    command below. It proceeds only if exactly one active compartment OCID
    matches; exit code 20 means that the repository is absent.

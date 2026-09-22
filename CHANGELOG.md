@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-22: Resolve OCIR login and push endpoints from `OCI_REGION` using
+  supported region-key mappings for Frankfurt (`fra`) and Chicago (`ord`).
+
 * 2026-09-22: Add OCI CLI as a development dependency and a guarded script that
   resolves a compartment and creates an absent OCIR repository only with
   `--create`.

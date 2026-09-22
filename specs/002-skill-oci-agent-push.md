@@ -23,7 +23,9 @@ versioned configuration.
    operational boundaries.
 4. Provide a Bash script that resolves the named compartment, detects the
    requested repository, and creates it only when invoked with `--create`.
-5. Add the new skill to the repository skill index and root README catalog.
+5. Provide a Bash script that resolves supported OCI region identifiers to the
+   OCIR region-key hostname used consistently for Docker login and push.
+6. Add the new skill to the repository skill index and root README catalog.
 
 ## Non-goals
 
@@ -36,8 +38,8 @@ versioned configuration.
 
 ## Assumptions and prerequisites
 
-* The target is the OC1 realm. For an OCI region identifier, the registry domain
-  is `<OCI_REGION>.ocir.io`; for example, `eu-frankfurt-1.ocir.io`.
+* The target is the OC1 realm. Initially, the registry resolver supports only
+  `eu-frankfurt-1` (`fra.ocir.io`) and `us-chicago-1` (`ord.ocir.io`).
 * The local image has already passed Spec 001 and uses a user-supplied semantic
   version tag.
 * OCI CLI is installed and configured with a profile that can inspect the target
@@ -58,15 +60,16 @@ OCI_REGION=eu-frankfurt-1
 OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
 OCIR_REPOSITORY=agents/hello-world
-OCIR_USERNAME=replace-with-oci-username
+OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
 `OCI_REGION` is an OCI region identifier, not a region key. For this OC1-only
-workflow, derive the registry domain as `${OCI_REGION}.ocir.io`. The fully
-qualified target image is:
+workflow, `scripts/resolve_ocir_registry.sh` resolves the supported values
+`eu-frankfurt-1` to `fra.ocir.io` and `us-chicago-1` to `ord.ocir.io`; it exits
+with code 64 for all other values. The fully qualified target image is:
 
 ```text
-${OCI_REGION}.ocir.io/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
+${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
 ```
 
 Do not add `OCI_AUTH_TOKEN`, passwords, keys, or credential-store data to either
@@ -78,6 +81,11 @@ configured OCI CLI profile. It proceeds only when exactly one OCID is returned;
 zero or multiple matches require user direction. The resolved OCID is never
 written to `.env`.
 
+`OCIR_USERNAME` is the complete OCIR login username. It is normally
+`<tenancy-namespace>/<username>`, or
+`<tenancy-namespace>/<identity-domain>/<username>` for applicable identity-domain
+tenancies; it is not just the OCI Console username.
+
 ## Intended behavior
 
 The skill directs the operator to load only the non-secret configuration, check
@@ -85,6 +93,12 @@ the intended source image and target tag, and authenticate separately using an
 interactive `docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"`.
 Docker prompts for the OCI auth token, so the token is not placed on the command
 line or in a file managed by the repository.
+
+Docker credentials are scoped to an exact registry hostname. The Frankfurt
+aliases `fra.ocir.io` and `eu-frankfurt-1.ocir.io` are both valid, but a Docker
+login to one does not authenticate the other. This workflow resolves one
+supported region-key hostname from `OCI_REGION` and uses it consistently for
+login, tagging, and push.
 
 Before a remote mutation, the skill must show the exact source image, resolved
 compartment OCID, and fully qualified OCIR target. The operator first runs:
@@ -119,18 +133,18 @@ is not automated by the skill.
 
 1. `.env.example` contains exactly the documented non-secret settings, including
    `OCI_COMPARTMENT_NAME`, and no secrets; root `.env` exists and is ignored by Git.
-2. The README documents OC1 endpoint derivation, compartment-name resolution,
-   OCI CLI, private repository creation, configuration loading, interactive
-   auth-token handling, target image format, IAM prerequisite, and cleanup
-   without exposing an actual credential.
+2. The README documents the supported OC1 region-to-region-key endpoint mapping,
+   compartment-name resolution, OCI CLI, private repository creation,
+   configuration loading, interactive auth-token handling, target image format,
+   IAM prerequisite, and cleanup without exposing an actual credential.
 3. `skills/oci-agent-push/SKILL.md` has valid frontmatter, is concise, and
    requires explicit authorization before remote mutation.
 4. `agents/openai.yaml` has valid UI metadata and allows implicit invocation.
 5. The skill catalog lists `oci-agent-push`; `.agents/skills` exposes it.
 6. Static checks pass: `git diff --check`, the skill validator, referenced-file
-   checks, a Bash syntax and help check for `ensure_ocir_repository.sh`, and a
-   review that `.env` is ignored. No Docker login, tag, push, or OCI resource
-   operation is performed for these criteria.
+   checks, Bash syntax and behavior checks for both OCIR scripts, and a review
+   that `.env` is ignored. No Docker login, tag, push, or OCI resource operation
+   is performed for these criteria.
 7. Remote acceptance remains pending until an operator supplies configuration,
    confirms OCI CLI, IAM access and credential storage, explicitly authorizes a
    repository target and creation if needed, and records sanitized creation,
@@ -144,6 +158,7 @@ Verified 2026-09-22:
 * [Oracle: Preparing for Container Registry](https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registryprerequisites.htm)
 * [Oracle: Container Registry IAM policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/registrypolicyreference.htm)
 * [Oracle: Creating a Repository](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
+* [Oracle: Container Registry concepts](https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registryconcepts.htm)
 * [Oracle: Installing the CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/climanualinst.htm)
 * [Oracle CLI: List Compartments](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/iam/compartment/list.html)
 * [Oracle CLI: List Container Repositories](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/artifacts/container/repository/list.html)
@@ -163,4 +178,42 @@ path exited with code 64 before any OCI CLI call. Authenticated OCI CLI operatio
 remain untested: no Docker registry login or OCI resource inspection, creation,
 change, or push was attempted.
 
-Criterion 7 is pending explicit operator configuration and authorization.
+Criterion 7 is satisfied for repository creation and image push. The optional
+local Docker credential-cleanup decision remains with the operator.
+
+2026-09-22: remote repository-creation verification passed after explicit
+operator authorization. With the configured OC1 region and compartment, the
+script resolved one active compartment, detected that `agents/hello-world` was
+absent, and created a private, mutable repository. OCI CLI waited for
+`AVAILABLE` and reported a container-repository OCID; the full OCID is retained
+only in the operator's command output. No Docker login, tag, or push was
+performed. OCI CLI warned that the local OCI configuration and private-key file
+permissions are too open; this warning did not prevent the operation and has not
+been changed by this workflow.
+
+2026-09-22: after separate explicit push authorization, Docker tagged
+`hello-world:0.1.0` for the configured OCIR target and attempted a push. OCIR
+returned `403 Forbidden` while Docker checked an image-layer blob, so no image
+digest was reported and remote push acceptance remains pending. The local target
+tag was retained. No retry, credential change, or cleanup action was performed.
+
+2026-09-22: diagnostic inspection of Docker configuration showed a credential
+entry for `fra.ocir.io`, while the workflow pushed to
+`eu-frankfurt-1.ocir.io`. Because Docker credentials are host-specific, this is
+the identified cause of the failed push. No credential content was inspected.
+
+2026-09-22: the operator explicitly selected the valid Frankfurt alias
+`fra.ocir.io`, confirmed Docker login there using existing credentials, and
+authorized a retry. The push of `hello-world:0.1.0` to
+`fra.ocir.io/<tenancy-namespace>/agents/hello-world:0.1.0` succeeded. Docker
+reported all layers as pushed and the manifest digest
+`sha256:45533f02a491be15c28d8be4446bef7e65db057c5be482e1b9de1a1fa5fdf363`.
+This verifies OCIR publication only; OCI Enterprise AI deployment compatibility
+has not been verified.
+
+2026-09-22: based on the successful Frankfurt region-key endpoint verification,
+the supported registry resolution changed from region-identifier endpoints to
+explicit region-key mappings. Bash syntax checks passed for both OCIR scripts;
+the resolver returned `fra.ocir.io` for Frankfurt and `ord.ocir.io` for Chicago,
+and rejected an unsupported region with exit code 64. Chicago remote verification
+remains pending.

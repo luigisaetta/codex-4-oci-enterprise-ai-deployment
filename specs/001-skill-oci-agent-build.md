@@ -141,7 +141,8 @@ Behavior:
 - Run exactly:
   `docker buildx build --platform linux/amd64 --load --provenance=false --sbom=false -f <path> -t <name>:<tag> [--builder <name>] [--no-cache] <dir>`
   The attestation flags apply the manifest-list exception documented below.
-  Print the full command before running it.
+  Print the full command before running it. Stream combined build output to the
+  terminal as it is produced while retaining a temporary log for failure analysis.
 - On success print image name, tag, image ID, and size.
 - On failure, if the build log contains pip's "No matching distribution found" or
   "Could not find a version that satisfies", print the offending package line and a hint:
@@ -308,6 +309,11 @@ failure. The fixtures were temporary and were not retained in the repository; th
 evidence is therefore not reproducible. No files under `tests/` were changed. Rendered
 templates match the Dockerfile and root `.dockerignore`
 byte-for-byte. No smoke containers remained after verification.
+
+Subsequent local check on 2026-09-22: the build script streamed the combined Buildx
+output to the terminal while retaining its temporary failure-analysis log. A cached
+`hello-world:0.1.0` build exited 0 in 4 seconds and reported the expected image ID and
+size. Timeout and stream-write failure paths were not re-exercised for this change.
 
 ### Installed image packages
 

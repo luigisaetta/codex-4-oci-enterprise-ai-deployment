@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: build_image.sh --context DIR --dockerfile PATH --name NAME --tag VERSION
 #        [--builder NAME] [--no-cache]
 # Environment: BUILD_TIMEOUT_SECONDS (positive integer, default 1800).
-# Side effects: base/package downloads, build cache and local image; temporary log removed.
+# Side effects: base/package downloads, build cache and local image; streamed temporary log removed.
 # Exit: 0 success; 1/2 preflight; 3 tag; 4 paths; 5 pip resolution; 6 build/timeout; 64 usage.
 
 usage() {
@@ -58,8 +58,16 @@ if [ -n "$builder" ]; then command+=(--builder "$builder"); fi
 if [ "$no_cache" = true ]; then command+=(--no-cache); fi
 command+=("$context")
 printf 'Command:'; printf ' %q' "${command[@]}"; printf '\n'
-log_file=$(mktemp "${TMPDIR:-/tmp}/oci-agent-build.XXXXXX")
+log_dir=$(mktemp -d "${TMPDIR:-/tmp}/oci-agent-build.XXXXXX")
+log_file="$log_dir/build.log"
+log_pipe="$log_dir/build.pipe"
+if ! mkfifo "$log_pipe"; then
+    printf 'Could not create the temporary build log pipe.\n' >&2
+    rmdir "$log_dir" 2>/dev/null || true
+    exit 6
+fi
 build_pid=''
+tee_pid=''
 cleanup() {
     if [ -n "$build_pid" ] && kill -0 "$build_pid" 2>/dev/null; then
         kill -TERM "$build_pid" 2>/dev/null || true
@@ -67,13 +75,20 @@ cleanup() {
         kill -KILL "$build_pid" 2>/dev/null || true
         wait "$build_pid" 2>/dev/null || true
     fi
-    rm -f "$log_file"
+    if [ -n "$tee_pid" ] && kill -0 "$tee_pid" 2>/dev/null; then
+        kill -TERM "$tee_pid" 2>/dev/null || true
+        wait "$tee_pid" 2>/dev/null || true
+    fi
+    rm -f "$log_file" "$log_pipe"
+    rmdir "$log_dir" 2>/dev/null || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 started=$SECONDS
-"${command[@]}" >"$log_file" 2>&1 &
+tee "$log_file" <"$log_pipe" &
+tee_pid=$!
+"${command[@]}" >"$log_pipe" 2>&1 &
 build_pid=$!
 timed_out=false
 while kill -0 "$build_pid" 2>/dev/null; do
@@ -89,10 +104,15 @@ done
 build_status=0
 wait "$build_pid" || build_status=$?
 build_pid=''
-cat "$log_file"
+tee_status=0
+wait "$tee_pid" || tee_status=$?
+tee_pid=''
 printf 'Build time: %s seconds\n' "$((SECONDS - started))"
 if [ "$timed_out" = true ]; then
     printf 'Build exceeded BUILD_TIMEOUT_SECONDS=%s.\n' "$build_timeout" >&2; exit 6
+fi
+if [ "$tee_status" -ne 0 ]; then
+    printf 'Could not stream the complete build log (exit %s).\n' "$tee_status" >&2; exit 6
 fi
 if [ "$build_status" -ne 0 ]; then
     if grep -E 'No matching distribution found|Could not find a version that satisfies' "$log_file" >&2; then

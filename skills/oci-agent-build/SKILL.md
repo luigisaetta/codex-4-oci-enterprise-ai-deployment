@@ -75,7 +75,8 @@ Signals return 130 (interrupt) or 143 (termination) after cleanup.
 
 ## Expected outputs
 
-Build: full command, build log, elapsed seconds, image name/tag, ID and size.
+Build: full command, build log streamed as produced, elapsed seconds, image name/tag,
+ID and size.
 Builds disable provenance and SBOM attestations as required by the observed local
 manifest-index behavior recorded in Spec 001.
 Verify: optional POST body and final report with image, digest availability,

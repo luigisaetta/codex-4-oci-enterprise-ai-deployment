@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-22: Stream OCI agent image build logs to the terminal while retaining a
+  temporary log for failure analysis.
+
 * 2026-09-22: Make image verification report a Docker daemon outage with exit code 1
   before inspecting the requested image.
 

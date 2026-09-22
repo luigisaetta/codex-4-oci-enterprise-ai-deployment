@@ -44,8 +44,15 @@ conda activate codex-4-oci-enterprise-ai-deployment
 ```
 
 The project targets Python 3.11+. Shared runtime dependencies are maintained in
-`requirements.txt`, and development tools in `requirements-dev.txt`. Follow the
-[hello_world setup instructions](demos/hello_world/README.md) to run the first demo.
+`requirements.txt`, and development tools (including OCI CLI) in
+`requirements-dev.txt`. Install the latter in the activated project environment:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+Follow the [hello_world setup instructions](demos/hello_world/README.md) to run
+the first demo.
 
 Configuration inputs and authentication requirements will be documented alongside each workflow. Local `.env` files must be ignored by Git; versioned examples must use safe placeholders. Never commit credentials, private keys, tokens, or sensitive OCI configuration.
 
@@ -62,6 +69,7 @@ cp .env.example .env
 
 ```dotenv
 OCI_REGION=eu-frankfurt-1
+OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
 OCIR_REPOSITORY=agents/hello-world
 OCIR_USERNAME=replace-with-oci-username
@@ -84,10 +92,29 @@ docker login --username "$OCIR_USERNAME" "${OCI_REGION}.ocir.io"
 ```
 
 Enter the OCI auth token only at Docker's password prompt. Do not put it in
-`.env`, commands, logs, or this repository. You need IAM access to the existing
-target repository; a successful push is registry evidence, not OCI Enterprise AI
-deployment verification. See [the push skill](skills/oci-agent-push/SKILL.md)
-for the authorization, push, verification, and cleanup workflow.
+`.env`, commands, logs, or this repository. The push skill requires an installed
+and configured OCI CLI to resolve `OCI_COMPARTMENT_NAME` to one active compartment
+OCID. It lists the target repository and, only if it is absent and you explicitly
+authorize the operation, creates it as private and mutable before asking for a
+separate push authorization. A successful push is registry evidence, not OCI
+Enterprise AI deployment verification. See [the push skill](skills/oci-agent-push/SKILL.md)
+for the authorization, creation, push, verification, and cleanup workflow.
+
+Before any repository mutation, inspect the compartment and repository with:
+
+```bash
+scripts/ensure_ocir_repository.sh
+```
+
+The command has no create side effect. Exit code 20 means that the repository is
+absent. Only after reviewing its target and explicitly authorizing creation, run:
+
+```bash
+scripts/ensure_ocir_repository.sh --create
+```
+
+It creates exactly one private, mutable repository and waits up to 120 seconds
+for it to become available. It never logs Docker in or pushes an image.
 
 ## Working on this repository
 

@@ -1,5 +1,6 @@
 -r requirements.txt
 black>=24,<27
 httpx>=0.27,<1
+oci-cli>=3.93,<4
 pylint>=3,<5
 pytest>=8,<10

@@ -54,6 +54,29 @@ Follow [AGENTS.md](AGENTS.md) for the development workflow and conventions. Mean
 
 Each skill will document its purpose, prerequisites, inputs, workflow, and how to make it available to Codex. Each demo will include execution steps, expected results, and cleanup instructions where applicable. Local verification and verification on OCI Enterprise AI will be recorded separately.
 
+## Using repository skills
+
+The checkout exposes its skills to Codex through the `.agents/skills` discovery
+link. Open this repository as your working folder, then select a skill from the
+skills interface (or explicitly invoke it as `$skill-name` in Codex surfaces
+that support that syntax). Read the linked `SKILL.md` before supplying inputs or
+running its workflow.
+
+If a skill is not shown, confirm that its `SKILL.md` exists below `skills/`,
+that the `.agents/skills` link resolves to that directory, and restart Codex.
+Putting a skill directory under `skills/` by itself does not expose it for
+discovery. To use these skills from another repository, follow the optional
+user-scope symlink instructions in [the skills index](skills/README.md); keep
+this checkout in place while that link is in use.
+
+| Skill | When to use it | Instructions |
+| --- | --- | --- |
+| `oci-agent-build` | Build, rebuild, or locally verify a `linux/amd64` agent container image for OCI Enterprise AI. It does not push images or deploy OCI resources. | [Skill instructions](skills/oci-agent-build/SKILL.md) |
+
+Add future skills to this table as they are introduced. The full catalog,
+discovery details, and verification status are maintained in
+[skills/README.md](skills/README.md).
+
 ## License
 
 [MIT](LICENSE).

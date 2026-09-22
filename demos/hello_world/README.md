@@ -51,6 +51,37 @@ python -m pylint demos tests
 python -m pytest
 ```
 
+## Container build
+
+Run from the repository root with Docker, a running daemon, buildx, and a builder
+supporting `linux/amd64`. The root is the build context so the image can install
+the root `requirements.txt` and import the complete `demos` package.
+
+Build and verify using the scripts defined in
+[Spec 001](../../specs/001-skill-oci-agent-build.md):
+
+```bash
+scripts/build_image.sh --context . --dockerfile demos/hello_world/Dockerfile --name hello-world --tag 0.1.0
+scripts/verify_image.sh --image hello-world:0.1.0 --post-path /hello --post-body '{"name":"Luigi"}'
+```
+
+The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed
+by architecture and HTTP verification on port 8080. Verification runs with a
+read-only filesystem and writable `/tmp`, requires HTTP 200 from the functional
+request, and prints its response body. OCI deployment is outside this workflow.
+
+The image uses Python 3.11, binary wheels only, and a non-root user. Its command
+starts Uvicorn on `0.0.0.0:8080`. Dependency versions are resolved from the existing
+root requirements at build time. Builds download the base image and Python packages;
+no registry push or OCI deployment is performed.
+
+See [oci-agent-build](../../skills/oci-agent-build/SKILL.md) for the workflow and
+the [skill index](../../skills/README.md) for discovery instructions. Set
+`BUILD_TIMEOUT_SECONDS` to override the 1800-second build timeout; pass
+`--timeout-seconds` to override the verifier's 90-second readiness timeout.
+The verification script removes its test container; the built image remains local. To remove the
+image when no longer needed, run `docker image rm hello-world:0.1.0`.
+
 ## Troubleshooting and cleanup
 
 If imports fail, check that the project environment is active and dependencies

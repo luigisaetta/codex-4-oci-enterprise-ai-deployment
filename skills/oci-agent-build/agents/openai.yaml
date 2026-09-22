@@ -1,0 +1,5 @@
+interface:
+  display_name: "OCI Agent Build"
+  short_description: "Build and verify OCI agent images for linux/amd64"
+policy:
+  allow_implicit_invocation: true

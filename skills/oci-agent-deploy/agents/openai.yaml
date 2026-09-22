@@ -1,0 +1,6 @@
+interface:
+  display_name: "OCI Agent Deploy"
+  short_description: "Plan and deploy OCI hosted agent images"
+  default_prompt: "Use $oci-agent-deploy to plan a managed-network Hosted Application deployment."
+policy:
+  allow_implicit_invocation: true

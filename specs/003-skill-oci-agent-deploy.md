@@ -1,0 +1,128 @@
+# Spec 003: Codex skill `oci-agent-deploy`
+
+Status: implemented; static acceptance criteria passed; remote acceptance pending
+explicit operator configuration and authorization.
+Date: 2026-09-22.
+
+## Problem
+
+After an agent image has been verified locally and published to OCIR, an operator
+needs a repeatable OCI CLI workflow to create a Generative AI Hosted Application
+and Hosted Deployment without custom networking, container environment variables,
+or inbound endpoint authentication.
+
+## Scope
+
+1. Add an `oci-agent-deploy` skill and guarded Bash deployer.
+2. Use Oracle-managed networking with a public endpoint and
+   `NO_AUTH_CONFIG` inbound authentication.
+3. Omit `--environment-variables`, managed storage, and custom networking.
+4. Resolve the named compartment and use a verified, already-published OCIR image.
+5. Provide non-mutating planning by default and require `--apply` for resource
+   creation.
+6. Record local static checks and remote deployment evidence separately.
+
+## Non-goals
+
+* Create or change IAM policies, dynamic groups, identity domains, VCNs, private
+  endpoints, managed storage, or container environment variables.
+* Build, tag, log in to a registry, or push images.
+* Add application-level authentication, invoke endpoint paths, or claim that an
+  unauthenticated deployment is safe for production.
+* Delete hosted applications or deployments.
+
+## Assumptions and prerequisites
+
+* The target is OC1 in one of the currently supported registry regions:
+  Frankfurt or Chicago.
+* OCI CLI is installed, configured, and authorized to list and create Generative
+  AI Hosted Applications and Hosted Deployments in the target compartment.
+* The platform runtime has the prerequisite dynamic-group and IAM permissions to
+  pull the private OCIR image. This workflow only reports that prerequisite; it
+  does not manage it.
+* The image has already passed Spec 001 and has been published through Spec 002.
+* The operator accepts that `NO_AUTH_CONFIG` exposes the public endpoint without
+  inbound identity-domain authentication.
+
+## Configuration contract
+
+The root `.env.example` and ignored root `.env` add only non-secret values:
+
+```dotenv
+OCI_HOSTED_APPLICATION_NAME=hello-world
+OCI_HOSTED_DEPLOYMENT_NAME=hello-world-0-1-0
+```
+
+They are used with `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
+`OCIR_TENANCY_NAMESPACE`, and `OCIR_REPOSITORY` from Spec 002. The local image
+is supplied explicitly as `--image NAME:MAJOR.MINOR.PATCH`; no floating tag is
+accepted.
+
+## Intended behavior
+
+`scripts/deploy_hosted_application.sh --image NAME:TAG` is a read-only plan. It
+validates the local image platform, resolves the OCIR region-key endpoint and
+the single active compartment, then reports the exact Hosted Application and
+Hosted Deployment targets. It lists matching resources and stops if a matching
+deployment already exists, rather than silently replacing it.
+
+With `--apply`, after explicit operator authorization, the script creates a
+missing Hosted Application with:
+
+```json
+{"inboundAuthConfigType":"NO_AUTH_CONFIG"}
+```
+
+and:
+
+```json
+{
+  "inboundNetworkingConfig":{"endpointMode":"PUBLIC"},
+  "outboundNetworkingConfig":{"networkMode":"MANAGED"}
+}
+```
+
+It deliberately omits `--environment-variables`. It then creates a Hosted
+Deployment using `create-hosted-deployment-single-docker-artifact`, with the
+resolved OCIR repository URI and supplied semantic tag, and waits for the CLI
+work request to succeed. It records OCIDs and states but never prints
+credentials.
+
+## Acceptance criteria
+
+1. The skill has valid frontmatter and requires explicit authorization before
+   `--apply`.
+2. The deployer supports `--plan` and `--apply`, checks required configuration,
+   requires a local `linux/amd64` semantic-tagged image, and rejects other input.
+3. The planned and applied Hosted Application settings use `NO_AUTH_CONFIG`, a
+   public endpoint, and Oracle-managed outbound networking, with no container
+   environment variables.
+4. A matching Hosted Application or Hosted Deployment causes a safe stop; it is
+   never reused, updated, or replaced automatically.
+5. README, skill catalog, `.env.example`, and changelog document the workflow.
+6. Bash syntax and local safe-path checks pass. Remote creation, deployment
+   readiness, and endpoint invocation remain pending explicit authorization.
+
+## Sources
+
+Verified 2026-09-22:
+
+* [Oracle: Creating an Application](https://docs.oracle.com/en-us/iaas/Content/generative-ai/create-application.htm)
+* [Oracle: Hosted Applications](https://docs.oracle.com/en-us/iaas/Content/generative-ai/applications.htm)
+* [Oracle: Hosted Deployments](https://docs.oracle.com/en-us/iaas/Content/generative-ai/deployments.htm)
+* [Oracle CLI: create a single Docker artifact deployment](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/generative-ai/hosted-deployment/create-hosted-deployment-single-docker-artifact.html)
+
+The local `oci-rag-agent-blueprint` was inspected on 2026-09-22. Its deployer
+uses `NO_AUTH_CONFIG` for a no-auth Hosted Application, public endpoint mode,
+and managed outbound networking. Its local tests assert those generated JSON
+artifacts; it is supporting implementation evidence, not a substitute for OCI
+documentation or this repository's remote verification.
+
+## Verification record
+
+2026-09-22: static acceptance criteria 1–6 passed. The deployer passed Bash
+syntax validation; `--help` passed; a floating `latest` tag and incomplete
+configuration both exited with code 64 before Docker or OCI operations. The
+skill validator, YAML parse, and `git diff --check` passed. No Hosted
+Application, Hosted Deployment, network resource, IAM policy, or endpoint has
+been created or invoked by this specification.

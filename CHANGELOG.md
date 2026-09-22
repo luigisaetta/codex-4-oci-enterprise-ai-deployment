@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-22: Add OCI Generative AI Hosted Application deployment
+  workflow with `NO_AUTH_CONFIG`, public Oracle-managed networking, no container
+  environment variables, and explicit creation authorization.
+
 * 2026-09-22: Resolve OCIR login and push endpoints from `OCI_REGION` using
   supported region-key mappings for Frankfurt (`fra`) and Chicago (`ord`).
 

@@ -133,6 +133,41 @@ scripts/ensure_ocir_repository.sh --create
 It creates exactly one private, mutable repository and waits up to 120 seconds
 for it to become available. It never logs Docker in or pushes an image.
 
+## OCI Hosted Application deployment
+
+`oci-agent-deploy` deploys an image already verified locally and published to
+OCIR. It uses a public OCI Generative AI Hosted Application endpoint with
+`NO_AUTH_CONFIG` and Oracle-managed networking. It does not inject container
+environment variables, configure managed storage, create IAM policies, or change
+networking resources.
+
+Add non-secret application names to `.env`:
+
+```dotenv
+OCI_HOSTED_APPLICATION_NAME=hello-world
+OCI_HOSTED_DEPLOYMENT_NAME=hello-world-0-1-0
+```
+
+Plan first, using a local image with a semantic tag:
+
+```bash
+scripts/deploy_hosted_application.sh --image hello-world:0.1.0
+```
+
+The plan performs OCI read operations only. After reviewing the resolved OCIR
+artifact, compartment, and public no-auth endpoint posture, run the mutating
+command only with explicit authorization:
+
+```bash
+scripts/deploy_hosted_application.sh --apply --image hello-world:0.1.0
+```
+
+The Hosted Deployment runtime still needs pre-existing IAM and dynamic-group
+access to pull the private OCIR image. This workflow does not create or alter
+those policies. A public endpoint without inbound authentication is appropriate
+only for an intentionally open test deployment; do not invoke it without a
+separate review and authorization.
+
 ## Working on this repository
 
 Follow [AGENTS.md](AGENTS.md) for the development workflow and conventions. Meaningful implementation changes start with a concise specification; project documentation and code comments are written in English.
@@ -158,6 +193,7 @@ this checkout in place while that link is in use.
 | --- | --- | --- |
 | `oci-agent-build` | Build, rebuild, or locally verify a `linux/amd64` agent container image for OCI Enterprise AI. It does not push images or deploy OCI resources. | [Skill instructions](skills/oci-agent-build/SKILL.md) |
 | `oci-agent-push` | Prepare and, after explicit authorization, push a verified image to OCIR in the OC1 realm. It does not deploy OCI resources. | [Skill instructions](skills/oci-agent-push/SKILL.md) |
+| `oci-agent-deploy` | Plan or, after explicit authorization, deploy a verified OCIR image to OCI Generative AI Hosted Applications. | [Skill instructions](skills/oci-agent-deploy/SKILL.md) |
 
 Add future skills to this table as they are introduced. The full catalog,
 discovery details, and verification status are maintained in

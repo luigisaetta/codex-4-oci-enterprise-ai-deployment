@@ -1,5 +1,10 @@
 # codex-4-oci-enterprise-ai-deployment
 
+![Code style: Black](https://img.shields.io/badge/code%20style-black-000000)
+![Linting: Pylint](https://img.shields.io/badge/linting-pylint-blue)
+![Python: 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Testing: pytest](https://img.shields.io/badge/testing-pytest-0A9EDC?logo=pytest&logoColor=white)
+
 Codex skills and reproducible demos to support the deployment of AI agents in **OCI Enterprise AI**.
 
 The project aims to make the deployment process understandable and repeatable, from checking prerequisites and preparing an agent to configuring its deployment, verifying behavior, and cleaning up resources.
@@ -34,7 +39,7 @@ Once the environment has been created separately, activate it with:
 conda activate codex-4-oci-enterprise-ai-deployment
 ```
 
-The Python version and dependencies will be defined with the first implementation. Shared runtime dependencies will be maintained in `requirements.txt`, and development tools in `requirements-dev.txt`.
+The project targets Python 3.11+. Dependency constraints will be defined with the first implementation. Shared runtime dependencies will be maintained in `requirements.txt`, and development tools in `requirements-dev.txt`.
 
 Configuration inputs and authentication requirements will be documented alongside each workflow. Local `.env` files must be ignored by Git; versioned examples must use safe placeholders. Never commit credentials, private keys, tokens, or sensitive OCI configuration.
 

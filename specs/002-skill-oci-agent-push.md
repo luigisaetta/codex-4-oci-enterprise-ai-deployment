@@ -1,6 +1,9 @@
 # Spec 002: Codex skill `oci-agent-push`
 
-Status: implemented; static acceptance criteria passed; remote acceptance is pending user configuration and authorization.
+Status: implemented; static acceptance criteria and remote repository-creation
+and push acceptance passed for the configured Frankfurt target. Chicago mapping
+has static verification only; optional local Docker credential cleanup remains an
+operator decision.
 Date: 2026-09-22.
 
 ## Problem

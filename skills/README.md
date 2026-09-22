@@ -3,6 +3,7 @@
 | Skill | Purpose | Status |
 | --- | --- | --- |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
+| [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance pending; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
 
 ## Discovery in this repository
 

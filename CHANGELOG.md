@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-22: Add OCIR push preparation configuration and the `oci-agent-push`
+  skill with interactive auth-token guidance and explicit-push authorization.
+
 * 2026-09-22: Stream OCI agent image build logs to the terminal while retaining a
   temporary log for failure analysis.
 

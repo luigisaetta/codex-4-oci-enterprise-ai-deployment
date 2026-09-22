@@ -1,0 +1,6 @@
+interface:
+  display_name: "OCI Agent Push"
+  short_description: "Push verified agent images to OCIR"
+  default_prompt: "Use $oci-agent-push to prepare a verified local image for an authorized OCIR push."
+policy:
+  allow_implicit_invocation: true

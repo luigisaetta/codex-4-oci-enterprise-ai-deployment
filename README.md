@@ -13,8 +13,9 @@ The project aims to make the deployment process understandable and repeatable, f
 
 The first demo, [hello_world](demos/hello_world/README.md), provides a LangGraph
 greeting agent wrapped in FastAPI on port 8080, with `/hello`, `/health`, and
-`/ready` endpoints. Skills and OCI deployment automation will be added
-incrementally. No OCI deployment workflow has been implemented or verified yet.
+`/ready` endpoints. The repository includes local image build/verification and
+OCIR-push preparation skills. No OCI deployment workflow has been implemented
+or verified yet.
 
 ## Planned contents
 
@@ -48,6 +49,46 @@ The project targets Python 3.11+. Shared runtime dependencies are maintained in
 
 Configuration inputs and authentication requirements will be documented alongside each workflow. Local `.env` files must be ignored by Git; versioned examples must use safe placeholders. Never commit credentials, private keys, tokens, or sensitive OCI configuration.
 
+## OCIR push configuration
+
+`oci-agent-push` prepares a previously verified image for OCI Container Registry
+(OCIR) in the commercial OCI realm (OC1). It never stores or accepts an OCI auth
+token. Copy the safe example to the ignored local configuration file, then
+replace every placeholder with your target values:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+OCI_REGION=eu-frankfurt-1
+OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
+OCIR_REPOSITORY=agents/hello-world
+OCIR_USERNAME=replace-with-oci-username
+```
+
+For OC1, the registry domain is derived as `${OCI_REGION}.ocir.io`; for example,
+the Frankfurt target is `eu-frankfurt-1.ocir.io/<namespace>/<repository>:<tag>`.
+Load only these non-secret variables in your shell before using the skill:
+
+```bash
+set -a
+. ./.env
+set +a
+```
+
+Authenticate separately, after checking Docker's credential-store behavior:
+
+```bash
+docker login --username "$OCIR_USERNAME" "${OCI_REGION}.ocir.io"
+```
+
+Enter the OCI auth token only at Docker's password prompt. Do not put it in
+`.env`, commands, logs, or this repository. You need IAM access to the existing
+target repository; a successful push is registry evidence, not OCI Enterprise AI
+deployment verification. See [the push skill](skills/oci-agent-push/SKILL.md)
+for the authorization, push, verification, and cleanup workflow.
+
 ## Working on this repository
 
 Follow [AGENTS.md](AGENTS.md) for the development workflow and conventions. Meaningful implementation changes start with a concise specification; project documentation and code comments are written in English.
@@ -72,6 +113,7 @@ this checkout in place while that link is in use.
 | Skill | When to use it | Instructions |
 | --- | --- | --- |
 | `oci-agent-build` | Build, rebuild, or locally verify a `linux/amd64` agent container image for OCI Enterprise AI. It does not push images or deploy OCI resources. | [Skill instructions](skills/oci-agent-build/SKILL.md) |
+| `oci-agent-push` | Prepare and, after explicit authorization, push a verified image to OCIR in the OC1 realm. It does not deploy OCI resources. | [Skill instructions](skills/oci-agent-push/SKILL.md) |
 
 Add future skills to this table as they are introduced. The full catalog,
 discovery details, and verification status are maintained in

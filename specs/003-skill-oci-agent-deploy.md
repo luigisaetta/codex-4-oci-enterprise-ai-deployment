@@ -1,7 +1,7 @@
 # Spec 003: Codex skill `oci-agent-deploy`
 
-Status: implemented; static acceptance criteria passed; remote acceptance pending
-explicit operator configuration and authorization.
+Status: implemented; static and remote creation acceptance criteria passed;
+endpoint invocation intentionally not performed.
 Date: 2026-09-22.
 
 ## Problem
@@ -100,8 +100,9 @@ credentials.
 4. A matching Hosted Application or Hosted Deployment causes a safe stop; it is
    never reused, updated, or replaced automatically.
 5. README, skill catalog, `.env.example`, and changelog document the workflow.
-6. Bash syntax and local safe-path checks pass. Remote creation, deployment
-   readiness, and endpoint invocation remain pending explicit authorization.
+6. Bash syntax and local safe-path checks pass. Remote creation and deployment
+   readiness require explicit authorization; endpoint invocation remains a
+   separate, explicitly authorized action.
 
 ## Sources
 
@@ -123,6 +124,13 @@ documentation or this repository's remote verification.
 2026-09-22: static acceptance criteria 1–6 passed. The deployer passed Bash
 syntax validation; `--help` passed; a floating `latest` tag and incomplete
 configuration both exited with code 64 before Docker or OCI operations. The
-skill validator, YAML parse, and `git diff --check` passed. No Hosted
-Application, Hosted Deployment, network resource, IAM policy, or endpoint has
-been created or invoked by this specification.
+skill validator, YAML parse, and `git diff --check` passed.
+
+2026-09-22: with explicit operator authorization, the workflow created Hosted
+Application `hello-world-app` and its Hosted Deployment in the configured
+Frankfurt compartment. The application and deployment reached `ACTIVE`; the
+deployment's active artifact was
+`fra.ocir.io/frpj5kvxryk1/agents/hello-world:0.1.0`. OCI returned no endpoint
+value at the recorded read, and no endpoint was invoked. No IAM policy, dynamic
+group, custom network, managed storage, or container environment variable was
+created or changed by this workflow.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-22: Verify the OCI Hosted Application deployment workflow remotely in
+  Frankfurt: the application and its single-artifact deployment reached
+  `ACTIVE` using the published `hello-world:0.1.0` OCIR image.
+
 * 2026-09-22: Add OCI Generative AI Hosted Application deployment
   workflow with `NO_AUTH_CONFIG`, public Oracle-managed networking, no container
   environment variables, and explicit creation authorization.

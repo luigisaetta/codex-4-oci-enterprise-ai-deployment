@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
-| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image to OCI Generative AI Hosted Applications. | Implemented; static acceptance passed, remote acceptance pending; see [Spec 003](../specs/003-skill-oci-agent-deploy.md). |
+| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image to OCI Generative AI Hosted Applications. | Implemented; remote creation acceptance passed for Frankfurt; endpoint invocation not performed; see [Spec 003](../specs/003-skill-oci-agent-deploy.md). |
 
 ## Discovery in this repository
 

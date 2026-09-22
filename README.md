@@ -11,7 +11,10 @@ The project aims to make the deployment process understandable and repeatable, f
 
 ## Project status
 
-This repository is in its initial setup phase. It currently contains the project guidelines, this README, and the MIT license. Skills, demos, deployment automation, and dependency files will be added incrementally. No deployment workflow has been implemented or verified yet.
+The first demo, [hello_world](demos/hello_world/README.md), provides a LangGraph
+greeting agent wrapped in FastAPI on port 8080, with `/hello`, `/health`, and
+`/ready` endpoints. Skills and OCI deployment automation will be added
+incrementally. No OCI deployment workflow has been implemented or verified yet.
 
 ## Planned contents
 
@@ -25,7 +28,7 @@ This repository is in its initial setup phase. It currently contains the project
 | `tests/` | Local tests and explicit, opt-in OCI integration tests. |
 | `docs/` | Guides, platform notes, and verification reports. |
 
-These directories will be created as their first contents are added.
+Directories are created as their first contents are added.
 
 ## Local development
 
@@ -39,7 +42,9 @@ Once the environment has been created separately, activate it with:
 conda activate codex-4-oci-enterprise-ai-deployment
 ```
 
-The project targets Python 3.11+. Dependency constraints will be defined with the first implementation. Shared runtime dependencies will be maintained in `requirements.txt`, and development tools in `requirements-dev.txt`.
+The project targets Python 3.11+. Shared runtime dependencies are maintained in
+`requirements.txt`, and development tools in `requirements-dev.txt`. Follow the
+[hello_world setup instructions](demos/hello_world/README.md) to run the first demo.
 
 Configuration inputs and authentication requirements will be documented alongside each workflow. Local `.env` files must be ignored by Git; versioned examples must use safe placeholders. Never commit credentials, private keys, tokens, or sensitive OCI configuration.
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Add a step-by-step guide for using the four OCI agent skills and
+  link it from a simplified project README.
+
 * 2026-09-23: Add an outline for an SSH-accessed Linux build-machine workflow.
 
 * 2026-09-23: Add Windows workstation guidance for Rancher Desktop using the

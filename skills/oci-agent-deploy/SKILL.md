@@ -7,8 +7,9 @@ description: Plan or, with explicit authorization, deploy a verified OCIR agent 
 
 Deploy a verified, published `linux/amd64` agent image to OCI Generative AI
 Hosted Applications. This skill uses `NO_AUTH_CONFIG`, a public endpoint, and
-Oracle-managed networking. It does not build, push, configure container
-environment variables, alter IAM, or delete resources.
+Oracle-managed networking. It does not build, push, alter IAM, or delete
+resources. It supplies container environment variables only from validated
+manifest `runtime.env` data.
 
 ## Prerequisites
 
@@ -19,7 +20,8 @@ completed. OCI CLI must be configured and authorized for the target compartment.
 The root `.env` contains only tenancy-wide values. The agent manifest supplies
 the repository, application name, public no-auth profile, and functional checks;
 the release tag is always an explicit command-line value. Do not add a token,
-password, private key, or container environment value to either file.
+password, or private key to either file. Non-secret container environment
+configuration belongs only in validated manifest `runtime.env` entries.
 
 When `runtime.env` is present, inspect its source report in the plan. Literal
 and `from_env` values are plaintext; Vault references are never printed. A
@@ -59,7 +61,8 @@ the same runtime environment because this skill does not update applications.
 
 ## Limitations
 
-The script deliberately omits `--environment-variables`, `--storage-configs`,
-and custom networking. It never creates IAM policies or dynamic groups needed
-for the Hosted Deployment runtime to pull a private image. It does not update or
-replace an existing deployment and does not delete resources.
+The script deliberately omits `--storage-configs` and custom networking. It
+supplies `--environment-variables` only from validated manifest `runtime.env`
+data. It never creates IAM policies or dynamic groups needed for the Hosted
+Deployment runtime to pull a private image. It does not update or replace an
+existing deployment and does not delete resources.

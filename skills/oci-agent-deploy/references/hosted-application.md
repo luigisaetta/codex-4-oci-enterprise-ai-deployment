@@ -21,7 +21,7 @@ networking configuration. A public no-auth endpoint must not be treated as a
 production security posture.
 
 Create deployments with the OCI CLI single-Docker-artifact command. Set the
-container URI to `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}`
+container URI to `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/<manifest publish.repository>`
 and the tag separately. The Hosted Deployment runtime still needs OCI IAM and
 dynamic-group permissions to pull the private OCIR image; do not create or
 modify those policies in this skill.

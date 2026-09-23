@@ -2,23 +2,25 @@
 set -euo pipefail
 # Purpose: build/load only linux/amd64; never push or modify the Dockerfile.
 # Requires: bash 3.2+, Docker/buildx, check_build_env.sh, standard Unix tools.
-# Usage: build_image.sh --context DIR --dockerfile PATH --name NAME --tag VERSION
+# Usage: build_image.sh --manifest PATH --tag VERSION
+#        build_image.sh --context DIR --dockerfile PATH --name NAME --tag VERSION
 #        [--builder NAME] [--no-cache]
 # Environment: BUILD_TIMEOUT_SECONDS (positive integer, default 1800).
 # Side effects: base/package downloads, build cache and local image; streamed temporary log removed.
 # Exit: 0 success; 1/2 preflight; 3 tag; 4 paths; 5 pip resolution; 6 build/timeout; 64 usage.
 
 usage() {
-    printf 'Usage: %s --context DIR --dockerfile PATH --name NAME --tag VERSION [--builder NAME] [--no-cache]\n' "$0"
+    printf 'Usage: %s --manifest PATH --tag VERSION [--builder NAME] [--no-cache]\n' "$0"
+    printf '   or: %s --context DIR --dockerfile PATH --name NAME --tag VERSION [--builder NAME] [--no-cache]\n' "$0"
 }
-context=''; dockerfile=''; image_name=''; tag=''; builder=''; no_cache=false
+context=''; dockerfile=''; image_name=''; tag=''; builder=''; manifest=''; no_cache=false
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --context|--dockerfile|--name|--tag|--builder)
+        --context|--dockerfile|--name|--tag|--builder|--manifest)
             if [ "$#" -lt 2 ] || [ -z "$2" ] || [[ "$2" == -* ]]; then usage >&2; exit 64; fi
             case "$1" in
                 --context) context=$2 ;; --dockerfile) dockerfile=$2 ;;
-                --name) image_name=$2 ;; --tag) tag=$2 ;; --builder) builder=$2 ;;
+                --name) image_name=$2 ;; --tag) tag=$2 ;; --builder) builder=$2 ;; --manifest) manifest=$2 ;;
             esac
             shift 2 ;;
         --no-cache) no_cache=true; shift ;;
@@ -26,6 +28,18 @@ while [ "$#" -gt 0 ]; do
         *) usage >&2; exit 64 ;;
     esac
 done
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -n "$manifest" ]; then
+    if [ -n "$context" ] || [ -n "$dockerfile" ] || [ -n "$image_name" ]; then
+        printf '%s\n' '--manifest cannot be combined with --context, --dockerfile, or --name.' >&2; exit 64
+    fi
+    if ! command -v python >/dev/null 2>&1; then
+        printf '%s\n' 'Python is required to read the agent manifest.' >&2; exit 1
+    fi
+    context=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.context)
+    dockerfile=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.dockerfile)
+    image_name=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
+fi
 if [ -z "$context" ] || [ -z "$dockerfile" ] || [ -z "$image_name" ] || [ -z "$tag" ]; then
     usage >&2; exit 64
 fi
@@ -46,7 +60,6 @@ build_timeout=${BUILD_TIMEOUT_SECONDS:-1800}
 if ! [[ "$build_timeout" =~ ^[1-9][0-9]*$ ]] || [ "${#build_timeout}" -gt 7 ]; then
     printf 'BUILD_TIMEOUT_SECONDS must be a positive integer of at most 7 digits.\n' >&2; exit 64
 fi
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 if [ -n "$builder" ]; then
     "$script_dir/check_build_env.sh" --builder "$builder"
 else

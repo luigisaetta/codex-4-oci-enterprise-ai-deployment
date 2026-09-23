@@ -8,8 +8,9 @@ description: Build, rebuild, or verify a linux/amd64 agent container image for O
 ## Purpose and when to use
 
 Produce and verify a local `linux/amd64` image when asked to build, rebuild, or
-verify an agent container for OCI Enterprise AI. Use the existing `hello_world`
-demo as the reference workload. Do not create a replacement demo.
+verify an agent container for OCI Enterprise AI. The supplied manifest selects
+the agent; `hello_world` is a documented example and regression fixture, not a
+default workload.
 
 ## Prerequisites
 
@@ -23,8 +24,9 @@ building. It checks advertised support; image execution establishes runtime beha
 
 ## Required inputs
 
-* Build context directory and Dockerfile path, resolved from the repository root.
-* Image name and semantic version tag (`MAJOR.MINOR.PATCH`, optional `-suffix`).
+* An agent manifest path, resolved from the repository root. Its build paths are
+  also repository-root-relative; `context: .` therefore means the checkout root.
+* A semantic version tag (`MAJOR.MINOR.PATCH`, optional `-suffix`).
   Ask the user if the tag is missing; never invent one or use `latest`.
 * Optional builder name and `--no-cache` for builds.
 * Optional host port, readiness timeout, and a POST path/body pair for verification.
@@ -43,12 +45,11 @@ building. It checks advertised support; image execution establishes runtime beha
 Example with a user-supplied tag of `0.1.0`:
 
 ```bash
-scripts/build_image.sh --context . --dockerfile demos/hello_world/Dockerfile --name hello-world --tag 0.1.0
-scripts/verify_image.sh --image hello-world:0.1.0 --post-path /hello --post-body '{"name":"Luigi"}'
+scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
+scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
 ```
 
-Verify that this example's printed response is `{"message":"Hello Luigi"}`.
-The generic verifier checks HTTP 200 and prints the body; it does not compare JSON.
+The manifest verifier checks the configured response status and JSON subset.
 Pass `--builder NAME` to the build script to use an existing selected builder;
 provisioning a builder is outside this skill. `BUILD_TIMEOUT_SECONDS` controls build
 time (default 1800). Verification accepts `--port` (8080) and

@@ -6,6 +6,10 @@ region-key resolution has local mocked-CLI verification only; optional local
 Docker credential cleanup remains an operator decision.
 Date: 2026-09-23.
 
+> Superseded configuration note (2026-09-23): Spec 006 moves the OCIR repository
+> from `.env` into the per-agent manifest and adds `push_ocir_image.sh`. Existing
+> historical evidence below used the former environment variable contract.
+
 ## Problem
 
 After a local `linux/amd64` agent image has passed the workflow in Spec 001, an
@@ -64,7 +68,6 @@ The root `.env.example` and ignored root `.env` use these non-secret values:
 OCI_REGION=eu-frankfurt-1
 OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
-OCIR_REPOSITORY=agents/hello-world
 OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
@@ -79,7 +82,7 @@ without a maintained list. It exits with code 64 for a missing or malformed
 target image is:
 
 ```text
-${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
+${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/<manifest publish.repository>:<tag>
 ```
 
 Do not add `OCI_AUTH_TOKEN`, passwords, keys, or credential-store data to either

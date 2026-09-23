@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-23: Add versioned per-agent manifests for build, publish, deployment,
+  and functional verification configuration; keep tenancy settings in `.env` and
+  release tags on the command line.
+
 * 2026-09-23: Add a read-only Hosted Application deployment verification skill
   with release-tag checks and public health/readiness probes.
 

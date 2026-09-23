@@ -1,0 +1,18 @@
+schema_version: 1
+name: hello-world
+build:
+  context: .
+  dockerfile: demos/hello_world/Dockerfile
+publish:
+  repository: agents/hello-world
+deploy:
+  application_name: hello-world
+  profile: public-noauth
+verify:
+  - method: POST
+    path: /hello
+    body:
+      name: Luigi
+    expect_status: 200
+    expect_json:
+      message: Hello Luigi

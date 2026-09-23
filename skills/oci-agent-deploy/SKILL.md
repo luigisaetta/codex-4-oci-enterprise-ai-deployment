@@ -16,31 +16,33 @@ Read [Hosted Application deployment rules](references/hosted-application.md).
 Run from this checkout after `oci-agent-build` and `oci-agent-push` have
 completed. OCI CLI must be configured and authorized for the target compartment.
 
-The root `.env` contains the non-secret values from the earlier skills plus
-`OCI_HOSTED_APPLICATION_NAME` and `OCI_HOSTED_DEPLOYMENT_NAME`. Do not add a
-token, password, private key, or container environment value to it.
+The root `.env` contains only tenancy-wide values. The agent manifest supplies
+the repository, application name, public no-auth profile, and functional checks;
+the release tag is always an explicit command-line value. Do not add a token,
+password, private key, or container environment value to either file.
 
 ## Workflow
 
-1. Require an explicit local image name and semantic tag. Confirm it has passed
+1. Require an explicit agent manifest and semantic tag. Confirm its local image has passed
    local verification and was pushed to the exact OCIR target.
 2. Run the non-mutating plan:
 
    ```bash
-   scripts/deploy_hosted_application.sh --image hello-world:0.1.0
+   scripts/deploy_hosted_application.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
    ```
 
    Stop if the configured OCI CLI profile cannot resolve the region, the image
    is not `linux/amd64`, the named compartment is ambiguous, required OCI
-   permissions are unavailable, or a non-deleted same-named Hosted Application
-   already exists. A `DELETED` application does not block a new deployment.
+   permissions are unavailable, or an existing same-named application is not
+   `ACTIVE`. An ACTIVE manifest-compatible application is reused; a `DELETED`
+   application does not block a new deployment.
 3. Show the resolved image URI, compartment, Hosted Application name, Hosted
    Deployment name, and planned resource creation. State that the endpoint will
    be public and have `NO_AUTH_CONFIG`.
 4. Obtain explicit authorization immediately before creation. Then run:
 
    ```bash
-   scripts/deploy_hosted_application.sh --apply --image hello-world:0.1.0
+   scripts/deploy_hosted_application.sh --apply --manifest demos/hello_world/agent.yaml --tag 0.1.0
    ```
 
 5. Report resulting OCIDs and CLI work-request outcomes. Do not invoke the

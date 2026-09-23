@@ -12,7 +12,7 @@ used.
 Use this image-reference format:
 
 ```text
-${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
+${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/<manifest publish.repository>:<tag>
 ```
 
 Authenticate interactively:
@@ -41,14 +41,14 @@ repositories using the resolved OCID. The repository script performs this check
 without creation; exit code 20 means the repository is absent:
 
 ```bash
-scripts/ensure_ocir_repository.sh
+scripts/ensure_ocir_repository.sh --repository <manifest publish.repository>
 ```
 
 If the requested repository is absent, create it only after explicit
 authorization:
 
 ```bash
-scripts/ensure_ocir_repository.sh --create
+scripts/ensure_ocir_repository.sh --repository <manifest publish.repository> --create
 ```
 
 This creates a private, mutable repository, waits for `AVAILABLE`, and reports

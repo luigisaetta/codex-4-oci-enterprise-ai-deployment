@@ -14,8 +14,9 @@ The project aims to make the deployment process understandable and repeatable, f
 The first demo, [hello_world](demos/hello_world/README.md), provides a LangGraph
 greeting agent wrapped in FastAPI on port 8080, with `/hello`, `/health`, and
 `/ready` endpoints. The repository includes local image build/verification and
-OCIR-push preparation skills. No OCI deployment workflow has been implemented
-or verified yet.
+OCIR publishing, hosted deployment, and deployment-verification skills. Remote
+results are recorded in the relevant specifications and apply only to the named
+release and target environment.
 
 ## Planned contents
 
@@ -71,7 +72,6 @@ cp .env.example .env
 OCI_REGION=eu-frankfurt-1
 OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
-OCIR_REPOSITORY=agents/hello-world
 OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
@@ -118,17 +118,28 @@ Docker credentials are scoped to the exact registry hostname. For example,
 login to one does not authenticate Docker to the other. Use the resolved
 `$OCIR_REGISTRY` consistently for login, tagging, and push.
 
-Before any repository mutation, inspect the compartment and repository with:
+Each agent's versioned `agent.yaml` supplies its local image name, OCIR
+repository, application name, deployment profile, and functional checks. Its
+paths are relative to the checkout root, so `build.context: .` is this project
+root. A semantic release tag is deliberately never stored in the manifest: pass
+it on every command, for example:
 
 ```bash
-scripts/ensure_ocir_repository.sh
+scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.2.0
+scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.2.0
+```
+
+Before any repository mutation, inspect the compartment and manifest repository with:
+
+```bash
+scripts/ensure_ocir_repository.sh --repository agents/hello-world
 ```
 
 The command has no create side effect. Exit code 20 means that the repository is
 absent. Only after reviewing its target and explicitly authorizing creation, run:
 
 ```bash
-scripts/ensure_ocir_repository.sh --create
+scripts/ensure_ocir_repository.sh --repository agents/hello-world --create
 ```
 
 It creates exactly one private, mutable repository and waits up to 120 seconds
@@ -142,17 +153,10 @@ OCIR. It uses a public OCI Generative AI Hosted Application endpoint with
 environment variables, configure managed storage, create IAM policies, or change
 networking resources.
 
-Add non-secret application names to `.env`:
-
-```dotenv
-OCI_HOSTED_APPLICATION_NAME=hello-world
-OCI_HOSTED_DEPLOYMENT_NAME=hello-world-0-1-0
-```
-
-Plan first, using a local image with a semantic tag:
+Plan first, using an agent manifest and a semantic tag:
 
 ```bash
-scripts/deploy_hosted_application.sh --image hello-world:0.1.0
+scripts/deploy_hosted_application.sh --manifest demos/hello_world/agent.yaml --tag 0.2.0
 ```
 
 The plan performs OCI read operations only. After reviewing the resolved OCIR
@@ -160,7 +164,7 @@ artifact, compartment, and public no-auth endpoint posture, run the mutating
 command only with explicit authorization:
 
 ```bash
-scripts/deploy_hosted_application.sh --apply --image hello-world:0.1.0
+scripts/deploy_hosted_application.sh --apply --manifest demos/hello_world/agent.yaml --tag 0.2.0
 ```
 
 The Hosted Deployment runtime still needs pre-existing IAM and dynamic-group

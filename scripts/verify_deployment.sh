@@ -5,11 +5,11 @@
 #
 # Prerequisites: Bash 3.2+, OCI CLI authentication, curl, OCI_REGION, an ACTIVE
 # Hosted Application, and an ACTIVE Hosted Deployment with the expected tag.
-# Inputs: --application-id OCID --expected-tag MAJOR.MINOR.PATCH, optional
+# Inputs: --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH, optional
 # --timeout-seconds and --poll-seconds.
 # Side effects: OCI CLI reads and unauthenticated GET requests to /health and
-# /ready only. It never creates, updates, deletes, or invokes business paths.
-# Usage: scripts/verify_deployment.sh --application-id OCID --expected-tag TAG
+# /ready only. --functional additionally invokes manifest business paths.
+# Usage: scripts/verify_deployment.sh --application-id OCID --manifest PATH --tag TAG
 
 set -euo pipefail
 
@@ -22,11 +22,13 @@ readonly ENDPOINT_API_VERSION=20251112
 
 application_id=""
 expected_tag=""
+manifest=""
+functional=false
 timeout_seconds=300
 poll_seconds=5
 
 usage() {
-  printf '%s\n' 'Usage: scripts/verify_deployment.sh --application-id OCID --expected-tag MAJOR.MINOR.PATCH [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'
+  printf '%s\n' 'Usage: scripts/verify_deployment.sh --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'
 }
 
 require_positive_integer() {
@@ -83,7 +85,7 @@ report() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --application-id|--expected-tag|--timeout-seconds|--poll-seconds)
+    --application-id|--expected-tag|--manifest|--tag|--timeout-seconds|--poll-seconds)
       if [[ $# -lt 2 || -z "$2" || "$2" == --* ]]; then
         usage >&2
         exit "$EXIT_INVALID_INPUT"
@@ -91,10 +93,16 @@ while [[ $# -gt 0 ]]; do
       case "$1" in
         --application-id) application_id="$2" ;;
         --expected-tag) expected_tag="$2" ;;
+        --manifest) manifest="$2" ;;
+        --tag) expected_tag="$2" ;;
         --timeout-seconds) timeout_seconds="$2" ;;
         --poll-seconds) poll_seconds="$2" ;;
       esac
       shift 2
+      ;;
+    --functional)
+      functional=true
+      shift
       ;;
     --help|-h)
       usage
@@ -106,6 +114,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$manifest" ]]; then
+  if ! command -v python >/dev/null 2>&1; then
+    printf '%s\n' 'Python is required to read the agent manifest.' >&2
+    exit 1
+  fi
+  script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+  python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$expected_tag" >/dev/null
+elif [[ "$functional" == true ]]; then
+  printf '%s\n' '--functional requires --manifest.' >&2
+  exit "$EXIT_INVALID_INPUT"
+fi
 
 if [[ ! "$application_id" =~ ^ocid1\.generativeaihostedapplication\.oc1\. ]]; then
   printf 'Application ID must be an OC1 Hosted Application OCID.\n' >&2
@@ -191,6 +211,10 @@ while :; do
 
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
+    if [[ "$functional" == true ]]; then
+      python -m scripts.run_manifest_checks --manifest "$manifest" \
+        --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
+    fi
     report PASS "$elapsed_seconds"
     exit 0
   fi

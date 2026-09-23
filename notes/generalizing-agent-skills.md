@@ -2,6 +2,11 @@
 
 Date: 2026-09-23
 
+> Implemented configuration decision: this exploratory note is superseded by
+> [Spec 006](../specs/006-agent-manifest-configuration.md). The implemented
+> contract uses an agent-local manifest for stable agent configuration and an
+> explicit `--tag` for every release.
+
 ## Changes to make the skills reusable
 
 The build, push, and deploy skills should operate on an explicitly supplied

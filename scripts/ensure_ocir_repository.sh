@@ -3,12 +3,12 @@
 # Ensure that an OCIR container repository exists.
 #
 # Prerequisites: Bash 3.2+, OCI CLI authentication, and the non-secret
-# OCI_REGION, OCI_COMPARTMENT_NAME, and OCIR_REPOSITORY environment variables.
-# Inputs: --create authorizes creation when the repository is absent.
+# OCI_REGION and OCI_COMPARTMENT_NAME environment variables.
+# Inputs: --repository NAME; --create authorizes creation when the repository is absent.
 # Side effects: without --create this script only reads OCI metadata. With
 # --create it creates one private, mutable OCIR repository in the resolved
 # compartment. It never performs a Docker login or push.
-# Usage: scripts/ensure_ocir_repository.sh [--create]
+# Usage: scripts/ensure_ocir_repository.sh --repository NAME [--create]
 
 set -euo pipefail
 
@@ -16,9 +16,10 @@ readonly EXIT_MISSING_REPOSITORY=20
 readonly EXIT_INVALID_INPUT=64
 
 create_repository=false
+repository_name=""
 
 usage() {
-  printf '%s\n' 'Usage: scripts/ensure_ocir_repository.sh [--create]'
+  printf '%s\n' 'Usage: scripts/ensure_ocir_repository.sh --repository NAME [--create]'
   printf '%s\n' 'Check an OCIR repository; --create creates it if it is absent.'
 }
 
@@ -33,6 +34,14 @@ require_environment_variable() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --repository)
+      shift
+      if [[ $# -eq 0 || -z "$1" || "$1" == --* ]]; then
+        printf '%s\n' 'Missing repository value after --repository.' >&2
+        exit "$EXIT_INVALID_INPUT"
+      fi
+      repository_name="$1"
+      ;;
     --create)
       create_repository=true
       ;;
@@ -56,7 +65,10 @@ fi
 
 require_environment_variable 'OCI_REGION'
 require_environment_variable 'OCI_COMPARTMENT_NAME'
-require_environment_variable 'OCIR_REPOSITORY'
+if [[ -z "$repository_name" || ! "$repository_name" =~ ^[a-z0-9][a-z0-9._/-]*$ || "$repository_name" == *'//'* ]]; then
+  printf '%s\n' 'Provide a valid OCIR repository with --repository.' >&2
+  exit "$EXIT_INVALID_INPUT"
+fi
 
 active_compartment_query='data[?"lifecycle-state"==`ACTIVE`]'
 compartment_count="$(oci --region "$OCI_REGION" iam compartment list \
@@ -81,7 +93,7 @@ compartment_id="$(oci --region "$OCI_REGION" iam compartment list \
 
 repository_count="$(oci --region "$OCI_REGION" artifacts container repository list \
   --compartment-id "$compartment_id" \
-  --display-name "$OCIR_REPOSITORY" \
+  --display-name "$repository_name" \
   --lifecycle-state AVAILABLE \
   --all \
   --query 'length(data.items)' \
@@ -90,7 +102,7 @@ repository_count="$(oci --region "$OCI_REGION" artifacts container repository li
 if [[ "$repository_count" == '1' ]]; then
   repository_id="$(oci --region "$OCI_REGION" artifacts container repository list \
     --compartment-id "$compartment_id" \
-    --display-name "$OCIR_REPOSITORY" \
+    --display-name "$repository_name" \
     --lifecycle-state AVAILABLE \
     --all \
     --query 'data.items[0].id' \
@@ -101,22 +113,22 @@ fi
 
 if [[ "$repository_count" != '0' ]]; then
   printf 'Expected zero or one available repository named "%s"; found %s.\n' \
-    "$OCIR_REPOSITORY" "$repository_count" >&2
+    "$repository_name" "$repository_count" >&2
   exit 1
 fi
 
 if [[ "$create_repository" == false ]]; then
   printf 'OCIR repository "%s" is absent from compartment %s.\n' \
-    "$OCIR_REPOSITORY" "$compartment_id" >&2
+    "$repository_name" "$compartment_id" >&2
   printf 'Re-run with --create to create one private, mutable repository.\n' >&2
   exit "$EXIT_MISSING_REPOSITORY"
 fi
 
 printf 'Creating private, mutable OCIR repository "%s" in compartment %s.\n' \
-  "$OCIR_REPOSITORY" "$compartment_id"
+  "$repository_name" "$compartment_id"
 repository_id="$(oci --region "$OCI_REGION" artifacts container repository create \
   --compartment-id "$compartment_id" \
-  --display-name "$OCIR_REPOSITORY" \
+  --display-name "$repository_name" \
   --is-public false \
   --is-immutable false \
   --wait-for-state AVAILABLE \

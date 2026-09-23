@@ -4,6 +4,11 @@ Status: implemented; static and remote creation acceptance criteria passed;
 endpoint invocation intentionally not performed.
 Date: 2026-09-23.
 
+> Superseded configuration note (2026-09-23): Spec 006 moves agent application,
+> artifact repository, and derived deployment names into `agent.yaml`, retains
+> the tag as a CLI input, and allows safe reuse of an ACTIVE exact-name application.
+> Historical verification below used the former `.env` names.
+
 ## Problem
 
 After an agent image has been verified locally and published to OCIR, an operator
@@ -49,18 +54,16 @@ or inbound endpoint authentication.
 The root `.env.example` and ignored root `.env` add only non-secret values:
 
 ```dotenv
-OCI_HOSTED_APPLICATION_NAME=hello-world
-OCI_HOSTED_DEPLOYMENT_NAME=hello-world-0-1-0
 ```
 
 They are used with `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
-`OCIR_TENANCY_NAMESPACE`, and `OCIR_REPOSITORY` from Spec 002. The local image
-is supplied explicitly as `--image NAME:MAJOR.MINOR.PATCH`; no floating tag is
+`OCIR_TENANCY_NAMESPACE` from Spec 002. The local image
+is supplied explicitly as `--manifest PATH --tag MAJOR.MINOR.PATCH`; no floating tag is
 accepted.
 
 ## Intended behavior
 
-`scripts/deploy_hosted_application.sh --image NAME:TAG` is a read-only plan. It
+`scripts/deploy_hosted_application.sh --manifest PATH --tag TAG` is a read-only plan. It
 validates the local image platform, resolves the OCIR region-key endpoint and
 the single active compartment, then reports the exact Hosted Application and
 Hosted Deployment targets. It counts only non-`DELETED` Hosted Applications

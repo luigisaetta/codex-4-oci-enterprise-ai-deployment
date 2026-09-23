@@ -3,6 +3,11 @@
 Status: implemented; local acceptance criteria 1–7 passed; criterion 8 pending Codex UI verification.
 Date: 2026-09-22.
 
+> Superseded configuration note (2026-09-23): Spec 006 makes `agent.yaml` the
+> standard source for context, Dockerfile, image name, and functional checks.
+> The tag remains an explicit CLI input. Legacy direct options remain only for
+> compatibility; acceptance evidence below predates this change.
+
 ## Problem
 
 Deploying an agent to OCI Enterprise AI (hosted applications and hosted deployments in

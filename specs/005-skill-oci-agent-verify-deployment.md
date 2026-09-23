@@ -4,6 +4,10 @@ Status: implemented; static checks, mocked scenarios, and live Frankfurt
 verification passed for the `hello-world:0.2.0` release.
 Date: 2026-09-23.
 
+> Superseded configuration note (2026-09-23): Spec 006 adds manifest/tag input
+> and an explicitly authorized `--functional` mode. Default verification retains
+> the original OCI reads and GET-only `/health` and `/ready` probes.
+
 ## Problem
 
 An active OCI Generative AI Hosted Deployment does not by itself prove that its
@@ -142,3 +146,9 @@ It verified an `ACTIVE` Hosted Application, exactly one `ACTIVE` Hosted
 Deployment, active tag `0.2.0`, and HTTP 200 from both probes; it reported
 `result=PASS` with zero seconds to readiness. No business path was invoked and
 no OCI resource was changed.
+
+2026-09-23: after the skill was committed, the verifier was invoked again with
+the same application OCID, expected tag `0.2.0`, 60-second timeout, and
+5-second polling interval. It again reported an active application, one active
+deployment, HTTP 200 from both probes, zero seconds to readiness, and
+`result=PASS`. No OCI resource was changed and no business path was invoked.

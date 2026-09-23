@@ -17,7 +17,8 @@ Run from the checkout containing this skill. The image must already have passed
 configured OCI CLI profile must have IAM access to the target compartment.
 
 The root `.env` holds only `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
-`OCIR_TENANCY_NAMESPACE`, `OCIR_REPOSITORY`, and `OCIR_USERNAME`. Do not put an
+`OCIR_TENANCY_NAMESPACE`, and `OCIR_USERNAME`. The agent manifest supplies the
+repository and local image name. Do not put an
 auth token, password, private key, or Docker credential in it, in a prompt, or
 in command arguments.
 
@@ -28,7 +29,7 @@ tenancies), rather than only the OCI Console username.
 
 ## Workflow
 
-1. Confirm the local image and its user-supplied semantic tag. Check that all
+1. Confirm the agent manifest, local image, and its user-supplied semantic tag. Check that all
    required non-secret settings are configured; do not print unrelated `.env`
    content. Confirm OCI CLI availability and profile access.
 2. Resolve `OCI_REGION` dynamically to its OCIR region-key endpoint and show
@@ -41,20 +42,20 @@ tenancies), rather than only the OCI Console username.
    ```
 
    The target is
-   `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>`.
+   `${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/<manifest repository>:<tag>`.
 3. Resolve `OCI_COMPARTMENT_NAME` and inspect the target with the non-mutating
    command below. It proceeds only if exactly one active compartment OCID
    matches; exit code 20 means that the repository is absent.
 
    ```bash
-   scripts/ensure_ocir_repository.sh
+   scripts/ensure_ocir_repository.sh --repository <manifest repository>
    ```
 
 4. If the requested repository is absent, show the resolved compartment OCID
    reported by the command and obtain explicit user authorization before running:
 
    ```bash
-   scripts/ensure_ocir_repository.sh --create
+   scripts/ensure_ocir_repository.sh --repository <manifest repository> --create
    ```
 
    This creates a private, mutable repository, waits up to 120 seconds for
@@ -72,7 +73,12 @@ tenancies), rather than only the OCI Console username.
 6. Before `docker tag` or `docker push`, identify the target repository and IAM
    prerequisite, show the planned remote mutation, and obtain explicit user
    authorization. Do not infer permission from configured credentials.
-7. After authorization, tag the local image and push the fully qualified target.
+7. After authorization, run the guarded helper, which tags the local image and
+   pushes the fully qualified target:
+
+   ```bash
+   scripts/push_ocir_image.sh --push --manifest demos/hello_world/agent.yaml --tag 0.1.0
+   ```
    Report the source, target, exit code, and digest Docker reports. Stop on
    failure; do not retry a push without direction.
 8. State that a push does not verify hosted deployment compatibility. Offer

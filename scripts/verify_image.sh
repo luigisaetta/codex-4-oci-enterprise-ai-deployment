@@ -2,29 +2,44 @@
 set -euo pipefail
 # Purpose: verify local amd64 image and HTTP probes under a read-only root filesystem.
 # Requires: bash 3.2+, Docker daemon, curl, standard Unix tools; a free host port.
-# Usage: verify_image.sh --image NAME:TAG [--port 8080] [--timeout-seconds 90]
+# Usage: verify_image.sh --manifest PATH --tag VERSION [--port 8080] [--timeout-seconds 90]
+#        verify_image.sh --image NAME:TAG [--port 8080] [--timeout-seconds 90]
 #        [--post-path /PATH --post-body JSON]
 # Side effects: temporary containers/log files; always removes owned smoke container.
 # Exit: 0 pass; 1 missing tools or daemon; 10 image architecture; 11 runtime architecture;
 #       12 startup/readiness/cleanup failure; 13 POST failure; 64 invalid arguments.
 
 usage() {
-    printf 'Usage: %s --image NAME:TAG [--port 8080] [--timeout-seconds 90] [--post-path /PATH --post-body JSON]\n' "$0"
+    printf 'Usage: %s --manifest PATH --tag VERSION [--port 8080] [--timeout-seconds 90]\n' "$0"
+    printf '   or: %s --image NAME:TAG [--port 8080] [--timeout-seconds 90] [--post-path /PATH --post-body JSON]\n' "$0"
 }
-image=''; port=8080; timeout_seconds=90; post_path=''; post_body=''; body_given=false
+image=''; port=8080; timeout_seconds=90; post_path=''; post_body=''; manifest=''; tag=''; body_given=false
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --image|--port|--timeout-seconds|--post-path|--post-body)
+        --image|--port|--timeout-seconds|--post-path|--post-body|--manifest|--tag)
             if [ "$#" -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then usage >&2; exit 64; fi
             case "$1" in
                 --image) image=$2 ;; --port) port=$2 ;; --timeout-seconds) timeout_seconds=$2 ;;
                 --post-path) post_path=$2 ;; --post-body) post_body=$2; body_given=true ;;
+                --manifest) manifest=$2 ;; --tag) tag=$2 ;;
             esac
             shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 64 ;;
     esac
 done
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+if [ -n "$manifest" ]; then
+    if [ -n "$image" ] || [ -n "$post_path" ] || [ "$body_given" = true ] || [ -z "$tag" ]; then
+        printf '%s\n' '--manifest requires --tag and cannot be combined with --image or legacy POST options.' >&2; exit 64
+    fi
+    if ! command -v python >/dev/null 2>&1; then printf '%s\n' 'Python is required to read the agent manifest.' >&2; exit 1; fi
+    image_name=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
+    python "$script_dir/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag" >/dev/null
+    image="${image_name}:${tag}"
+elif [ -n "$tag" ]; then
+    printf '%s\n' '--tag requires --manifest.' >&2; exit 64
+fi
 if [ -z "$image" ] || [[ "$image" == -* ]] || ! [[ "$port" =~ ^[1-9][0-9]*$ ]] || [ "${#port}" -gt 5 ] || [ "$port" -gt 65535 ]; then
     usage >&2; exit 64
 fi
@@ -107,7 +122,9 @@ while :; do
     fi
     sleep 1
 done
-if [ -n "$post_path" ]; then
+if [ -n "$manifest" ]; then
+    python -m scripts.run_manifest_checks --manifest "$manifest" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
+elif [ -n "$post_path" ]; then
     if ! code=$(curl --silent --show-error --noproxy '*' --connect-timeout "$timeout_seconds" --max-time "$timeout_seconds" --output "$work_dir/post.body" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data-raw "$post_body" "$base_url$post_path"); then
         if [ -f "$work_dir/post.body" ]; then cat "$work_dir/post.body"; fi
         printf 'Functional POST request failed.\n' >&2; exit 13

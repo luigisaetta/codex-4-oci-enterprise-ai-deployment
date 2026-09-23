@@ -61,14 +61,15 @@ Build and verify using the scripts defined in
 [Spec 001](../../specs/001-skill-oci-agent-build.md):
 
 ```bash
-scripts/build_image.sh --context . --dockerfile demos/hello_world/Dockerfile --name hello-world --tag 0.1.0
-scripts/verify_image.sh --image hello-world:0.1.0 --post-path /hello --post-body '{"name":"Luigi"}'
+scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
+scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
 ```
 
-The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed
-by architecture and HTTP verification on port 8080. Verification runs with a
-read-only filesystem and writable `/tmp`, requires HTTP 200 from the functional
-request, and prints its response body. OCI deployment is outside this workflow.
+The manifest supplies the root build context, Dockerfile, image name, and the
+functional `POST /hello` assertion; the release tag remains on the command line.
+The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed by
+architecture and HTTP verification on port 8080. Verification runs with a
+read-only filesystem and writable `/tmp`. OCI deployment is outside this workflow.
 
 The image uses Python 3.11, binary wheels only, and a non-root user. Its command
 starts Uvicorn on `0.0.0.0:8080`. Dependency versions are resolved from the existing

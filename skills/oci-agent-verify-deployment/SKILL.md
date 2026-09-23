@@ -16,9 +16,10 @@ Run from this checkout after `oci-agent-build`, `oci-agent-push`, and
 `oci-agent-deploy`. OCI CLI must be available in the project Conda environment,
 and `curl` must be able to reach the public endpoint.
 
-The root `.env` provides only `OCI_REGION`. Do not add an auth token, password,
-private key, endpoint override, or other secret to it. The operator supplies the
-Hosted Application OCID and expected semantic image tag explicitly.
+The root `.env` provides only tenancy-wide values including `OCI_REGION`. Do not
+add an auth token, password, private key, endpoint override, or other secret to
+it. The operator supplies the Hosted Application OCID, agent manifest, and
+expected semantic image tag explicitly.
 
 ## Workflow
 
@@ -32,7 +33,8 @@ Hosted Application OCID and expected semantic image tag explicitly.
    conda run -n codex-4-oci-enterprise-ai-deployment \
      bash -c 'set -a; . ./.env; set +a; \
        scripts/verify_deployment.sh \
-       --application-id <application-ocid> --expected-tag 0.2.0'
+       --application-id <application-ocid> \
+       --manifest demos/hello_world/agent.yaml --tag 0.2.0'
    ```
 
 3. Only after the resource checks pass, the script polls the verified URL form
@@ -47,6 +49,10 @@ Hosted Application OCID and expected semantic image tag explicitly.
 Use `--timeout-seconds` (default 300) and `--poll-seconds` (default 5) to bound
 the probe. Do not add Authorization headers or try alternate endpoint hosts or
 path encodings when a probe fails; report the observed result.
+
+Functional checks defined in the manifest are not part of this default read-only
+workflow. Only after separately obtaining authorization to invoke business paths
+may you append `--functional`; report each request and response result.
 
 ## Exit codes
 

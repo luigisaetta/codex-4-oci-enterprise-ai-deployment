@@ -322,6 +322,15 @@ architecture was `linux/amd64`, runtime architecture was `x86_64`, readiness too
 5 seconds, and `POST /hello` with `{"name":"Luigi"}` returned
 `{"message":"Hello Luigi"}`. No OCI operation was performed.
 
+2026-09-23: with the user-supplied tag `0.2.0`, preflight exited 0 with Docker
+29.5.2, builder `rancher-desktop`, an aarch64 daemon, and amd64 emulation. The
+cached build exited 0 in 2 seconds and produced `hello-world:0.2.0` with image
+ID `sha256:45533f02a491be15c28d8be4446bef7e65db057c5be482e1b9de1a1fa5fdf363`
+and size 65,620,316 bytes. Verification exited 0: static architecture was
+`linux/amd64`, runtime architecture was `x86_64`, readiness took 5 seconds, and
+`POST /hello` with `{"name":"Luigi"}` returned `{"message":"Hello Luigi"}`.
+No OCI operation was performed.
+
 ### Installed image packages
 
 Observed using `importlib.metadata.distributions()` in the final image under a

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-23: Allow the Hosted Application deployer to proceed past a
+  same-named OCI Hosted Application in lifecycle state `DELETED`, while safely
+  stopping for non-deleted matches.
+
 * 2026-09-23: Derive OCIR region-key endpoints dynamically from `oci iam region
   list`, removing the maintained Frankfurt/Chicago resolver map for OC1.
 

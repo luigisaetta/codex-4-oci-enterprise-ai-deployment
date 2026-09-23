@@ -1,6 +1,6 @@
 # Hosted Application deployment rules
 
-Reviewed 2026-09-22.
+Reviewed 2026-09-23.
 
 This skill creates a public OCI Generative AI Hosted Application with Oracle-
 managed outbound networking and no inbound endpoint authentication:
@@ -31,3 +31,4 @@ Sources:
 * [Creating an Application](https://docs.oracle.com/en-us/iaas/Content/generative-ai/create-application.htm)
 * [Hosted Applications](https://docs.oracle.com/en-us/iaas/Content/generative-ai/applications.htm)
 * [Hosted Deployments](https://docs.oracle.com/en-us/iaas/Content/generative-ai/deployments.htm)
+* [OCI CLI: list Hosted Applications](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/generative-ai/hosted-application-collection/list-hosted-applications.html)

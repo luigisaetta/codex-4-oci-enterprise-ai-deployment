@@ -63,8 +63,9 @@ accepted.
 `scripts/deploy_hosted_application.sh --image NAME:TAG` is a read-only plan. It
 validates the local image platform, resolves the OCIR region-key endpoint and
 the single active compartment, then reports the exact Hosted Application and
-Hosted Deployment targets. It lists matching resources and stops if a matching
-deployment already exists, rather than silently replacing it.
+Hosted Deployment targets. It counts only non-`DELETED` Hosted Applications
+with the configured name and stops if one exists, rather than silently replacing
+it. A deleted application does not block a new deployment.
 
 With `--apply`, after explicit operator authorization, the script creates a
 missing Hosted Application with:
@@ -97,8 +98,9 @@ credentials.
 3. The planned and applied Hosted Application settings use `NO_AUTH_CONFIG`, a
    public endpoint, and Oracle-managed outbound networking, with no container
    environment variables.
-4. A matching Hosted Application or Hosted Deployment causes a safe stop; it is
-   never reused, updated, or replaced automatically.
+4. A matching non-`DELETED` Hosted Application causes a safe stop; it is never
+   reused, updated, or replaced automatically. A matching `DELETED` application
+   does not block a new deployment.
 5. README, skill catalog, `.env.example`, and changelog document the workflow.
 6. Bash syntax and local safe-path checks pass. Remote creation and deployment
    readiness require explicit authorization; endpoint invocation remains a
@@ -112,6 +114,7 @@ Verified 2026-09-23:
 * [Oracle: Hosted Applications](https://docs.oracle.com/en-us/iaas/Content/generative-ai/applications.htm)
 * [Oracle: Hosted Deployments](https://docs.oracle.com/en-us/iaas/Content/generative-ai/deployments.htm)
 * [Oracle CLI: create a single Docker artifact deployment](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/generative-ai/hosted-deployment/create-hosted-deployment-single-docker-artifact.html)
+* [Oracle CLI: list Hosted Applications](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/generative-ai/hosted-application-collection/list-hosted-applications.html)
 * [Oracle CLI: Listing regions and filtering with queries](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliusing.htm)
 
 The local `oci-rag-agent-blueprint` was inspected on 2026-09-22. Its deployer
@@ -141,3 +144,20 @@ region-key hostname from `oci iam region list --all`. Mocked-CLI checks verified
 the resolver for Frankfurt and an additional region, and covered an absent
 region and CLI failure. No authenticated OCI CLI call or deployment operation
 was performed; dynamic resolution has no additional remote verification.
+
+2026-09-23: a read-only plan was run for the verified and published
+`hello-world:0.2.0` image. It resolved the `fra.ocir.io` artifact target and a
+single active configured compartment, then found one Hosted Application with
+the configured name `hello-world-app`. The deployer stopped before `--apply`.
+Subsequent inspection established that the application was `DELETED`, exposing
+that the deployer counted all name matches without checking lifecycle state.
+No Hosted Application or Hosted Deployment was created, updated, reused, or
+deleted, and no endpoint was invoked.
+
+2026-09-23: the deployer was corrected to count only matching Hosted
+Applications whose lifecycle state is not `DELETED`. Mocked-CLI tests cover a
+deleted match allowing the read-only plan to complete and a non-deleted match
+causing the safe exit. A subsequent authenticated read-only plan for
+`hello-world:0.2.0` completed successfully against the configured OC1
+compartment, confirming that the existing deleted application no longer blocks
+the workflow. No deployment operation was performed.

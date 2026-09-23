@@ -242,3 +242,12 @@ mocked-CLI behavior checks verified `eu-frankfurt-1` / `FRA` resolves to
 absent region exits 65, and a CLI failure exits 1. No authenticated OCI CLI
 request, Docker operation, or OCI resource mutation was performed. Remote
 verification of the dynamic resolver remains pending.
+
+2026-09-23: after the `hello-world:0.2.0` local build and verification passed,
+the configured OC1 repository was inspected without mutation and found to
+exist. Following separate explicit authorization, Docker tagged and pushed
+`hello-world:0.2.0` to the resolved `fra.ocir.io` target. All layers were
+already present and Docker reported manifest digest
+`sha256:45533f02a491be15c28d8be4446bef7e65db057c5be482e1b9de1a1fa5fdf363`.
+This verifies OCIR publication only; Hosted Application deployment compatibility
+was not tested.

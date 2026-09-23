@@ -32,7 +32,8 @@ token, password, private key, or container environment value to it.
 
    Stop if the configured OCI CLI profile cannot resolve the region, the image
    is not `linux/amd64`, the named compartment is ambiguous, required OCI
-   permissions are unavailable, or a same-named deployment already exists.
+   permissions are unavailable, or a non-deleted same-named Hosted Application
+   already exists. A `DELETED` application does not block a new deployment.
 3. Show the resolved image URI, compartment, Hosted Application name, Hosted
    Deployment name, and planned resource creation. State that the endpoint will
    be public and have `NO_AUTH_CONFIG`.

@@ -157,11 +157,12 @@ compartment_id="$(oci --region "$OCI_REGION" iam compartment list \
   --query "(${active_compartment_query})[0].id" \
   --raw-output)"
 
+non_deleted_application_query='data.items[?"lifecycle-state"!=`DELETED`]'
 application_count="$(oci --region "$OCI_REGION" generative-ai hosted-application-collection list-hosted-applications \
   --compartment-id "$compartment_id" \
   --display-name "$OCI_HOSTED_APPLICATION_NAME" \
   --all \
-  --query 'length(data.items)' \
+  --query "length(${non_deleted_application_query})" \
   --raw-output)"
 
 container_uri="${ocir_registry}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}"
@@ -175,7 +176,7 @@ printf '%s\n' 'Container environment variables, managed storage, and custom netw
 printf '%s\n' 'Prerequisite: the Hosted Deployment runtime must already be allowed to pull the private OCIR image.'
 
 if [[ "$application_count" != '0' ]]; then
-  printf 'Found %s Hosted Application(s) named "%s".\n' \
+  printf 'Found %s non-deleted Hosted Application(s) named "%s".\n' \
     "$application_count" "$OCI_HOSTED_APPLICATION_NAME" >&2
   printf '%s\n' 'For safety, this script will not reuse or alter an existing application.' >&2
   exit "$EXIT_EXISTING_RESOURCE"

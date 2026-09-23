@@ -31,7 +31,11 @@ the interface, or invoke it explicitly as `$oci-agent-build`,
 `$oci-agent-push`, `$oci-agent-deploy`, or
 `$oci-agent-verify-deployment`.
 
-Prepare the project Conda environment, Docker with Buildx, curl, and OCI CLI.
+Prepare the project Conda environment, a container engine, and OCI CLI: Docker
+with Buildx and curl on macOS, Linux, or WSL2; Docker Desktop or Podman with
+PowerShell 7.4+ on Windows. Every lifecycle script exists as `scripts/*.sh` and
+as a `scripts/*.ps1` twin with the same options and exit codes; the skills use
+whichever matches your shell.
 Copy `.env.example` to the ignored `.env` and configure only these tenancy-wide,
 non-secret values:
 
@@ -80,10 +84,10 @@ default selection. It provides `/hello`, `/health`, and `/ready` on port 8080.
 | `docs/` | Operator guides and platform documentation. |
 | `notes/` | Architectural and environment notes. |
 | `specs/` | Specifications, acceptance criteria, and verification records. |
-| `scripts/` | Shared lifecycle automation. |
+| `scripts/` | Shared lifecycle automation, as Bash and PowerShell twins. |
 | `tests/` | Local unit tests and explicit integration-test support. |
 
-For Windows workstations, see [Rancher Desktop with WSL2](notes/windows-rancher-desktop-wsl2.md). For remote Linux builds, see [Linux build machine over SSH](notes/linux-build-machine-over-ssh.md).
+For Windows workstations, see [native PowerShell 7](notes/windows-powershell-native.md) or [Rancher Desktop with WSL2](notes/windows-rancher-desktop-wsl2.md). For remote Linux builds, see [Linux build machine over SSH](notes/linux-build-machine-over-ssh.md).
 
 ## Working on this repository
 

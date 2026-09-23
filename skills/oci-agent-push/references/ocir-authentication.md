@@ -15,20 +15,26 @@ Use this image-reference format:
 ${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/<manifest publish.repository>:<tag>
 ```
 
-Authenticate interactively:
+Authenticate interactively with the same container engine that built the image:
 
 ```bash
 docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"
 ```
 
+```powershell
+docker login --username $env:OCIR_USERNAME $OCIR_REGISTRY   # or: podman login ...
+```
+
 The username is normally `<tenancy-namespace>/<username>`; identity-domain
 tenancies can require `<tenancy-namespace>/<identity-domain>/<username>`. Enter
-the OCI auth token only when Docker prompts for its password. OCI shows a newly
-generated auth token only once. Do not use `--password`, record the token in a
-file, or pass it to a repository script.
+the OCI auth token only when the engine prompts for its password. OCI shows a
+newly generated auth token only once. Do not use `--password`, record the token
+in a file, or pass it to a repository script.
 
-Docker credentials are scoped to an exact registry hostname. Use the same
-resolved `$OCIR_REGISTRY` value for login, tagging, and pushing.
+Registry credentials are scoped to an exact registry hostname. Use the same
+resolved `$OCIR_REGISTRY` value for login, tagging, and pushing. With Podman,
+`Writing manifest to image destination` followed by a zero exit code is a
+successful push.
 
 Before a push, the operator needs Docker access, an OCI auth token, and IAM
 access to the target repository. OCI policies use the `repos` resource type and
@@ -55,8 +61,11 @@ This creates a private, mutable repository, waits for `AVAILABLE`, and reports
 its OCID. Do not change an existing repository or rely on automatic creation
 during `docker push`.
 
-After a push, `docker logout "$OCIR_REGISTRY"` removes Docker's local registry
-credential. Rotate or revoke the OCI auth token through OCI Console/IAM.
+After a push, `docker logout "$OCIR_REGISTRY"` (or `podman logout`) removes the
+engine's local registry credential. Rotate or revoke the OCI auth token through
+OCI Console/IAM. The PowerShell twins `resolve_ocir_registry.ps1`,
+`ensure_ocir_repository.ps1 -Repository ... [-Create]`, and
+`push_ocir_image.ps1 [-Push]` follow the same rules and exit codes.
 
 Sources:
 

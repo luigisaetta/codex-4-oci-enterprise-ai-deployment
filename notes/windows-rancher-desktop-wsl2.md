@@ -2,21 +2,21 @@
 
 ## Purpose
 
-This note describes the supported setup for the OCI-agent workflow on a Windows workstation where Docker Desktop is not permitted.
+This note describes the WSL2 path for the OCI-agent workflow on a Windows workstation, typically where Docker Desktop is not permitted.
 
-Use **Rancher Desktop with WSL2** and the Moby (`dockerd`) container engine. This is a Linux-on-Windows workflow, not a native PowerShell workflow.
+Use **Rancher Desktop with WSL2** and the Moby (`dockerd`) container engine. This is a Linux-on-Windows workflow: you work in Bash inside WSL2 and run the `scripts/*.sh` scripts unchanged. The alternative is the native path described in [Windows development with native PowerShell 7](windows-powershell-native.md), which runs the `scripts/*.ps1` twins with Docker Desktop or Podman. Pick one path per workstation.
 
 ## Scope and non-goals
 
-The project scripts are Bash scripts. Rancher Desktop supplies the container engine; WSL2 supplies the Bash and Unix environment.
+Inside WSL2 the project scripts are the Bash scripts. Rancher Desktop supplies the container engine; WSL2 supplies the Bash and Unix environment.
 
 No changes are needed to agent source code, Dockerfiles, `agent.yaml` manifests, OCI CLI commands, OCIR authentication, Hosted Application endpoints, or the required `linux/amd64` target platform.
 
-The following are not supported without further implementation work:
+The following are outside this note:
 
-* Native PowerShell or CMD execution of the project scripts.
+* Running the `.ps1` scripts from WSL2, or the `.sh` scripts from PowerShell. Use the script family that matches the shell.
 * Rancher Desktop configured only with the `containerd` engine and `nerdctl`.
-* Docker Desktop.
+* Docker Desktop, which is covered by the native PowerShell note.
 
 ## Why Moby is required
 
@@ -101,9 +101,9 @@ Keep the `linux/amd64` platform flag explicit: it verifies the OCI Hosted Applic
 | OCI CLI cannot authenticate | Configure OCI CLI and key permissions in the WSL user account; Windows-side settings are not automatically active in WSL. |
 | Bash script fails with `^M` or interpreter errors | Restore LF line endings and use a WSL Linux filesystem checkout. |
 
-## Native Windows future option
+## Native PowerShell alternative
 
-A native PowerShell implementation would require wrappers or a cross-platform rewrite for every lifecycle operation, not only image build. It would need `.env` loading, temporary-file cleanup, process handling, Docker and OCI CLI invocation, curl behavior, and automated tests. This is intentionally out of scope for the current WSL2 support.
+Every Bash script has a PowerShell 7.4+ twin under `scripts/*.ps1` with the same options and exit codes, for Docker Desktop or Podman without WSL2. See [Windows development with native PowerShell 7](windows-powershell-native.md) and [Spec 007](../specs/007-windows-powershell-support.md).
 
 ## References
 

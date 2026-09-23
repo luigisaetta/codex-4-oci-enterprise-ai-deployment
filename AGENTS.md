@@ -4,7 +4,7 @@
 
 This repository contains Codex skills and reproducible demos to support the deployment of AI agents in OCI Enterprise AI. Build clear instructions, specifications, scripts, and examples that a human can review, understand, and run.
 
-macOS is the local development and testing environment. OCI Enterprise AI is the target deployment platform. Local success alone does not establish compatibility with the target platform.
+macOS is the primary local development and testing environment. Windows is supported through PowerShell 7.4+ (`scripts/*.ps1`) or WSL2 (`scripts/*.sh`); keep the two script families in parity. OCI Enterprise AI is the target deployment platform. Local success alone does not establish compatibility with the target platform.
 
 Keep the repository focused on the agent deployment process: prerequisites, agent preparation, configuration, deployment, verification, and cleanup. Use documented interfaces where supported, and record unsupported operations and manual steps explicitly.
 

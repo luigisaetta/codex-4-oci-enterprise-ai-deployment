@@ -44,8 +44,11 @@ directly. An absolute path is also suitable when providing it to Codex.
 2. Create the Conda environment named
    `codex-4-oci-enterprise-ai-deployment` and install the project development
    requirements.
-3. Ensure Docker, Docker Buildx, curl, and OCI CLI are available. Docker must
-   run Linux containers and support the required `linux/amd64` platform.
+3. Ensure a container engine and OCI CLI are available. On macOS, Linux, and
+   WSL2: Docker, Docker Buildx, and curl. On Windows with PowerShell 7.4+:
+   Docker Desktop or Podman. The engine must run Linux containers and support
+   the required `linux/amd64` platform. See
+   [Windows workstations](#windows-workstations) for the two Windows paths.
 4. Copy `.env.example` to the ignored `.env` and set only tenancy-wide,
    non-secret values:
 
@@ -221,9 +224,37 @@ observed state and correct the specific issue before deciding whether to retry;
 do not delete OCI resources or overwrite a deployment as an automatic recovery
 action.
 
+## Windows workstations
+
+The skills run the repository scripts, and every script exists as a Bash file
+(`scripts/*.sh`) and a PowerShell 7.4+ twin (`scripts/*.ps1`) with the same
+options, report lines, and exit codes. The shell in use decides which family
+runs, so the skill workflow above is the same on every platform. Windows offers
+two paths; choose one per workstation:
+
+| Path | You work in | The skills run | Engine | Setup note |
+| --- | --- | --- | --- | --- |
+| Native PowerShell | `pwsh` 7.4+ | `.\scripts\*.ps1 -Manifest ... -Tag ...` | Docker Desktop or Podman, via `-ContainerEngine` | [Native PowerShell 7](../notes/windows-powershell-native.md) |
+| WSL2 | Bash inside WSL2 | `scripts/*.sh --manifest ... --tag ...` | Rancher Desktop with Moby | [Rancher Desktop with WSL2](../notes/windows-rancher-desktop-wsl2.md) |
+
+On the native path, load the non-secret `.env` values into the session before
+the first skill, because the scripts never read the file themselves:
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } |
+  ForEach-Object { $key, $value = $_ -split '=', 2; Set-Item "Env:$key" $value }
+```
+
+Registry login is `docker login` or `podman login`, matching the engine that
+built the image. Local verification binds to `127.0.0.1` only. The mapping
+between Bash options and PowerShell parameters is in the
+[skill catalog](../skills/README.md#choosing-bash-or-powershell).
+
 ## Related documents
 
-* [Skill catalog](../skills/README.md)
+* [Skill catalog](../skills/README.md), including the Bash/PowerShell rule
 * [Agent manifest configuration](../specs/006-agent-manifest-configuration.md)
+* [Windows PowerShell workflow support](../specs/007-windows-powershell-support.md)
+* [Windows with native PowerShell 7](../notes/windows-powershell-native.md)
 * [Windows with Rancher Desktop and WSL2](../notes/windows-rancher-desktop-wsl2.md)
 * [Linux build machine over SSH](../notes/linux-build-machine-over-ssh.md)

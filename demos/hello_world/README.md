@@ -65,6 +65,14 @@ scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
 scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
 ```
 
+From PowerShell 7.4+ on Windows, with Docker Desktop or Podman, the twins take
+the same options; see the [native PowerShell note](../../notes/windows-powershell-native.md):
+
+```powershell
+.\scripts\build_image.ps1 -Manifest demos/hello_world/agent.yaml -Tag 0.1.0 -ContainerEngine Auto
+.\scripts\verify_image.ps1 -Manifest demos/hello_world/agent.yaml -Tag 0.1.0 -ContainerEngine Auto
+```
+
 The manifest supplies the root build context, Dockerfile, image name, and the
 functional `POST /hello` assertion; the release tag remains on the command line.
 The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed by

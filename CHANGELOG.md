@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* 2026-09-23: Verify the Windows PowerShell 7 / native Podman workflow through
+  local image checks, OCIR push, Hosted Application deployment, and public
+  health/readiness probes; document the Windows-specific safeguards discovered.
+
+* 2026-09-23: Add native PowerShell 7 workflow scripts and Windows setup
+  guidance while retaining the existing macOS Bash workflows.
+
 * 2026-09-23: Add a read-only Hosted Application deployment verification skill
   with release-tag checks and public health/readiness probes.
 

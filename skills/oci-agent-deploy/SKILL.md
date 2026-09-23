@@ -15,6 +15,10 @@ environment variables, alter IAM, or delete resources.
 Read [Hosted Application deployment rules](references/hosted-application.md).
 Run from this checkout after `oci-agent-build` and `oci-agent-push` have
 completed. OCI CLI must be configured and authorized for the target compartment.
+Use `scripts/deploy_hosted_application.sh` on macOS or
+`scripts/deploy_hosted_application.ps1` on Windows PowerShell 7.2+. The
+Windows script accepts `-ContainerEngine Auto|Docker|Podman`; `Auto` selects
+only a single usable local engine and otherwise asks for an explicit choice.
 
 The root `.env` contains the non-secret values from the earlier skills plus
 `OCI_HOSTED_APPLICATION_NAME` and `OCI_HOSTED_DEPLOYMENT_NAME`. Do not add a
@@ -30,6 +34,10 @@ token, password, private key, or container environment value to it.
    scripts/deploy_hosted_application.sh --image hello-world:0.1.0
    ```
 
+   ```powershell
+   .\scripts\deploy_hosted_application.ps1 -Image hello-world:0.1.0 -ContainerEngine Auto
+   ```
+
    Stop if the configured OCI CLI profile cannot resolve the region, the image
    is not `linux/amd64`, the named compartment is ambiguous, required OCI
    permissions are unavailable, or a non-deleted same-named Hosted Application
@@ -41,6 +49,10 @@ token, password, private key, or container environment value to it.
 
    ```bash
    scripts/deploy_hosted_application.sh --apply --image hello-world:0.1.0
+   ```
+
+   ```powershell
+   .\scripts\deploy_hosted_application.ps1 -Apply -Image hello-world:0.1.0 -ContainerEngine Auto
    ```
 
 5. Report resulting OCIDs and CLI work-request outcomes. Do not invoke the

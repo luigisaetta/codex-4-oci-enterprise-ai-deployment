@@ -19,6 +19,8 @@ and `curl` must be able to reach the public endpoint.
 The root `.env` provides only `OCI_REGION`. Do not add an auth token, password,
 private key, endpoint override, or other secret to it. The operator supplies the
 Hosted Application OCID and expected semantic image tag explicitly.
+On Windows PowerShell 7.2+, use `scripts/verify_deployment.ps1` with the same
+inputs and exit-code contract instead of the Bash script.
 
 ## Workflow
 

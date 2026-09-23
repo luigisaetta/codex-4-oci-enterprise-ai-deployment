@@ -65,8 +65,21 @@ scripts/build_image.sh --context . --dockerfile demos/hello_world/Dockerfile --n
 scripts/verify_image.sh --image hello-world:0.1.0 --post-path /hello --post-body '{"name":"Luigi"}'
 ```
 
+On Windows, first open **PowerShell 7.2+** (`pwsh`), rather than legacy Windows
+PowerShell 5.1, and check the version with `$PSVersionTable.PSVersion`. Choose
+Docker Desktop or Podman; `Auto` selects an engine only when exactly one usable
+engine is found. (Rancher Desktop may work through its `docker` CLI but is not
+yet acceptance-tested.) Then use the matching native commands:
+
+```powershell
+.\scripts\build_image.ps1 -Context . -Dockerfile demos/hello_world/Dockerfile -Name hello-world -Tag 0.1.0 -ContainerEngine Auto
+.\scripts\verify_image.ps1 -Image hello-world:0.1.0 -ContainerEngine Auto -PostPath /hello -PostBody '{"name":"Luigi"}'
+```
+
 The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed
-by architecture and HTTP verification on port 8080. Verification runs with a
+by architecture and HTTP verification on port 8080. On Windows, verification
+publishes only to `127.0.0.1:8080` to avoid IPv4/IPv6 loopback ambiguity and
+does not expose the development server on the LAN. Verification runs with a
 read-only filesystem and writable `/tmp`, requires HTTP 200 from the functional
 request, and prints its response body. OCI deployment is outside this workflow.
 
@@ -80,7 +93,8 @@ the [skill index](../../skills/README.md) for discovery instructions. Set
 `BUILD_TIMEOUT_SECONDS` to override the 1800-second build timeout; pass
 `--timeout-seconds` to override the verifier's 90-second readiness timeout.
 The verification script removes its test container; the built image remains local. To remove the
-image when no longer needed, run `docker image rm hello-world:0.1.0`.
+image when no longer needed, run `docker image rm hello-world:0.1.0`. On
+Windows/Podman, use `podman image rm hello-world:0.1.0`.
 
 ## Troubleshooting and cleanup
 

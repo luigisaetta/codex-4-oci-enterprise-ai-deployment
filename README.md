@@ -33,7 +33,20 @@ Directories are created as their first contents are added.
 
 ## Local development
 
-macOS is the initial local development environment. OCI Enterprise AI is the target deployment platform; each demo will document its specific runtime and OCI prerequisites.
+macOS and Windows are supported local development environments. OCI Enterprise AI
+is the target deployment platform; each demo documents its runtime and OCI
+prerequisites. Use Bash (`scripts/*.sh`) on macOS and PowerShell 7.2+
+(`scripts/*.ps1`) on Windows; the workflows and safety boundaries are equivalent.
+On Windows, open **PowerShell 7** (`pwsh`), not the legacy **Windows PowerShell**
+5.1, and confirm the version before running a script:
+
+```powershell
+$PSVersionTable.PSVersion
+```
+
+If the major version is `5`, install or obtain PowerShell 7 through the
+organisation-approved route before continuing. The PowerShell scripts do not
+support Windows PowerShell 5.1.
 
 Use the Conda environment named `codex-4-oci-enterprise-ai-deployment`, matching the repository folder name.
 
@@ -42,6 +55,11 @@ Once the environment has been created separately, activate it with:
 ```bash
 conda activate codex-4-oci-enterprise-ai-deployment
 ```
+
+On Windows PowerShell, the same command applies. The environment is intentionally
+named after the repository and is shared at the Conda level, not created inside
+the checkout. Project-local caches such as `.conda/` are ignored when a future
+demo needs one.
 
 The project targets Python 3.11+. Shared runtime dependencies are maintained in
 `requirements.txt`, and development tools (including OCI CLI) in
@@ -67,12 +85,20 @@ replace every placeholder with your target values:
 cp .env.example .env
 ```
 
+In PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
 ```dotenv
 OCI_REGION=eu-frankfurt-1
 OCI_COMPARTMENT_NAME=replace-with-target-compartment-name
 OCIR_TENANCY_NAMESPACE=replace-with-object-storage-namespace
 OCIR_REPOSITORY=agents/hello-world
 OCIR_USERNAME=replace-with-ocir-login-username
+# Optional when a named OCI CLI profile is required instead of DEFAULT:
+# OCI_CLI_PROFILE=replace-with-oci-cli-profile
 ```
 
 For OC1, the resolver obtains the region list from the configured OCI CLI
@@ -87,10 +113,22 @@ set -a
 set +a
 ```
 
+In PowerShell, import only simple non-secret `KEY=value` entries from the local
+file before using a workflow:
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } |
+  ForEach-Object { $key, $value = $_ -split '=', 2; Set-Item "Env:$key" $value }
+```
+
 Resolve the registry hostname before login, tagging, or push:
 
 ```bash
 OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"
+```
+
+```powershell
+$OCIR_REGISTRY = .\scripts\resolve_ocir_registry.ps1
 ```
 
 `OCIR_USERNAME` is the complete OCIR login username, normally
@@ -98,13 +136,20 @@ OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"
 `<tenancy-namespace>/<identity-domain>/<username>` for applicable identity-domain
 tenancies). It is not merely the OCI Console username.
 
-Authenticate separately, after checking Docker's credential-store behavior:
+Authenticate separately with the same container runtime used for the local
+build. On macOS/Docker:
 
 ```bash
 docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"
 ```
 
-Enter the OCI auth token only at Docker's password prompt. Do not put it in
+On Windows/Podman:
+
+```powershell
+podman login --username $env:OCIR_USERNAME $OCIR_REGISTRY
+```
+
+Enter the OCI auth token only at the runtime's password prompt. Do not put it in
 `.env`, commands, logs, or this repository. The push skill requires an installed
 and configured OCI CLI to resolve `OCI_COMPARTMENT_NAME` to one active compartment
 OCID. It lists the target repository and, only if it is absent and you explicitly
@@ -113,15 +158,33 @@ separate push authorization. A successful push is registry evidence, not OCI
 Enterprise AI deployment verification. See [the push skill](skills/oci-agent-push/SKILL.md)
 for the authorization, creation, push, verification, and cleanup workflow.
 
-Docker credentials are scoped to the exact registry hostname. For example,
+Container-runtime credentials are scoped to the exact registry hostname. For example,
 `fra.ocir.io` and `eu-frankfurt-1.ocir.io` are valid Frankfurt endpoints, but a
 login to one does not authenticate Docker to the other. Use the resolved
 `$OCIR_REGISTRY` consistently for login, tagging, and push.
+
+After a separate explicit push authorization, Windows/Podman users tag and push
+the verified image as follows:
+
+```powershell
+$source = 'hello-world:0.1.0'
+$target = "$OCIR_REGISTRY/$($env:OCIR_TENANCY_NAMESPACE)/$($env:OCIR_REPOSITORY):0.1.0"
+podman tag $source $target
+podman push $target
+```
+
+`Writing manifest to image destination` followed by a zero exit code is a
+successful Podman push. This is registry evidence only; continue with the
+read-only deployment plan before authorizing application creation.
 
 Before any repository mutation, inspect the compartment and repository with:
 
 ```bash
 scripts/ensure_ocir_repository.sh
+```
+
+```powershell
+.\scripts\ensure_ocir_repository.ps1
 ```
 
 The command has no create side effect. Exit code 20 means that the repository is
@@ -131,8 +194,14 @@ absent. Only after reviewing its target and explicitly authorizing creation, run
 scripts/ensure_ocir_repository.sh --create
 ```
 
+```powershell
+.\scripts\ensure_ocir_repository.ps1 -Create
+```
+
 It creates exactly one private, mutable repository and waits up to 120 seconds
-for it to become available. It never logs Docker in or pushes an image.
+for it to become available. It never logs a container runtime in or pushes an
+image. If OCI returns `NAMESPACE_CONFLICT` during creation, choose a new unique
+repository path; do not retry the same path.
 
 ## OCI Hosted Application deployment
 
@@ -155,12 +224,20 @@ Plan first, using a local image with a semantic tag:
 scripts/deploy_hosted_application.sh --image hello-world:0.1.0
 ```
 
+```powershell
+.\scripts\deploy_hosted_application.ps1 -Image hello-world:0.1.0 -ContainerEngine Auto
+```
+
 The plan performs OCI read operations only. After reviewing the resolved OCIR
 artifact, compartment, and public no-auth endpoint posture, run the mutating
 command only with explicit authorization:
 
 ```bash
 scripts/deploy_hosted_application.sh --apply --image hello-world:0.1.0
+```
+
+```powershell
+.\scripts\deploy_hosted_application.ps1 -Apply -Image hello-world:0.1.0 -ContainerEngine Auto
 ```
 
 The Hosted Deployment runtime still needs pre-existing IAM and dynamic-group

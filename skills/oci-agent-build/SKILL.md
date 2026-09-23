@@ -17,9 +17,12 @@ Read [container requirements](references/container-requirements.md).
 Locate the checkout containing this skill by resolving any discovery symlink;
 repository scripts are at `../../scripts/` relative to this skill directory.
 Run commands from that checkout's root, including when using a user-scope symlink.
-Require Bash 3.2+, Docker with a running daemon, buildx, curl, and a free host port.
-Run `scripts/check_build_env.sh` (with `--builder NAME` when supplied) before
-building. It checks advertised support; image execution establishes runtime behavior.
+On macOS require Bash 3.2+, Docker with a running daemon, buildx, curl, and a
+free host port. On Windows require PowerShell 7.2+ and the matching `*.ps1`
+scripts with Docker or native Podman selected through `-ContainerEngine`.
+Run the host-appropriate preflight
+before building; it checks advertised support, while image execution establishes
+runtime behavior.
 
 ## Required inputs
 
@@ -45,6 +48,11 @@ Example with a user-supplied tag of `0.1.0`:
 ```bash
 scripts/build_image.sh --context . --dockerfile demos/hello_world/Dockerfile --name hello-world --tag 0.1.0
 scripts/verify_image.sh --image hello-world:0.1.0 --post-path /hello --post-body '{"name":"Luigi"}'
+```
+
+```powershell
+.\scripts\build_image.ps1 -Context . -Dockerfile demos/hello_world/Dockerfile -Name hello-world -Tag 0.1.0 -ContainerEngine Auto
+.\scripts\verify_image.ps1 -Image hello-world:0.1.0 -ContainerEngine Auto -PostPath /hello -PostBody '{"name":"Luigi"}'
 ```
 
 Verify that this example's printed response is `{"message":"Hello Luigi"}`.

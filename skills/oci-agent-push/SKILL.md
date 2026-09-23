@@ -13,13 +13,17 @@ separate push authorization. This skill does not deploy hosted applications.
 
 Read [OCIR authentication and target rules](references/ocir-authentication.md).
 Run from the checkout containing this skill. The image must already have passed
-`oci-agent-build` verification. Docker and OCI CLI must be available and the
-configured OCI CLI profile must have IAM access to the target compartment.
+`oci-agent-build` verification. OCI CLI and the selected container runtime must
+be available, and the configured OCI CLI profile must have IAM access to the
+target compartment. Use Docker on macOS; on Windows PowerShell 7.2+, use
+native Podman or Docker consistently with the local build. Podman does not need
+a Docker daemon, socket, or alias.
 
 The root `.env` holds only `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
 `OCIR_TENANCY_NAMESPACE`, `OCIR_REPOSITORY`, and `OCIR_USERNAME`. Do not put an
 auth token, password, private key, or Docker credential in it, in a prompt, or
-in command arguments.
+in command arguments. `OCI_CLI_PROFILE` is an optional non-secret setting when
+a named local OCI CLI profile is needed instead of `DEFAULT`.
 
 `OCIR_USERNAME` must be the complete OCIR login username, normally
 `<tenancy-namespace>/<username>` (or
@@ -60,23 +64,27 @@ tenancies), rather than only the OCI Console username.
    This creates a private, mutable repository, waits up to 120 seconds for
    `AVAILABLE`, records the new repository OCID, and stops on failure. Do not
    change an existing repository.
-5. Ask the operator to authenticate separately with interactive Docker login:
+5. Ask the operator to authenticate separately with the selected runtime:
 
    ```bash
    docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"
    ```
 
-   The operator enters an OCI auth token only at Docker's password prompt. Check
-   that a Docker credential helper is configured or warn that Docker may store
-   credentials in its config file.
-6. Before `docker tag` or `docker push`, identify the target repository and IAM
+   ```powershell
+   podman login --username $env:OCIR_USERNAME $OCIR_REGISTRY
+   ```
+
+   The operator enters an OCI auth token only at the runtime's password prompt.
+   Check the runtime's credential-store behaviour before continuing.
+6. Before `tag` or `push`, identify the target repository and IAM
    prerequisite, show the planned remote mutation, and obtain explicit user
    authorization. Do not infer permission from configured credentials.
 7. After authorization, tag the local image and push the fully qualified target.
-   Report the source, target, exit code, and digest Docker reports. Stop on
+   Report the source, target, exit code, and digest the selected runtime reports. Stop on
    failure; do not retry a push without direction.
-8. State that a push does not verify hosted deployment compatibility. Offer
-   `docker logout "$OCIR_REGISTRY"` as optional local credential cleanup; token
+8. State that a push does not verify hosted deployment compatibility. Offer the
+   runtime's logout command (for example, `podman logout $OCIR_REGISTRY`) as
+   optional local credential cleanup; token
    revocation is a separate OCI Console/IAM action.
 
 ## Limitations

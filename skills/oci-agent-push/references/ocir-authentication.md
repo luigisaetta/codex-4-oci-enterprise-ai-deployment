@@ -15,10 +15,16 @@ Use this image-reference format:
 ${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
 ```
 
-Authenticate interactively:
+Authenticate interactively. For Docker:
 
 ```bash
 docker login --username "$OCIR_USERNAME" "$OCIR_REGISTRY"
+```
+
+For Podman on Windows:
+
+```powershell
+podman login --username $env:OCIR_USERNAME $OCIR_REGISTRY
 ```
 
 The username is normally `<tenancy-namespace>/<username>`; identity-domain
@@ -27,7 +33,7 @@ the OCI auth token only when Docker prompts for its password. OCI shows a newly
 generated auth token only once. Do not use `--password`, record the token in a
 file, or pass it to a repository script.
 
-Docker credentials are scoped to an exact registry hostname. Use the same
+Container-runtime credentials are scoped to an exact registry hostname. Use the same
 resolved `$OCIR_REGISTRY` value for login, tagging, and pushing.
 
 Before a push, the operator needs Docker access, an OCI auth token, and IAM
@@ -55,8 +61,9 @@ This creates a private, mutable repository, waits for `AVAILABLE`, and reports
 its OCID. Do not change an existing repository or rely on automatic creation
 during `docker push`.
 
-After a push, `docker logout "$OCIR_REGISTRY"` removes Docker's local registry
-credential. Rotate or revoke the OCI auth token through OCI Console/IAM.
+After a push, the matching runtime logout command (for example,
+`podman logout $OCIR_REGISTRY`) removes its local registry credential. Rotate
+or revoke the OCI auth token through OCI Console/IAM.
 
 Sources:
 

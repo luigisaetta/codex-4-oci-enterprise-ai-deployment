@@ -23,7 +23,11 @@ expected semantic image tag explicitly.
 
 ## Workflow
 
-1. Confirm the image tag was locally verified and pushed, then obtain explicit
+1. Require an agent manifest named in the current request. If it is absent, ask
+   “Which agent manifest should I use?” before OCI reads or public probes. Never
+   select a demo, scan for a manifest, or infer it from conversation history; an
+   explicit “use the same agent/manifest as the immediately preceding step” is
+   sufficient. Confirm the image tag was locally verified and pushed, then obtain explicit
    authorization before making the public probe requests.
 2. Run the verifier from the project Conda environment. It first checks that the
    application is `ACTIVE`, that exactly one associated deployment is `ACTIVE`,

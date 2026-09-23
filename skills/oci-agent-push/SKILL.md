@@ -29,7 +29,11 @@ tenancies), rather than only the OCI Console username.
 
 ## Workflow
 
-1. Confirm the agent manifest, local image, and its user-supplied semantic tag. Check that all
+1. Require an agent manifest named in the current request. If it is absent, ask
+   “Which agent manifest should I use?” before inspecting Docker, OCI, or `.env`.
+   Never select a demo, scan for a manifest, or infer one from conversation
+   history; an explicit “use the same agent/manifest as the immediately preceding
+   step” is sufficient. Confirm the local image and its user-supplied semantic tag. Check that all
    required non-secret settings are configured; do not print unrelated `.env`
    content. Confirm OCI CLI availability and profile access.
 2. Resolve `OCI_REGION` dynamically to its OCIR region-key endpoint and show

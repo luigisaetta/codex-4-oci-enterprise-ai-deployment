@@ -1,6 +1,7 @@
 # Spec 006: Agent manifest configuration
 
-Status: implementing.
+Status: implemented; local validation passed; live OCI workflow observed for
+`hello_world:0.2.2`.
 Date: 2026-09-23.
 
 ## Problem
@@ -80,6 +81,15 @@ The tag must be semantic (`MAJOR.MINOR.PATCH` with an optional prerelease) and
 is passed to every lifecycle command. The deployment display name is derived as
 `<application_name>-<tag-with-dots-replaced-by-hyphens>`; for example,
 `hello-world` and `0.2.0` become `hello-world-0-2-0`.
+
+### Agent selection rule
+
+The invoking user must name a manifest path in the current request. A skill
+must ask which manifest to use before performing Docker, OCI CLI, or HTTP work
+when that path is absent. It must not select `hello_world`, scan for a manifest,
+or infer a manifest from prior conversation. The user may explicitly say to use
+the same agent or manifest as an immediately identified earlier step; that is a
+valid selection. The release tag remains a separate required input.
 
 ## Intended behavior
 

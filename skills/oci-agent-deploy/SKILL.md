@@ -23,7 +23,11 @@ password, private key, or container environment value to either file.
 
 ## Workflow
 
-1. Require an explicit agent manifest and semantic tag. Confirm its local image has passed
+1. Require an agent manifest named in the current request and a semantic tag. If
+   the manifest is absent, ask “Which agent manifest should I use?” before any
+   Docker or OCI action. Never select a demo, scan for a manifest, or infer it
+   from conversation history; an explicit “use the same agent/manifest as the
+   immediately preceding step” is sufficient. Confirm its local image has passed
    local verification and was pushed to the exact OCIR target.
 2. Run the non-mutating plan:
 

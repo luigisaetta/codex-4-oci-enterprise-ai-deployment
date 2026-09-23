@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Require the caller to identify an agent manifest before any of
+  the build, push, deploy, or verification skills select an agent.
+
 * 2026-09-23: Add versioned per-agent manifests for build, publish, deployment,
   and functional verification configuration; keep tenancy settings in `.env` and
   release tags on the command line.

@@ -26,6 +26,10 @@ building. It checks advertised support; image execution establishes runtime beha
 
 * An agent manifest path, resolved from the repository root. Its build paths are
   also repository-root-relative; `context: .` therefore means the checkout root.
+  If the current request does not name it, ask: “Which agent manifest should I
+  use?” before inspecting Docker or running any command. Never choose a demo,
+  scan for a manifest, or infer one from conversation history. “Use the same
+  agent/manifest as the immediately preceding step” is an explicit selection.
 * A semantic version tag (`MAJOR.MINOR.PATCH`, optional `-suffix`).
   Ask the user if the tag is missing; never invent one or use `latest`.
 * Optional builder name and `--no-cache` for builds.

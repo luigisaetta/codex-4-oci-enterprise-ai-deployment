@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Add Windows workstation guidance for Rancher Desktop using the
+  Moby engine and WSL2.
+
 * 2026-09-23: Add manifest-defined Hosted Application runtime environment
   variables with literal, operator-environment, and OCI Vault sources.
 

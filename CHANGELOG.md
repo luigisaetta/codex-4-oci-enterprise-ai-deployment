@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Add a read-only Hosted Application deployment verification skill
+  with release-tag checks and public health/readiness probes.
+
 * 2026-09-23: Allow the Hosted Application deployer to proceed past a
   same-named OCI Hosted Application in lifecycle state `DELETED`, while safely
   stopping for non-deleted matches.

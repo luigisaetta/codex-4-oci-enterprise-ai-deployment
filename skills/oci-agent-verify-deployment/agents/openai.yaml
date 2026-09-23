@@ -1,0 +1,6 @@
+interface:
+  display_name: "OCI Agent Verify Deployment"
+  short_description: "Verify OCI hosted release health and readiness"
+  default_prompt: "Use $oci-agent-verify-deployment to verify an active Hosted Application release."
+policy:
+  allow_implicit_invocation: true

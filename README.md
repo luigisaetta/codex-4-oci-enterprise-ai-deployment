@@ -169,6 +169,16 @@ those policies. A public endpoint without inbound authentication is appropriate
 only for an intentionally open test deployment; do not invoke it without a
 separate review and authorization.
 
+## OCI Hosted Application verification
+
+`oci-agent-verify-deployment` checks a specific deployed release without
+changing OCI resources. It requires the Hosted Application OCID, the expected
+semantic image tag, and an explicit authorization for its public `/health` and
+`/ready` GET probes. It first verifies that the application and exactly one
+associated deployment are `ACTIVE`, and that the active artifact has the
+expected tag. See [the verification skill](skills/oci-agent-verify-deployment/SKILL.md)
+for the bounded-polling command and endpoint limitations.
+
 ## Working on this repository
 
 Follow [AGENTS.md](AGENTS.md) for the development workflow and conventions. Meaningful implementation changes start with a concise specification; project documentation and code comments are written in English.
@@ -195,6 +205,7 @@ this checkout in place while that link is in use.
 | `oci-agent-build` | Build, rebuild, or locally verify a `linux/amd64` agent container image for OCI Enterprise AI. It does not push images or deploy OCI resources. | [Skill instructions](skills/oci-agent-build/SKILL.md) |
 | `oci-agent-push` | Prepare and, after explicit authorization, push a verified image to OCIR in the OC1 realm. It does not deploy OCI resources. | [Skill instructions](skills/oci-agent-push/SKILL.md) |
 | `oci-agent-deploy` | Plan or, after explicit authorization, deploy a verified OCIR image to OCI Generative AI Hosted Applications. | [Skill instructions](skills/oci-agent-deploy/SKILL.md) |
+| `oci-agent-verify-deployment` | Verify a deployed Hosted Application release with read-only OCI state checks and public `/health` and `/ready` probes. | [Skill instructions](skills/oci-agent-verify-deployment/SKILL.md) |
 
 Add future skills to this table as they are introduced. The full catalog,
 discovery details, and verification status are maintained in

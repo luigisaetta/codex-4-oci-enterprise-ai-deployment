@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* 2026-09-23: Add an outline for an SSH-accessed Linux build-machine workflow.
+
 * 2026-09-23: Add Windows workstation guidance for Rancher Desktop using the
   Moby engine and WSL2.
 

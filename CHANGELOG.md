@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-09-23: Add PowerShell 7.4+ twins of every lifecycle script with the same
+  options, report lines, and exit codes, plus Docker/Podman engine selection, a
+  parity test, and Windows guidance for the native PowerShell and WSL2 paths;
+  the skills select the script family from the shell in use.
+
 * 2026-09-23: Add a step-by-step guide for using the four OCI agent skills and
   link it from a simplified project README.
 

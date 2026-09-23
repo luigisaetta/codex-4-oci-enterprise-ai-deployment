@@ -18,9 +18,19 @@ Read [container requirements](references/container-requirements.md).
 Locate the checkout containing this skill by resolving any discovery symlink;
 repository scripts are at `../../scripts/` relative to this skill directory.
 Run commands from that checkout's root, including when using a user-scope symlink.
-Require Bash 3.2+, Docker with a running daemon, buildx, curl, and a free host port.
+In Bash require Bash 3.2+, Docker with a running daemon, buildx, curl, and a free
+host port. In PowerShell 7.4+ require Docker Desktop or Podman, selected with
+`-ContainerEngine Auto|Docker|Podman`; `-Builder` is Docker-only.
 Run `scripts/check_build_env.sh` (with `--builder NAME` when supplied) before
 building. It checks advertised support; image execution establishes runtime behavior.
+
+## Shell selection
+
+The examples below are Bash. From PowerShell 7.4+ run the `scripts/*.ps1` twin
+with the same option names in `-Option` form (`--timeout-seconds` becomes
+`-TimeoutSeconds`); outputs and exit codes are identical. Follow the shell in
+use, never the operating system, and do not mix the two families in one release.
+Rule and mapping table: [Choosing Bash or PowerShell](../README.md#choosing-bash-or-powershell).
 
 ## Required inputs
 

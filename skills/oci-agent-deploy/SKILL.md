@@ -28,6 +28,15 @@ and `from_env` values are plaintext; Vault references are never printed. A
 missing `from_env` input stops the plan. Existing applications must already have
 the same runtime environment because this skill does not update applications.
 
+## Shell selection
+
+The examples below are Bash. From PowerShell 7.4+ run
+`.\scripts\deploy_hosted_application.ps1` with the same option names in
+`-Option` form (`--apply` becomes `-Apply`); outputs and exit codes are
+identical, and no container engine is needed. Follow the shell in use, never the
+operating system, and do not mix the two families in one release. Rule and
+mapping table: [Choosing Bash or PowerShell](../README.md#choosing-bash-or-powershell).
+
 ## Workflow
 
 1. Require an agent manifest named in the current request and a semantic tag. If

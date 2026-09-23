@@ -14,12 +14,23 @@ creates, updates, deletes, restarts, or invokes agent business paths.
 Read [endpoint rules and observed behavior](references/endpoint-behavior.md).
 Run from this checkout after `oci-agent-build`, `oci-agent-push`, and
 `oci-agent-deploy`. OCI CLI must be available in the project Conda environment,
-and `curl` must be able to reach the public endpoint.
+and the workstation must be able to reach the public endpoint (the Bash verifier
+uses `curl`; the PowerShell verifier uses the built-in .NET HTTP client).
 
 The root `.env` provides only tenancy-wide values including `OCI_REGION`. Do not
 add an auth token, password, private key, endpoint override, or other secret to
 it. The operator supplies the Hosted Application OCID, agent manifest, and
 expected semantic image tag explicitly.
+
+## Shell selection
+
+The example below is Bash. From PowerShell 7.4+ run
+`.\scripts\verify_deployment.ps1` with the same option names in `-Option` form
+(`--application-id` becomes `-ApplicationId`, `--functional` becomes
+`-Functional`); the report line and exit codes are identical. Follow the shell
+in use, never the operating system, and do not mix the two families in one
+release. Rule and mapping table:
+[Choosing Bash or PowerShell](../README.md#choosing-bash-or-powershell).
 
 ## Workflow
 
@@ -66,7 +77,7 @@ not print or resolve Vault values.
 | Code | Meaning |
 | --- | --- |
 | 0 | Application, deployment, tag, health, and readiness checks passed. |
-| 1 | Required OCI CLI or curl executable is unavailable. |
+| 1 | Required OCI CLI (or, in Bash, curl) executable is unavailable. |
 | 20 | Hosted Application is not `ACTIVE`. |
 | 21 | The application does not have exactly one `ACTIVE` Hosted Deployment. |
 | 22 | The active artifact tag differs from the expected tag. |

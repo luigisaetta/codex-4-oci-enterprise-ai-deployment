@@ -27,6 +27,16 @@ in command arguments.
 `<tenancy-namespace>/<identity-domain>/<username>` for applicable identity-domain
 tenancies), rather than only the OCI Console username.
 
+## Shell selection
+
+The examples below are Bash. From PowerShell 7.4+ run the `scripts/*.ps1` twin
+with the same option names in `-Option` form (`--push` becomes `-Push`,
+`--repository` becomes `-Repository`); outputs and exit codes are identical, and
+`docker login`/`docker logout` become `podman login`/`podman logout` when the
+selected engine is Podman. Follow the shell in use, never the operating system,
+and do not mix the two families in one release. Rule and mapping table:
+[Choosing Bash or PowerShell](../README.md#choosing-bash-or-powershell).
+
 ## Workflow
 
 1. Require an agent manifest named in the current request. If it is absent, ask
@@ -83,8 +93,8 @@ tenancies), rather than only the OCI Console username.
    ```bash
    scripts/push_ocir_image.sh --push --manifest demos/hello_world/agent.yaml --tag 0.1.0
    ```
-   Report the source, target, exit code, and digest Docker reports. Stop on
-   failure; do not retry a push without direction.
+   Report the source, target, exit code, and digest the container engine
+   reports. Stop on failure; do not retry a push without direction.
 8. State that a push does not verify hosted deployment compatibility. Offer
    `docker logout "$OCIR_REGISTRY"` as optional local credential cleanup; token
    revocation is a separate OCI Console/IAM action.

@@ -47,7 +47,7 @@ if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || [ "${#timeout_seconds}" -gt 7 
 if { [ -n "$post_path" ] && { [[ "$post_path" != /* ]] || [ "$body_given" = false ]; }; } || { [ -z "$post_path" ] && [ "$body_given" = true ]; }; then
     printf 'Supply --post-path /PATH and --post-body JSON together.\n' >&2; exit 64
 fi
-for tool in docker curl; do
+for tool in docker curl python; do
     if ! command -v "$tool" >/dev/null 2>&1; then printf 'Missing tool: %s\n' "$tool" >&2; exit 1; fi
 done
 if ! docker info >/dev/null 2>&1; then
@@ -100,7 +100,19 @@ elif [ "$runtime_arch" != x86_64 ]; then
     printf 'Expected x86_64, observed: %s\n' "$runtime_arch" >&2; exit 11
 fi
 started=$SECONDS
-if ! docker run -d --platform linux/amd64 --read-only --tmpfs /tmp --cidfile "$work_dir/container.cid" -p "$port:8080" "$image" >"$work_dir/start.out" 2>"$work_dir/start.err"; then
+docker_environment_options=()
+if [ -n "$manifest" ]; then
+    runtime_env_json=$(python "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-json)
+    runtime_env_report=$(python "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-report)
+    if [ -n "$runtime_env_report" ]; then printf '%s\n' "$runtime_env_report"; fi
+    if [ "$runtime_env_json" != '[]' ]; then
+        if ! printf '%s' "$runtime_env_json" | python -c 'import json, sys; [print("{}={}".format(item["name"], item["value"])) for item in json.load(sys.stdin)]' >"$work_dir/runtime.env"; then
+            printf '%s\n' 'Could not prepare local runtime environment.' >&2; exit 64
+        fi
+        docker_environment_options=(--env-file "$work_dir/runtime.env")
+    fi
+fi
+if ! docker run -d --platform linux/amd64 --read-only --tmpfs /tmp "${docker_environment_options[@]}" --cidfile "$work_dir/container.cid" -p "$port:8080" "$image" >"$work_dir/start.out" 2>"$work_dir/start.err"; then
     cat "$work_dir/start.err" >&2; exit 12
 fi
 base_url="http://127.0.0.1:$port"

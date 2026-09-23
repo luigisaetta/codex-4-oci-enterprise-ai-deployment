@@ -58,6 +58,9 @@ Functional checks defined in the manifest are not part of this default read-only
 workflow. Only after separately obtaining authorization to invoke business paths
 may you append `--functional`; report each request and response result.
 
+Runtime environment validation belongs to build and deploy. This verifier does
+not print or resolve Vault values.
+
 ## Exit codes
 
 | Code | Meaning |

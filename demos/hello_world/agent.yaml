@@ -1,5 +1,13 @@
 schema_version: 1
 name: hello-world
+
+runtime:
+  env:
+    - name: LOG_LEVEL
+      value: INFO
+    - name: GENAI_COMPARTMENT_ID
+      value: lsaetta
+
 build:
   context: .
   dockerfile: demos/hello_world/Dockerfile

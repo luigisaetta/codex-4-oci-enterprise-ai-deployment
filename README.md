@@ -129,6 +129,14 @@ scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.2.0
 scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.2.0
 ```
 
+An optional `runtime.env` manifest section injects application environment
+variables. Use `value` only for committed non-secret literals, `from_env` for
+non-secret tenancy values exported by the operator, and `vault_secret_id` for
+OCI Vault references. Vault values are never printed or stored locally by these
+scripts; local verification can use an explicit `OCI_AGENT_VAULT_<NAME>` override.
+Changing an existing application's runtime environment requires a future,
+explicitly authorized application-update workflow.
+
 Before any repository mutation, inspect the compartment and manifest repository with:
 
 ```bash

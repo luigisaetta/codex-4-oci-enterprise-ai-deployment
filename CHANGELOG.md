@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Add manifest-defined Hosted Application runtime environment
+  variables with literal, operator-environment, and OCI Vault sources.
+
 * 2026-09-23: Require the caller to identify an agent manifest before any of
   the build, push, deploy, or verification skills select an agent.
 

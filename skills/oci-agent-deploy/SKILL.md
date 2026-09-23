@@ -21,6 +21,11 @@ the repository, application name, public no-auth profile, and functional checks;
 the release tag is always an explicit command-line value. Do not add a token,
 password, private key, or container environment value to either file.
 
+When `runtime.env` is present, inspect its source report in the plan. Literal
+and `from_env` values are plaintext; Vault references are never printed. A
+missing `from_env` input stops the plan. Existing applications must already have
+the same runtime environment because this skill does not update applications.
+
 ## Workflow
 
 1. Require an agent manifest named in the current request and a semantic tag. If
@@ -41,7 +46,7 @@ password, private key, or container environment value to either file.
    `ACTIVE`. An ACTIVE manifest-compatible application is reused; a `DELETED`
    application does not block a new deployment.
 3. Show the resolved image URI, compartment, Hosted Application name, Hosted
-   Deployment name, and planned resource creation. State that the endpoint will
+   Deployment name, runtime-variable source report, and planned resource creation. State that the endpoint will
    be public and have `NO_AUTH_CONFIG`.
 4. Obtain explicit authorization immediately before creation. Then run:
 

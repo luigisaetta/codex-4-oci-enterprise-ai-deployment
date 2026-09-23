@@ -68,6 +68,8 @@ repository="$(python "$script_directory/agent_manifest.py" get --manifest "$mani
 application_name="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.application_name)"
 profile="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.profile)"
 deployment_name="$(python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag")"
+environment_variables_json="$(python "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format oci-json)"
+environment_report="$(python "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format report)"
 ocir_registry="$("$script_directory/resolve_ocir_registry.sh")"
 active_compartment_query='data[?"lifecycle-state"==`ACTIVE`]'
 compartment_count="$(oci --region "$OCI_REGION" iam compartment list --name "$OCI_COMPARTMENT_NAME" --compartment-id-in-subtree true --all --query "length(${active_compartment_query})" --raw-output)"
@@ -82,6 +84,11 @@ if [[ "$application_count" == '1' ]]; then
   application_id="$(oci --region "$OCI_REGION" generative-ai hosted-application-collection list-hosted-applications --compartment-id "$compartment_id" --display-name "$application_name" --all --query "(${non_deleted_application_query})[0].id" --raw-output)"
   application_state="$(oci --region "$OCI_REGION" generative-ai hosted-application get --hosted-application-id "$application_id" --query 'data."lifecycle-state"' --raw-output)"
   if [[ "$application_state" != 'ACTIVE' ]]; then printf 'Existing Hosted Application must be ACTIVE to reuse; observed: %s.\n' "$application_state" >&2; exit "$EXIT_EXISTING_RESOURCE"; fi
+  application_json="$(oci --region "$OCI_REGION" --output json generative-ai hosted-application get --hosted-application-id "$application_id")"
+  if ! printf '%s' "$application_json" | python "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
+    printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest; update is not implemented.' >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
 fi
 deployment_count="0"
 if [[ -n "$application_id" ]]; then
@@ -93,12 +100,13 @@ printf 'OCIR artifact: %s:%s\n' "$container_uri" "$tag"
 printf 'Compartment: %s\n' "$compartment_id"
 printf 'Hosted Application: %s (%s; %s)\n' "$application_name" "$profile" "$([[ -n "$application_id" ]] && printf reuse || printf create)"
 printf 'Hosted Deployment: %s\n' "$deployment_name"
+if [[ -n "$environment_report" ]]; then printf '%s\n' "$environment_report"; fi
 printf '%s\n' 'Container environment variables, managed storage, and custom networking are omitted.'
 if [[ "$deployment_count" != '0' ]]; then printf 'A non-deleted Hosted Deployment named "%s" already exists; it will not be replaced.\n' "$deployment_name" >&2; exit "$EXIT_EXISTING_RESOURCE"; fi
 if [[ "$apply_changes" == false ]]; then printf '%s\n' 'Plan complete. Re-run with --apply only after explicit authorization.'; exit 0; fi
 if [[ -z "$application_id" ]]; then
   printf '%s\n' 'Creating Hosted Application with NO_AUTH_CONFIG and Oracle-managed networking.'
-  application_output="$(oci --region "$OCI_REGION" --output json generative-ai hosted-application create --display-name "$application_name" --compartment-id "$compartment_id" --inbound-auth-config '{"inboundAuthConfigType":"NO_AUTH_CONFIG"}' --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' --wait-for-state SUCCEEDED --max-wait-seconds "$WAIT_SECONDS")"
+  application_output="$(oci --region "$OCI_REGION" --output json generative-ai hosted-application create --display-name "$application_name" --compartment-id "$compartment_id" --inbound-auth-config '{"inboundAuthConfigType":"NO_AUTH_CONFIG"}' --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' --environment-variables "$environment_variables_json" --wait-for-state SUCCEEDED --max-wait-seconds "$WAIT_SECONDS")"
   application_id="$(printf '%s' "$application_output" | extract_expected_ocid 'ocid1.generativeaihostedapplication.')"
   printf 'Created Hosted Application: %s\n' "$application_id"
 else

@@ -54,6 +54,9 @@ scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
 ```
 
 The manifest verifier checks the configured response status and JSON subset.
+It also injects `runtime.env` literal and `from_env` variables into the local
+container. A Vault entry is skipped unless `OCI_AGENT_VAULT_<VARIABLE_NAME>` is
+set in the operator environment; the override is never displayed.
 Pass `--builder NAME` to the build script to use an existing selected builder;
 provisioning a builder is outside this skill. `BUILD_TIMEOUT_SECONDS` controls build
 time (default 1800). Verification accepts `--port` (8080) and

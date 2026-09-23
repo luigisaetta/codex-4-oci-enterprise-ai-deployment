@@ -9,7 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.agent_manifest import ManifestError, load_manifest
+from scripts.agent_manifest import (
+    ManifestError,
+    load_manifest,
+    resolve_runtime_environment,
+)
 
 
 def write_manifest(tmp_path: Path, content: str) -> str:
@@ -81,6 +85,80 @@ verify: []
     )
     try:
         with pytest.raises(ManifestError, match="stay below"):
+            load_manifest(path)
+    finally:
+        (Path(__file__).resolve().parents[1] / path).unlink(missing_ok=True)
+
+
+def test_runtime_environment_resolves_plaintext_and_vault_sources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Runtime sources become OCI types and Vault overrides are local-only."""
+    monkeypatch.setenv("OCI_COMPARTMENT_ID", "ocid1.compartment.oc1..example")
+    monkeypatch.setenv("OCI_AGENT_VAULT_EXTERNAL_API_KEY", "local-only-value")
+    path = write_manifest(
+        tmp_path,
+        """schema_version: 1
+name: hello-world
+build: {context: ., dockerfile: demos/hello_world/Dockerfile}
+publish: {repository: agents/hello-world}
+deploy: {application_name: hello-world, profile: public-noauth}
+runtime:
+  env:
+    - {name: LOG_LEVEL, value: INFO}
+    - {name: GENAI_COMPARTMENT_ID, from_env: OCI_COMPARTMENT_ID}
+    - {name: EXTERNAL_API_KEY,
+       vault_secret_id: ocid1.vaultsecret.oc1.eu-frankfurt-1.example}
+verify: []
+""",
+    )
+    try:
+        manifest = load_manifest(path)
+        remote, skipped = resolve_runtime_environment(manifest, local=False)
+        local, local_skipped = resolve_runtime_environment(manifest, local=True)
+        assert remote[0] == {
+            "name": "LOG_LEVEL",
+            "type": "PLAINTEXT",
+            "value": "INFO",
+        }
+        assert remote[2]["type"] == "VAULT"
+        assert not skipped
+        assert local[2] == {
+            "name": "EXTERNAL_API_KEY",
+            "type": "PLAINTEXT",
+            "value": "local-only-value",
+        }
+        assert not local_skipped
+    finally:
+        (Path(__file__).resolve().parents[1] / path).unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "{name: PATH, value: value}",
+        "{name: API_KEY, value: secret}",
+        "{name: LOG_LEVEL, value: one, from_env: TWO}",
+    ],
+)
+def test_invalid_runtime_environment_is_rejected(entry: str, tmp_path: Path) -> None:
+    """Reserved, sensitive literal, and ambiguous runtime variables are invalid."""
+    path = write_manifest(
+        tmp_path,
+        "\n".join(
+            [
+                "schema_version: 1",
+                "name: hello-world",
+                "build: {context: ., dockerfile: demos/hello_world/Dockerfile}",
+                "publish: {repository: agents/hello-world}",
+                "deploy: {application_name: hello-world, profile: public-noauth}",
+                f"runtime: {{env: [{entry}]}}",
+                "verify: []",
+            ]
+        ),
+    )
+    try:
+        with pytest.raises(ManifestError):
             load_manifest(path)
     finally:
         (Path(__file__).resolve().parents[1] / path).unlink(missing_ok=True)

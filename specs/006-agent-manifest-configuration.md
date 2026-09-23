@@ -26,6 +26,8 @@ reference `hello_world` agent and all four skill instructions.
   health/readiness verification.
 * Support arbitrary YAML features, multiple deployment profiles, CI secrets, or
   deployment rollback.
+* Update an existing Hosted Application's runtime environment; that requires a
+  separately specified update workflow.
 
 ## Configuration contract
 
@@ -76,6 +78,41 @@ not represented there. Each check permits `GET` or `POST`, requires an absolute
 path and an expected HTTP status, and can use a JSON request body and a JSON
 object subset assertion. Unknown fields and unsafe or checkout-escaping paths
 are rejected. A release tag field is therefore rejected by schema validation.
+
+### Runtime environment
+
+An optional `runtime.env` list declares variables injected into the Hosted
+Application and used by local container verification. Every item has a unique
+uppercase name and exactly one source:
+
+```yaml
+runtime:
+  env:
+    - name: LOG_LEVEL
+      value: INFO
+    - name: GENAI_COMPARTMENT_ID
+      from_env: OCI_COMPARTMENT_ID
+    - name: EXTERNAL_API_KEY
+      vault_secret_id: ocid1.vaultsecret.oc1.eu-frankfurt-1.example
+```
+
+`value` and `from_env` become OCI `PLAINTEXT` variables. Literal values must be
+non-secret and are committed; `from_env` is resolved from the operator process
+at plan/apply time and fails when absent. `vault_secret_id` becomes `VAULT` and
+must be an OCI Vault secret OCID. It is the only permitted source for
+sensitive-looking variable names. `PATH`, `HOME`, and `PYTHONPATH` are reserved.
+
+The plan prints each variable name and source, and prints plaintext values only;
+it never prints a Vault value or reference. On local verification, Vault values
+are omitted unless the operator sets `OCI_AGENT_VAULT_<VARIABLE_NAME>`; this
+override is never printed. The report identifies any omitted Vault variable.
+
+OCI stores these variables on the Hosted Application, not its deployment. The
+deployer compares a reused application's environment to the manifest and stops
+on a difference; it never calls Hosted Application update. A future update
+workflow must explicitly plan and authorize that mutation. Vault use additionally
+requires a runtime IAM policy permitting secret retrieval; the deployer declares
+but does not create or validate that policy.
 
 The tag must be semantic (`MAJOR.MINOR.PATCH` with an optional prerelease) and
 is passed to every lifecycle command. The deployment display name is derived as
@@ -142,6 +179,8 @@ The Hosted Deployment runtime's pull IAM access is still externally managed.
    platform probes; functional invocation is opt-in.
 6. Shell syntax checks and Python unit tests run without OCI credentials or
    remote mutations. Docker and OCI live acceptance remain explicit and pending.
+7. Runtime validation rejects duplicate, reserved, malformed, and literal-secret
+   variables; deployment JSON maps the three supported sources correctly.
 
 ## Recovery
 
@@ -158,3 +197,14 @@ use the official CLI and Generative AI documentation referenced by Specs 002,
 003, and 005. Their verification date is 2026-09-23. The endpoint base used by
 Spec 005 remains observed live evidence; the manifest does not introduce a new
 endpoint format.
+
+## Verification record
+
+2026-09-23 local verification: `agent_manifest.py` validation and resolution
+tests passed for literal, `from_env`, Vault, duplicate, reserved, sensitive, and
+ambiguous runtime entries. Black, Pylint, pytest (16 tests), Bash syntax checks,
+and skill structure validation passed. The installed OCI CLI 3.94.0 help and
+OCI Python SDK 2.187.0 `EnvironmentVariable` model confirmed the
+`environmentVariables` list and `PLAINTEXT`/`VAULT` types. No OCI Hosted
+Application create or update with `runtime.env` was run; remote acceptance and
+the required Vault runtime IAM policy remain pending.

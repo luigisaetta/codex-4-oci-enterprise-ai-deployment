@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-23: Derive OCIR region-key endpoints dynamically from `oci iam region
+  list`, removing the maintained Frankfurt/Chicago resolver map for OC1.
+
 * 2026-09-22: Verify the OCI Hosted Application deployment workflow remotely in
   Frankfurt: the application and its single-artifact deployment reached
   `ACTIVE` using the published `hello-world:0.1.0` OCIR image.

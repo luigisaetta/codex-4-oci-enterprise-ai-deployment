@@ -75,10 +75,11 @@ OCIR_REPOSITORY=agents/hello-world
 OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
-For the currently supported OC1 regions, the skill maps the region identifier to
-the OCIR region-key endpoint: `eu-frankfurt-1` maps to `fra.ocir.io`, and
-`us-chicago-1` maps to `ord.ocir.io`. Load only these non-secret variables in
-your shell before using the skill:
+For OC1, the resolver obtains the region list from the configured OCI CLI
+profile, selects the exact `OCI_REGION` name, lowercases its key, and builds the
+OCIR endpoint `<region-key>.ocir.io` (for example, `eu-frankfurt-1` becomes
+`fra.ocir.io`). This avoids maintaining a static region map. Load only these
+non-secret variables in your shell before using the skill:
 
 ```bash
 set -a

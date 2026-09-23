@@ -31,9 +31,10 @@ tenancies), rather than only the OCI Console username.
 1. Confirm the local image and its user-supplied semantic tag. Check that all
    required non-secret settings are configured; do not print unrelated `.env`
    content. Confirm OCI CLI availability and profile access.
-2. Resolve `OCI_REGION` to the supported OCIR region-key endpoint and show the
-   exact target. This currently supports `eu-frankfurt-1` as `fra.ocir.io` and
-   `us-chicago-1` as `ord.ocir.io`; stop for any other region.
+2. Resolve `OCI_REGION` dynamically to its OCIR region-key endpoint and show
+   the exact target. The resolver runs `oci iam region list`, selects the exact
+   region name, lowercases its key, and constructs `<region-key>.ocir.io`. It
+   stops if the region is not returned or the CLI request fails.
 
    ```bash
    OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"

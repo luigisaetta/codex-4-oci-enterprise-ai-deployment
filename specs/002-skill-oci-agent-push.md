@@ -1,10 +1,10 @@
 # Spec 002: Codex skill `oci-agent-push`
 
 Status: implemented; static acceptance criteria and remote repository-creation
-and push acceptance passed for the configured Frankfurt target. Chicago mapping
-has static verification only; optional local Docker credential cleanup remains an
-operator decision.
-Date: 2026-09-22.
+and push acceptance passed for the configured Frankfurt target. Dynamic
+region-key resolution has local mocked-CLI verification only; optional local
+Docker credential cleanup remains an operator decision.
+Date: 2026-09-23.
 
 ## Problem
 
@@ -26,8 +26,9 @@ versioned configuration.
    operational boundaries.
 4. Provide a Bash script that resolves the named compartment, detects the
    requested repository, and creates it only when invoked with `--create`.
-5. Provide a Bash script that resolves supported OCI region identifiers to the
-   OCIR region-key hostname used consistently for Docker login and push.
+5. Provide a Bash script that resolves an OC1 OCI region identifier to the OCIR
+   region-key hostname used consistently for Docker login and push, without a
+   maintained region mapping.
 6. Add the new skill to the repository skill index and root README catalog.
 
 ## Non-goals
@@ -41,8 +42,9 @@ versioned configuration.
 
 ## Assumptions and prerequisites
 
-* The target is the OC1 realm. Initially, the registry resolver supports only
-  `eu-frankfurt-1` (`fra.ocir.io`) and `us-chicago-1` (`ord.ocir.io`).
+* The target is the OC1 realm. The configured OCI CLI profile is authenticated
+  and can run `oci iam region list`; the command returns region `name` and
+  `key` values for the profile's realm.
 * The local image has already passed Spec 001 and uses a user-supplied semantic
   version tag.
 * OCI CLI is installed and configured with a profile that can inspect the target
@@ -67,9 +69,14 @@ OCIR_USERNAME=replace-with-ocir-login-username
 ```
 
 `OCI_REGION` is an OCI region identifier, not a region key. For this OC1-only
-workflow, `scripts/resolve_ocir_registry.sh` resolves the supported values
-`eu-frankfurt-1` to `fra.ocir.io` and `us-chicago-1` to `ord.ocir.io`; it exits
-with code 64 for all other values. The fully qualified target image is:
+workflow, `scripts/resolve_ocir_registry.sh` runs `oci iam region list --all`,
+selects the exact matching region `name`, lowercases its `key`, and emits
+`<key>.ocir.io`. For example, `eu-frankfurt-1` resolves through `FRA` to
+`fra.ocir.io`. This supports every region returned by the configured profile
+without a maintained list. It exits with code 64 for a missing or malformed
+`OCI_REGION`, code 65 when the exact region is absent from CLI output, and code
+1 when the CLI request or its response validation fails. The fully qualified
+target image is:
 
 ```text
 ${OCIR_REGISTRY}/${OCIR_TENANCY_NAMESPACE}/${OCIR_REPOSITORY}:<tag>
@@ -99,9 +106,9 @@ line or in a file managed by the repository.
 
 Docker credentials are scoped to an exact registry hostname. The Frankfurt
 aliases `fra.ocir.io` and `eu-frankfurt-1.ocir.io` are both valid, but a Docker
-login to one does not authenticate the other. This workflow resolves one
-supported region-key hostname from `OCI_REGION` and uses it consistently for
-login, tagging, and push.
+login to one does not authenticate the other. This workflow dynamically resolves
+one region-key hostname from `OCI_REGION` and uses it consistently for login,
+tagging, and push.
 
 Before a remote mutation, the skill must show the exact source image, resolved
 compartment OCID, and fully qualified OCIR target. The operator first runs:
@@ -136,7 +143,7 @@ is not automated by the skill.
 
 1. `.env.example` contains exactly the documented non-secret settings, including
    `OCI_COMPARTMENT_NAME`, and no secrets; root `.env` exists and is ignored by Git.
-2. The README documents the supported OC1 region-to-region-key endpoint mapping,
+2. The README documents dynamic OC1 region-key endpoint derivation from OCI CLI,
    compartment-name resolution, OCI CLI, private repository creation,
    configuration loading, interactive auth-token handling, target image format,
    IAM prerequisite, and cleanup without exposing an actual credential.
@@ -155,7 +162,7 @@ is not automated by the skill.
 
 ## Sources
 
-Verified 2026-09-22:
+Verified 2026-09-23:
 
 * [Oracle: Pushing Images Using the Docker CLI](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypushingimagesusingthedockercli.htm)
 * [Oracle: Preparing for Container Registry](https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registryprerequisites.htm)
@@ -163,6 +170,7 @@ Verified 2026-09-22:
 * [Oracle: Creating a Repository](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
 * [Oracle: Container Registry concepts](https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registryconcepts.htm)
 * [Oracle: Installing the CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/climanualinst.htm)
+* [Oracle CLI: Listing regions and filtering with queries](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliusing.htm)
 * [Oracle CLI: List Compartments](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/iam/compartment/list.html)
 * [Oracle CLI: List Container Repositories](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/artifacts/container/repository/list.html)
 * [Oracle CLI: Create Container Repository](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/artifacts/container/repository/create.html)
@@ -226,3 +234,11 @@ explicit region-key mappings. Bash syntax checks passed for both OCIR scripts;
 the resolver returned `fra.ocir.io` for Frankfurt and `ord.ocir.io` for Chicago,
 and rejected an unsupported region with exit code 64. Chicago remote verification
 remains pending.
+
+2026-09-23: the resolver changed from a maintained two-region map to dynamic
+derivation through `oci iam region list --all`. Static Bash syntax and
+mocked-CLI behavior checks verified `eu-frankfurt-1` / `FRA` resolves to
+`fra.ocir.io`, an additional mocked region resolves from its returned key, an
+absent region exits 65, and a CLI failure exits 1. No authenticated OCI CLI
+request, Docker operation, or OCI resource mutation was performed. Remote
+verification of the dynamic resolver remains pending.

@@ -2,7 +2,7 @@
 
 Status: implemented; static and remote creation acceptance criteria passed;
 endpoint invocation intentionally not performed.
-Date: 2026-09-22.
+Date: 2026-09-23.
 
 ## Problem
 
@@ -33,8 +33,8 @@ or inbound endpoint authentication.
 
 ## Assumptions and prerequisites
 
-* The target is OC1 in one of the currently supported registry regions:
-  Frankfurt or Chicago.
+* The target is OC1. The shared resolver derives the OCIR region-key endpoint
+  from the exact `OCI_REGION` match returned by `oci iam region list`.
 * OCI CLI is installed, configured, and authorized to list and create Generative
   AI Hosted Applications and Hosted Deployments in the target compartment.
 * The platform runtime has the prerequisite dynamic-group and IAM permissions to
@@ -106,12 +106,13 @@ credentials.
 
 ## Sources
 
-Verified 2026-09-22:
+Verified 2026-09-23:
 
 * [Oracle: Creating an Application](https://docs.oracle.com/en-us/iaas/Content/generative-ai/create-application.htm)
 * [Oracle: Hosted Applications](https://docs.oracle.com/en-us/iaas/Content/generative-ai/applications.htm)
 * [Oracle: Hosted Deployments](https://docs.oracle.com/en-us/iaas/Content/generative-ai/deployments.htm)
 * [Oracle CLI: create a single Docker artifact deployment](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/generative-ai/hosted-deployment/create-hosted-deployment-single-docker-artifact.html)
+* [Oracle CLI: Listing regions and filtering with queries](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliusing.htm)
 
 The local `oci-rag-agent-blueprint` was inspected on 2026-09-22. Its deployer
 uses `NO_AUTH_CONFIG` for a no-auth Hosted Application, public endpoint mode,
@@ -134,3 +135,9 @@ deployment's active artifact was
 value at the recorded read, and no endpoint was invoked. No IAM policy, dynamic
 group, custom network, managed storage, or container environment variable was
 created or changed by this workflow.
+
+2026-09-23: the shared OCIR registry resolver was changed to derive the OC1
+region-key hostname from `oci iam region list --all`. Mocked-CLI checks verified
+the resolver for Frankfurt and an additional region, and covered an absent
+region and CLI failure. No authenticated OCI CLI call or deployment operation
+was performed; dynamic resolution has no additional remote verification.

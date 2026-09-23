@@ -30,9 +30,9 @@ token, password, private key, or container environment value to it.
    scripts/deploy_hosted_application.sh --image hello-world:0.1.0
    ```
 
-   Stop if the region is unsupported, the image is not `linux/amd64`, the named
-   compartment is ambiguous, required OCI permissions are unavailable, or a
-   same-named deployment already exists.
+   Stop if the configured OCI CLI profile cannot resolve the region, the image
+   is not `linux/amd64`, the named compartment is ambiguous, required OCI
+   permissions are unavailable, or a same-named deployment already exists.
 3. Show the resolved image URI, compartment, Hosted Application name, Hosted
    Deployment name, and planned resource creation. State that the endpoint will
    be public and have `NO_AUTH_CONFIG`.

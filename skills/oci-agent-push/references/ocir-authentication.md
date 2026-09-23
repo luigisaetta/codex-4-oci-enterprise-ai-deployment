@@ -1,11 +1,13 @@
 # OCIR authentication and target rules
 
-Reviewed 2026-09-22.
+Reviewed 2026-09-23.
 
-This skill supports the OC1 realm only. It currently resolves two OCI region
-identifiers to OCIR region-key endpoints: `eu-frankfurt-1` to `fra.ocir.io`, and
-`us-chicago-1` to `ord.ocir.io`. It stops for any other region rather than
-guessing a region key.
+This skill supports the OC1 realm only. It dynamically resolves the configured
+OCI region identifier with `oci iam region list`, selects the exact `name`,
+lowercases its `key`, and constructs `<region-key>.ocir.io` (for example,
+`eu-frankfurt-1` becomes `fra.ocir.io`). It stops if the configured CLI profile
+does not return the region or if the CLI call fails; no maintained region map is
+used.
 
 Use this image-reference format:
 
@@ -63,3 +65,4 @@ Sources:
 * [Container Registry IAM policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/registrypolicyreference.htm)
 * [Creating a Repository](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrycreatingarepository.htm)
 * [OCI CLI: Create Container Repository](https://docs.oracle.com/en-us/iaas/tools/oci-cli/latest/oci_cli_docs/cmdref/artifacts/container/repository/create.html)
+* [OCI CLI: Using queries and `oci iam region list`](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliusing.htm)

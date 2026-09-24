@@ -1,5 +1,7 @@
 # codex-4-oci-enterprise-ai-deployment
 
+![Overview of the OCI Enterprise AI agent release workflow](docs/oci-agent-skills-overview.svg)
+
 ![Code style: Black](https://img.shields.io/badge/code%20style-black-000000)
 ![Linting: Pylint](https://img.shields.io/badge/linting-pylint-blue)
 ![Python: 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)

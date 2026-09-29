@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-09-29: Fix `verify_image.sh` on Bash 3.2 so an empty manifest runtime
+  environment cannot turn a failed container start into a false PASS; earlier
+  local verifications of manifests without `runtime.env` may have reported a
+  false PASS.
+
 * 2026-09-29: **Breaking:** agent manifests must use `schema_version: 2`, whose
   build paths are relative to the manifest's folder; version 1 manifests are
   rejected. To migrate, set `schema_version: 2` and rewrite `build.context` and

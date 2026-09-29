@@ -313,6 +313,30 @@ New or updated offline tests:
 
 ## Verification record
 
+### 2026-09-29: Step 8 finding
+
+The external-repository end-to-end test found a Bash 3.2 regression in
+`verify_image.sh`: with `set -u`, expanding an empty
+`"${docker_environment_options[@]}"` failed when a schema 2 manifest had no
+`runtime.env`. The array is empty in that case. The expansion occurred inside
+`if ! docker run ...`; Bash 3.2 then exited with status 0, so the EXIT trap
+reported `result=PASS` and exited 0 even though no container or functional
+check ran. The behavior originated in commit `29d2063` (Spec 006).
+`hello_world` did not expose it because its manifest has `runtime.env`.
+
+The fix uses the Bash 3.2-safe optional-array expansion and makes cleanup
+report PASS only after the successful path has set `verification_completed=true`
+as its last statement; any otherwise-zero incomplete verification exits 12 and
+reports FAIL. `tests/test_verify_image_bash32.py` reproduces the no-runtime-env
+case offline with `/bin/bash` 3.x and a fake Docker executable.
+
+Local correction checks on 2026-09-29: `black --check .` passed with 19 files
+unchanged; `pylint scripts tests` rated 10.00/10 (it could not write its
+user-cache statistics file in the sandbox); `pytest -q` passed 76 tests,
+skipped 6, and reported one third-party deprecation warning; and
+`bash -n scripts/*.sh scripts/lib/*.sh` passed. The new regression test passed
+on the local `/bin/bash` 3.x. No OCI resources were changed.
+
 ### 2026-09-29: local implementation checks (steps 1–7)
 
 `black --check .` passed with 18 files unchanged. `pylint scripts tests` rated

@@ -57,6 +57,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/oci-agent-verify.XXXXXX")
 architecture=unknown; runtime_arch=unverified; digest=unavailable; readiness_time=unavailable
+verification_completed=false
 cleanup() {
     status=$?
     trap - EXIT INT TERM
@@ -69,7 +70,11 @@ cleanup() {
         fi
     fi
     result=FAIL
-    if [ "$status" -eq 0 ]; then result=PASS; fi
+    if [ "$verification_completed" = true ] && [ "$status" -eq 0 ]; then
+        result=PASS
+    elif [ "$status" -eq 0 ]; then
+        status=12
+    fi
     printf 'Image=%s digest=%s architecture=%s runtime_arch=%s readiness_seconds=%s result=%s\n' "$image" "$digest" "$architecture" "$runtime_arch" "$readiness_time" "$result"
     rm -rf "$work_dir"
     exit "$status"
@@ -113,7 +118,7 @@ if [ -n "$manifest" ]; then
         docker_environment_options=(--env-file "$work_dir/runtime.env")
     fi
 fi
-if ! docker run -d --platform linux/amd64 --read-only --tmpfs /tmp "${docker_environment_options[@]}" --cidfile "$work_dir/container.cid" -p "$port:8080" "$image" >"$work_dir/start.out" 2>"$work_dir/start.err"; then
+if ! docker run -d --platform linux/amd64 --read-only --tmpfs /tmp ${docker_environment_options[@]+"${docker_environment_options[@]}"} --cidfile "$work_dir/container.cid" -p "$port:8080" "$image" >"$work_dir/start.out" 2>"$work_dir/start.err"; then
     cat "$work_dir/start.err" >&2; exit 12
 fi
 base_url="http://127.0.0.1:$port"
@@ -146,3 +151,4 @@ elif [ -n "$post_path" ]; then
     cat "$work_dir/post.body"; printf '\n'
     if [ "$code" != 200 ]; then printf 'POST returned HTTP %s, expected 200.\n' "$code" >&2; exit 13; fi
 fi
+verification_completed=true

@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 name: hello-world
 
 runtime:
@@ -9,8 +9,8 @@ runtime:
       value: lsaetta
 
 build:
-  context: .
-  dockerfile: demos/hello_world/Dockerfile
+  context: ../..
+  dockerfile: Dockerfile
 publish:
   repository: agents/hello-world
 deploy:

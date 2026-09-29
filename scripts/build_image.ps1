@@ -32,9 +32,6 @@ if ($Manifest) {
   $Context = Get-ManifestField -Manifest $Manifest -Field build.context; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $Dockerfile = Get-ManifestField -Manifest $Manifest -Field build.dockerfile; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $Name = Get-ManifestField -Manifest $Manifest -Field name; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-  # Manifest paths are repository-root-relative regardless of the current directory.
-  $Context = Join-Path $repoRoot $Context
-  $Dockerfile = Join-Path $repoRoot $Dockerfile
 }
 if (-not $Context -or -not $Dockerfile -or -not $Name -or -not $Tag) { [Console]::Error.WriteLine($usage); exit 64 }
 # A SemVer core with optional Docker-compatible prerelease identifiers, no build metadata.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-23
+Date last modified: 2026-09-29
 License: MIT
 Description: Validate and expose the versioned agent deployment manifest.
 """
@@ -65,23 +65,84 @@ def require_object(value: Any, location: str) -> dict[str, Any]:
     return value
 
 
+def is_within(path: Path, root: Path) -> bool:
+    """Return whether a resolved path is inside a resolved root.
+
+    Args:
+        path: Canonical path to inspect.
+        root: Canonical allowed root.
+
+    Returns:
+        True when path is root or one of its descendants.
+    """
+    return root in (path, *path.parents)
+
+
+def find_allowed_roots(manifest_path: Path) -> list[Path]:
+    """Find canonical roots permitted for a manifest and its build inputs.
+
+    Args:
+        manifest_path: Canonical path to the manifest file.
+
+    Returns:
+        Canonical allowed root directories.
+
+    Raises:
+        ManifestError: If OCI_AGENT_ALLOWED_ROOTS contains an invalid entry.
+    """
+    configured_roots = os.environ.get("OCI_AGENT_ALLOWED_ROOTS")
+    if configured_roots is not None:
+        roots = [Path(value) for value in configured_roots.split(os.pathsep) if value]
+        if not roots or any(
+            not root.is_absolute() or not root.is_dir() for root in roots
+        ):
+            raise ManifestError(
+                "OCI_AGENT_ALLOWED_ROOTS must contain absolute existing directories."
+            )
+        return [root.resolve() for root in roots]
+
+    for parent in (manifest_path.parent, *manifest_path.parent.parents):
+        if (parent / ".git").exists():
+            return [parent]
+    return [manifest_path.parent]
+
+
 def validate_path(
-    value: Any, location: str, repository_root: Path, require_file: bool
+    value: Any,
+    location: str,
+    manifest_directory: Path,
+    allowed_roots: list[Path],
+    require_file: bool,
 ) -> str:
-    """Validate a checkout-root-relative path and confirm its expected type."""
+    """Validate a manifest-relative build path and return its canonical location.
+
+    Args:
+        value: Path value from the manifest.
+        location: Human-readable schema location.
+        manifest_directory: Canonical directory containing the manifest.
+        allowed_roots: Canonical directories that may contain the path.
+        require_file: Whether the path must identify a file instead of a directory.
+
+    Returns:
+        Absolute canonical path as a string.
+
+    Raises:
+        ManifestError: If the path is invalid, missing, or outside the allowed roots.
+    """
     if not isinstance(value, str) or not value:
         raise ManifestError(f"{location} must be a non-empty relative path.")
     candidate = Path(value)
-    if candidate.is_absolute() or ".." in candidate.parts:
-        raise ManifestError(f"{location} must stay below the repository root.")
-    resolved = (repository_root / candidate).resolve()
-    if repository_root not in (resolved, *resolved.parents):
-        raise ManifestError(f"{location} must stay below the repository root.")
+    if candidate.is_absolute():
+        raise ManifestError(f"{location} must be relative to the manifest directory.")
+    resolved = (manifest_directory / candidate).resolve()
+    if not any(is_within(resolved, root) for root in allowed_roots):
+        roots = ", ".join(str(root) for root in allowed_roots)
+        raise ManifestError(f"{location} must stay inside allowed root(s): {roots}")
     if require_file and not resolved.is_file():
         raise ManifestError(f"{location} is not a file: {value}")
     if not require_file and not resolved.is_dir():
         raise ManifestError(f"{location} is not a directory: {value}")
-    return value
+    return str(resolved)
 
 
 def validate_check(value: Any, index: int) -> dict[str, Any]:
@@ -276,7 +337,7 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
     """Load and strictly validate a manifest.
 
     Args:
-        manifest_path: Path supplied by the operator, relative to the checkout.
+        manifest_path: Absolute path or a path relative to the current directory.
 
     Returns:
         The validated manifest mapping.
@@ -284,16 +345,13 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
     Raises:
         ManifestError: If the file or its contents violate the schema.
     """
-    repository_root = Path(__file__).resolve().parent.parent
-    candidate = Path(manifest_path)
-    if candidate.is_absolute():
-        raise ManifestError("Manifest path must be relative to the repository root.")
-    resolved_manifest = (repository_root / candidate).resolve()
-    if (
-        repository_root not in (resolved_manifest, *resolved_manifest.parents)
-        or not resolved_manifest.is_file()
-    ):
+    resolved_manifest = Path(manifest_path).resolve()
+    if not resolved_manifest.is_file():
         raise ManifestError(f"Manifest file is unavailable: {manifest_path}")
+    allowed_roots = find_allowed_roots(resolved_manifest)
+    if not any(is_within(resolved_manifest, root) for root in allowed_roots):
+        roots = ", ".join(str(root) for root in allowed_roots)
+        raise ManifestError(f"Manifest must stay inside allowed root(s): {roots}")
     try:
         with resolved_manifest.open(encoding="utf-8") as manifest_file:
             loaded = yaml.safe_load(manifest_file)
@@ -305,8 +363,13 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
         {"schema_version", "name", "build", "publish", "deploy", "runtime", "verify"},
         "manifest",
     )
-    if manifest.get("schema_version") != 1:
-        raise ManifestError("manifest.schema_version must be 1.")
+    if manifest.get("schema_version") == 1:
+        raise ManifestError(
+            "manifest.schema_version 1 is unsupported: build paths are now relative "
+            "to the manifest directory; update schema_version to 2."
+        )
+    if manifest.get("schema_version") != 2:
+        raise ManifestError("manifest.schema_version must be 2.")
     if not isinstance(manifest.get("name"), str) or not NAME.fullmatch(
         manifest["name"]
     ):
@@ -314,10 +377,18 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
     build = require_object(manifest.get("build"), "manifest.build")
     fail_unknown_keys(build, {"context", "dockerfile"}, "manifest.build")
     build["context"] = validate_path(
-        build.get("context"), "manifest.build.context", repository_root, False
+        build.get("context"),
+        "manifest.build.context",
+        resolved_manifest.parent,
+        allowed_roots,
+        False,
     )
     build["dockerfile"] = validate_path(
-        build.get("dockerfile"), "manifest.build.dockerfile", repository_root, True
+        build.get("dockerfile"),
+        "manifest.build.dockerfile",
+        resolved_manifest.parent,
+        allowed_roots,
+        True,
     )
     publish = require_object(manifest.get("publish"), "manifest.publish")
     fail_unknown_keys(publish, {"repository"}, "manifest.publish")

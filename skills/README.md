@@ -46,6 +46,8 @@ directory containing `SKILL.md`.
 
 Repository-scope discovery remains available. User-scope discovery from another
 repository is pending step 8 verification in [Spec 008](../specs/008-user-scope-skills.md).
+Every skill can be selected from a natural request. Push and deploy still ask
+for approval before each remote change.
 
 ## Install at user scope
 

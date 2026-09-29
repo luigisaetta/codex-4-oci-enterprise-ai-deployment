@@ -41,10 +41,10 @@ describes each step in detail.
 | [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan or create a Hosted Application deployment. | Creates OCI resources only with your approval. |
 | [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Check a deployed release's OCI state, health, and readiness. | Read-only OCI calls and approved public GET requests. |
 
-Push and deploy run only when you call them by name (`$oci-agent-push`,
-`$oci-agent-deploy`). The [skill catalog](skills/README.md) has the discovery
-and installation details; each `SKILL.md` is the authoritative instruction for
-its operation.
+Every skill can be selected from a natural request. Push and deploy still ask
+for approval before each remote change. The [skill catalog](skills/README.md)
+has the discovery and installation details; each `SKILL.md` is the authoritative
+instruction for its operation.
 
 ## Setup
 
@@ -98,8 +98,9 @@ Alternatively, skip this step and open this repository in Codex: its
 ## Using the skills
 
 * Open the agent's repository in Codex.
-* Select a skill in the interface, or call it by name: `$oci-agent-build`,
-  `$oci-agent-push`, `$oci-agent-deploy`, `$oci-agent-verify-deployment`.
+* Select a skill in the interface, call it by name, or describe the requested
+  release naturally. Push and deploy still ask for approval before each remote
+  change.
 * Give the manifest path and the tag in your request, for example:
   `$oci-agent-build ./agent.yaml tag: 0.4.0`.
 

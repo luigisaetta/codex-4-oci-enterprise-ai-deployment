@@ -3,4 +3,4 @@ interface:
   short_description: "Plan and deploy a Hosted Applications release"
   default_prompt: "Use $oci-agent-deploy to plan a managed-network Hosted Application deployment."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

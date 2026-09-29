@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-09-29: Allow all OCI Hosted Applications lifecycle skills to be selected
+  from natural requests, add a target-platform check that distinguishes AI DP
+  code-first agents, and retain explicit authorization before every push or
+  deployment mutation.
+
 * 2026-09-29: Fix `verify_image.sh` on Bash 3.2 so an empty manifest runtime
   environment cannot turn a failed container start into a false PASS; earlier
   local verifications of manifests without `runtime.env` may have reported a

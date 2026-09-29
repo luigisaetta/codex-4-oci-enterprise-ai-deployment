@@ -56,6 +56,17 @@ in use, never the operating system, and do not mix the two families in one
 release. Rule and mapping table:
 [Choosing Bash or PowerShell](../README.md#choosing-bash-or-powershell).
 
+## Target platform check
+
+These skills release container images to OCI Generative AI Hosted Applications.
+Before any command, check the current repository: an `agent.yaml` with
+`schema_version` and a `Dockerfile` indicate Hosted Applications; an entry file
+whose class has a synchronous `setup()` and an async `invoke()`, without
+`agent.yaml`, indicates an OCI AI Data Platform (AI DP) code-first agent. If the
+signals indicate AI DP, stop and tell the user to use the `aidp-agent-deploy`
+skill instead. If the signals are mixed or absent, ask the user which platform
+they mean. Never switch platform silently.
+
 ## Workflow
 
 1. Require an agent manifest named in the current request. If it is absent, ask

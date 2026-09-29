@@ -123,9 +123,18 @@ def test_skill_content_uses_user_scope_instructions() -> None:
                     )
 
 
-def test_mutating_skills_disable_implicit_invocation() -> None:
-    """Push and deploy require explicit invocation because they can mutate OCI."""
+def test_mutating_skills_require_explicit_authorization() -> None:
+    """Push and deploy require explicit authorization before OCI mutations."""
     for name in ("oci-agent-push", "oci-agent-deploy"):
-        config = SKILLS / name / "agents/openai.yaml"
-        policy = yaml.safe_load(config.read_text(encoding="utf-8"))["policy"]
-        assert policy["allow_implicit_invocation"] is False
+        content = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
+        workflow = content.split("## Workflow", maxsplit=1)[1].lower()
+        assert "explicit" in workflow
+        assert "authorization" in workflow
+
+
+def test_skills_include_target_platform_check() -> None:
+    """Every lifecycle skill distinguishes Hosted Applications from AI DP."""
+    for directory in skill_directories():
+        content = (directory / "SKILL.md").read_text(encoding="utf-8")
+        assert "## Target platform check" in content
+        assert "aidp-agent-deploy" in content

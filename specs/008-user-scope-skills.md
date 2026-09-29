@@ -230,8 +230,17 @@ Every `SKILL.md` is updated as follows:
   AI Hosted Applications", so that they are clearly distinct from the
   `aidp-*` skills (OCI AI Data Platform code-first agents) installed in the
   same user scope.
-* **Implicit invocation.** `allow_implicit_invocation` is `false` for
-  `oci-agent-push` and `oci-agent-deploy`, and `true` for build and verify.
+* **Implicit invocation and platform check.**
+  `allow_implicit_invocation` is `true` for all four skills. Every skill has a
+  target platform check before its workflow: an `agent.yaml` with
+  `schema_version` and a `Dockerfile` indicates Hosted Applications; an entry
+  file whose class has synchronous `setup()` and async `invoke()`, without
+  `agent.yaml`, indicates an AI DP code-first agent. AI DP signals stop the
+  workflow and direct the user to `aidp-agent-deploy`; mixed or absent signals
+  require clarification, and the skill never switches platform silently. The
+  deploy-capable skills must be discoverable from natural requests so Codex can
+  select the correct platform. Safety comes from the explicit authorization
+  required before every remote mutation, not from preventing skill selection.
 
 ### 8. Tests
 
@@ -347,6 +356,23 @@ user-cache statistics file in the sandbox); `pytest -q` passed 76 tests,
 skipped 6, and reported one third-party deprecation warning; and
 `bash -n scripts/*.sh scripts/lib/*.sh` passed. The new regression test passed
 on the local `/bin/bash` 3.x. No OCI resources were changed.
+
+### 2026-09-29: Step 8 finding 2
+
+The external-repository end-to-end test used the generic request, “Rilascia una
+nuova versione di questo agent su OCI Hosted Deployment, la 0.1.1”. Codex
+selected `aidp-agent-deploy` (OCI AI Data Platform) instead of the
+`oci-agent-*` Hosted Applications skills. The cause was
+`allow_implicit_invocation: false` on `oci-agent-push` and `oci-agent-deploy`:
+they were unavailable for implicit selection, leaving the AI DP deploy skill as
+the deploy-capable choice.
+
+The fix sets implicit invocation to `true` for all four Hosted Applications
+skills and adds the same target platform check before every workflow. It directs
+AI DP repositories to `aidp-agent-deploy`, asks the user to clarify mixed or
+absent signals, and never switches platform silently. Push and deploy retain
+their explicit authorization requirement before every remote mutation. The
+external-repository re-test is pending.
 
 ### 2026-09-29: local implementation checks (steps 1–7)
 

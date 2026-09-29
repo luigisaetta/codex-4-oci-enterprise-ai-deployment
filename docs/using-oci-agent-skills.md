@@ -7,6 +7,9 @@ an OCI Generative AI Hosted Application. It explains when to invoke each of the
 four Codex skills, which inputs to give them, and where an explicit approval is
 required.
 
+Every skill can be selected from a natural request. Push and deploy still ask
+for approval before each remote change.
+
 The skills are sequential:
 
 ```text

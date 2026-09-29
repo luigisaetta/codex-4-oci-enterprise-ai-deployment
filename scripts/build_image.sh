@@ -14,6 +14,8 @@ usage() {
     printf '   or: %s --context DIR --dockerfile PATH --name NAME --tag VERSION [--builder NAME] [--no-cache]\n' "$0"
 }
 context=''; dockerfile=''; image_name=''; tag=''; builder=''; manifest=''; no_cache=false
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+. "$script_dir/lib/tool_env.sh"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --context|--dockerfile|--name|--tag|--builder|--manifest)
@@ -28,17 +30,14 @@ while [ "$#" -gt 0 ]; do
         *) usage >&2; exit 64 ;;
     esac
 done
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+resolve_python
 if [ -n "$manifest" ]; then
     if [ -n "$context" ] || [ -n "$dockerfile" ] || [ -n "$image_name" ]; then
         printf '%s\n' '--manifest cannot be combined with --context, --dockerfile, or --name.' >&2; exit 64
     fi
-    if ! command -v python >/dev/null 2>&1; then
-        printf '%s\n' 'Python is required to read the agent manifest.' >&2; exit 1
-    fi
-    context=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.context)
-    dockerfile=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.dockerfile)
-    image_name=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
+    context=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.context)
+    dockerfile=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" get --manifest "$manifest" --field build.dockerfile)
+    image_name=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
 fi
 if [ -z "$context" ] || [ -z "$dockerfile" ] || [ -z "$image_name" ] || [ -z "$tag" ]; then
     usage >&2; exit 64

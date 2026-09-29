@@ -16,6 +16,8 @@ readonly WAIT_SECONDS=1200
 apply_changes=false
 manifest=""
 tag=""
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "$script_directory/lib/tool_env.sh"
 
 usage() { printf 'Usage: %s [--plan|--apply] --manifest PATH --tag MAJOR.MINOR.PATCH\n' "$0"; }
 
@@ -26,7 +28,7 @@ require_environment_variable() {
 
 extract_expected_ocid() {
   local expected_prefix="$1"
-  python -c '
+  "$OCI_AGENT_PYTHON" -c '
 import json
 import sys
 prefix = sys.argv[1]
@@ -57,19 +59,20 @@ while [[ $# -gt 0 ]]; do
     *) usage >&2; exit "$EXIT_INVALID_INPUT" ;;
   esac
 done
+resolve_python
+load_tenancy_settings OCI_REGION OCI_COMPARTMENT_NAME OCIR_TENANCY_NAMESPACE
 if [[ -z "$manifest" || -z "$tag" ]]; then usage >&2; exit "$EXIT_INVALID_INPUT"; fi
-for required_tool in oci python; do
+for required_tool in oci; do
   if ! command -v "$required_tool" >/dev/null 2>&1; then printf 'Missing required tool: %s\n' "$required_tool" >&2; exit 1; fi
 done
 for setting_name in OCI_REGION OCI_COMPARTMENT_NAME OCIR_TENANCY_NAMESPACE; do require_environment_variable "$setting_name"; done
 
-script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-repository="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field publish.repository)"
-application_name="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.application_name)"
-profile="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.profile)"
-deployment_name="$(python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag")"
-environment_variables_json="$(python "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format oci-json)"
-environment_report="$(python "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format report)"
+repository="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get --manifest "$manifest" --field publish.repository)"
+application_name="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.application_name)"
+profile="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get --manifest "$manifest" --field deploy.profile)"
+deployment_name="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag")"
+environment_variables_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format oci-json)"
+environment_report="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" runtime-env --manifest "$manifest" --format report)"
 ocir_registry="$("$script_directory/resolve_ocir_registry.sh")"
 active_compartment_query='data[?"lifecycle-state"==`ACTIVE`]'
 compartment_count="$(oci --region "$OCI_REGION" iam compartment list --name "$OCI_COMPARTMENT_NAME" --compartment-id-in-subtree true --all --query "length(${active_compartment_query})" --raw-output)"
@@ -85,7 +88,7 @@ if [[ "$application_count" == '1' ]]; then
   application_state="$(oci --region "$OCI_REGION" generative-ai hosted-application get --hosted-application-id "$application_id" --query 'data."lifecycle-state"' --raw-output)"
   if [[ "$application_state" != 'ACTIVE' ]]; then printf 'Existing Hosted Application must be ACTIVE to reuse; observed: %s.\n' "$application_state" >&2; exit "$EXIT_EXISTING_RESOURCE"; fi
   application_json="$(oci --region "$OCI_REGION" --output json generative-ai hosted-application get --hosted-application-id "$application_id")"
-  if ! printf '%s' "$application_json" | python "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
+  if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
     printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest; update is not implemented.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi

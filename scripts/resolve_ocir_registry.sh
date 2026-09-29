@@ -12,12 +12,16 @@ set -euo pipefail
 
 readonly EXIT_INVALID_INPUT=64
 readonly EXIT_REGION_NOT_FOUND=65
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "$script_directory/lib/tool_env.sh"
 
 if [[ $# -ne 0 ]]; then
   printf 'Usage: %s\n' "$0" >&2
   exit "$EXIT_INVALID_INPUT"
 fi
 
+resolve_python
+load_tenancy_settings OCI_REGION
 if [[ -z "${OCI_REGION:-}" ]]; then
   printf '%s\n' 'Missing required environment variable: OCI_REGION' >&2
   exit "$EXIT_INVALID_INPUT"

@@ -17,6 +17,8 @@ readonly EXIT_INVALID_INPUT=64
 
 create_repository=false
 repository_name=""
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "$script_directory/lib/tool_env.sh"
 
 usage() {
   printf 'Usage: %s --repository NAME [--create]\n' "$0"
@@ -58,6 +60,8 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+resolve_python
+load_tenancy_settings OCI_REGION OCI_COMPARTMENT_NAME
 if ! command -v oci >/dev/null 2>&1; then
   printf '%s\n' 'OCI CLI is not available in PATH. Activate the project Conda environment first.' >&2
   exit 1

@@ -27,6 +27,7 @@ functional=false
 timeout_seconds=300
 poll_seconds=5
 script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "$script_directory/lib/tool_env.sh"
 
 usage() {
   printf 'Usage: %s --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]\n' "$0"
@@ -116,12 +117,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+resolve_python
+load_tenancy_settings OCI_REGION
 if [[ -n "$manifest" ]]; then
-  if ! command -v python >/dev/null 2>&1; then
-    printf '%s\n' 'Python is required to read the agent manifest.' >&2
-    exit 1
-  fi
-  python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$expected_tag" >/dev/null
+  "$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$expected_tag" >/dev/null
 elif [[ "$functional" == true ]]; then
   printf '%s\n' '--functional requires --manifest.' >&2
   exit "$EXIT_INVALID_INPUT"
@@ -212,8 +211,8 @@ while :; do
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
     if [[ "$functional" == true ]]; then
-      python "$script_directory/agent_manifest.py" checks --manifest "$manifest" | \
-        python "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
+      checks_json=$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" checks --manifest "$manifest")
+      printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
     fi
     report PASS "$elapsed_seconds"
     exit 0

@@ -14,6 +14,8 @@ usage() {
     printf '   or: %s --image NAME:TAG [--port 8080] [--timeout-seconds 90] [--post-path /PATH --post-body JSON]\n' "$0"
 }
 image=''; port=8080; timeout_seconds=90; post_path=''; post_body=''; manifest=''; tag=''; body_given=false
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+. "$script_dir/lib/tool_env.sh"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --image|--port|--timeout-seconds|--post-path|--post-body|--manifest|--tag)
@@ -28,14 +30,13 @@ while [ "$#" -gt 0 ]; do
         *) usage >&2; exit 64 ;;
     esac
 done
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+resolve_python
 if [ -n "$manifest" ]; then
     if [ -n "$image" ] || [ -n "$post_path" ] || [ "$body_given" = true ] || [ -z "$tag" ]; then
         printf '%s\n' '--manifest requires --tag and cannot be combined with --image or legacy POST options.' >&2; exit 64
     fi
-    if ! command -v python >/dev/null 2>&1; then printf '%s\n' 'Python is required to read the agent manifest.' >&2; exit 1; fi
-    image_name=$(python "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
-    python "$script_dir/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag" >/dev/null
+    image_name=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" get --manifest "$manifest" --field name)
+    "$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag" >/dev/null
     image="${image_name}:${tag}"
 elif [ -n "$tag" ]; then
     printf '%s\n' '--tag requires --manifest.' >&2; exit 64
@@ -47,7 +48,7 @@ if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]] || [ "${#timeout_seconds}" -gt 7 
 if { [ -n "$post_path" ] && { [[ "$post_path" != /* ]] || [ "$body_given" = false ]; }; } || { [ -z "$post_path" ] && [ "$body_given" = true ]; }; then
     printf 'Supply --post-path /PATH and --post-body JSON together.\n' >&2; exit 64
 fi
-for tool in docker curl python; do
+for tool in docker curl; do
     if ! command -v "$tool" >/dev/null 2>&1; then printf 'Missing tool: %s\n' "$tool" >&2; exit 1; fi
 done
 if ! docker info >/dev/null 2>&1; then
@@ -102,11 +103,11 @@ fi
 started=$SECONDS
 docker_environment_options=()
 if [ -n "$manifest" ]; then
-    runtime_env_json=$(python "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-json)
-    runtime_env_report=$(python "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-report)
+    runtime_env_json=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-json)
+    runtime_env_report=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" runtime-env --manifest "$manifest" --format local-report)
     if [ -n "$runtime_env_report" ]; then printf '%s\n' "$runtime_env_report"; fi
     if [ "$runtime_env_json" != '[]' ]; then
-        if ! printf '%s' "$runtime_env_json" | python -c 'import json, sys; [print("{}={}".format(item["name"], item["value"])) for item in json.load(sys.stdin)]' >"$work_dir/runtime.env"; then
+        if ! printf '%s' "$runtime_env_json" | "$OCI_AGENT_PYTHON" -c 'import json, sys; [print("{}={}".format(item["name"], item["value"])) for item in json.load(sys.stdin)]' >"$work_dir/runtime.env"; then
             printf '%s\n' 'Could not prepare local runtime environment.' >&2; exit 64
         fi
         docker_environment_options=(--env-file "$work_dir/runtime.env")
@@ -135,8 +136,8 @@ while :; do
     sleep 1
 done
 if [ -n "$manifest" ]; then
-    python "$script_dir/agent_manifest.py" checks --manifest "$manifest" | \
-        python "$script_dir/run_manifest_checks.py" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
+    checks_json=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" checks --manifest "$manifest")
+    printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" "$script_dir/run_manifest_checks.py" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
 elif [ -n "$post_path" ]; then
     if ! code=$(curl --silent --show-error --noproxy '*' --connect-timeout "$timeout_seconds" --max-time "$timeout_seconds" --output "$work_dir/post.body" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data-raw "$post_body" "$base_url$post_path"); then
         if [ -f "$work_dir/post.body" ]; then cat "$work_dir/post.body"; fi

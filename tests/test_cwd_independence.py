@@ -14,12 +14,22 @@ from pathlib import Path
 import pytest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+TENANCY_KEYS = (
+    "OCI_REGION",
+    "OCI_COMPARTMENT_NAME",
+    "OCIR_TENANCY_NAMESPACE",
+    "OCIR_USERNAME",
+)
 
 
 @pytest.fixture(autouse=True)
 def clear_allowed_roots_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Prevent the operator's allowed-root configuration from affecting tests."""
+    """Prevent operator configuration from affecting working-directory tests."""
+    monkeypatch.delenv("OCI_AGENT_ENV_FILE", raising=False)
+    monkeypatch.delenv("OCI_AGENT_PYTHON", raising=False)
     monkeypatch.delenv("OCI_AGENT_ALLOWED_ROOTS", raising=False)
+    for key in TENANCY_KEYS:
+        monkeypatch.delenv(key, raising=False)
 
 
 def write_manifest(directory: Path) -> Path:
@@ -127,3 +137,65 @@ def test_build_image_reads_an_absolute_manifest_before_rejecting_tag(
     )
 
     assert result.returncode == 3
+
+
+def test_tool_environment_library_loads_literal_configuration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The Bash library exports file-backed values without evaluating them."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash is unavailable, so the Bash configuration test cannot run.")
+    injected = tmp_path / "INJECTED"
+    configuration = tmp_path / "tenancy.env"
+    configuration.write_text(f"OCI_REGION=$(touch {injected})\n", encoding="utf-8")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+    monkeypatch.setenv("OCI_AGENT_PYTHON", sys.executable)
+    result = subprocess.run(
+        [
+            bash,
+            "-c",
+            'source "$1"; resolve_python; load_tenancy_settings OCI_REGION; '
+            'printf "%s" "$OCI_REGION"',
+            "bash",
+            str(SCRIPTS / "lib/tool_env.sh"),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == f"$(touch {injected})"
+    assert not injected.exists()
+
+
+def test_build_image_rejects_an_interpreter_without_pyyaml(tmp_path: Path) -> None:
+    """The build script gives the Conda hint before reading a manifest."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash is unavailable, so the Bash interpreter test cannot run.")
+    manifest = write_manifest(tmp_path / "agent")
+    working_directory = tmp_path / "outside-tool-home"
+    working_directory.mkdir()
+    environment = os.environ.copy()
+    environment["OCI_AGENT_PYTHON"] = "/usr/bin/false"
+    result = subprocess.run(
+        [
+            bash,
+            str(SCRIPTS / "build_image.sh"),
+            "--manifest",
+            str(manifest),
+            "--tag",
+            "1.0.0",
+        ],
+        cwd=working_directory,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 1
+    assert "codex-4-oci-enterprise-ai-deployment" in result.stderr

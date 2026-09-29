@@ -14,6 +14,8 @@ readonly EXIT_INVALID_INPUT=64
 push_image=false
 manifest=""
 tag=""
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+. "$script_directory/lib/tool_env.sh"
 
 usage() {
   printf 'Usage: %s [--plan|--push] --manifest PATH --tag MAJOR.MINOR.PATCH\n' "$0"
@@ -43,16 +45,17 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+resolve_python
+load_tenancy_settings OCI_REGION OCIR_TENANCY_NAMESPACE OCIR_USERNAME
 if [[ -z "$manifest" || -z "$tag" ]]; then usage >&2; exit "$EXIT_INVALID_INPUT"; fi
-for required_tool in docker oci python; do
+for required_tool in docker oci; do
   if ! command -v "$required_tool" >/dev/null 2>&1; then printf 'Missing required tool: %s\n' "$required_tool" >&2; exit 1; fi
 done
 for setting_name in OCI_REGION OCIR_TENANCY_NAMESPACE OCIR_USERNAME; do require_environment_variable "$setting_name"; done
 
-script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-image_name="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field name)"
-repository="$(python "$script_directory/agent_manifest.py" get --manifest "$manifest" --field publish.repository)"
-python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag" >/dev/null
+image_name="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get --manifest "$manifest" --field name)"
+repository="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get --manifest "$manifest" --field publish.repository)"
+"$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$tag" >/dev/null
 source_image="${image_name}:${tag}"
 if ! image_platform="$(docker image inspect "$source_image" --format '{{.Os}}/{{.Architecture}}')"; then
   printf 'Local image is unavailable: %s\n' "$source_image" >&2; exit 10

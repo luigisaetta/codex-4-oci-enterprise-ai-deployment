@@ -96,7 +96,13 @@ def main() -> int:
         print("Invalid checks JSON: expected a list.", file=sys.stderr)
         return 64
     try:
-        for check in checks:
+        for index, check in enumerate(checks):
+            if not isinstance(check, dict):
+                print(
+                    f"Invalid checks JSON: item {index} must be an object.",
+                    file=sys.stderr,
+                )
+                return 64
             execute_check(args.base_url, check, args.timeout_seconds)
     except RuntimeError as error:
         print(f"Functional check failed: {error}", file=sys.stderr)

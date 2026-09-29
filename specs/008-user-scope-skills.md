@@ -1,6 +1,6 @@
 # Spec 008: User-scope skills usable from any agent repository
 
-Status: draft; not implemented.
+Status: implemented through step 7; end-to-end verification (step 8) pending.
 Date: 2026-09-29.
 
 ## Problem
@@ -313,4 +313,18 @@ New or updated offline tests:
 
 ## Verification record
 
-Pending.
+### 2026-09-29: local implementation checks (steps 1–7)
+
+`black --check .` passed with 18 files unchanged. `pylint scripts tests` rated
+the code 10.00/10. `pytest -q` passed 75 tests, skipped 6, and reported one
+third-party deprecation warning.
+
+#### PowerShell: not executed on this machine
+
+`pwsh` is unavailable. A PowerShell tester must first verify that
+`install_skills.ps1` reports `unchanged` on reinstall and `removed` on uninstall;
+test the junction fallback on Windows without Developer Mode; verify that
+`Resolve-RealPath` resolves only the last path element; and verify that
+privilege-error detection matches the English word `privilege`. The five skipped
+tests in `tests/test_powershell_tool_env.py` and the one skipped test in
+`tests/test_install_skills.py` remain to be run.

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-09-29: Add user-scope skill installation and support for skills used
+  from any agent repository; introduce manifest schema version 2, tenancy-file
+  and interpreter selection, split tool and demo dependencies, and return exit
+  code 64 for manifest errors during functional checks.
+
 * 2026-09-24: Add an SVG overview and JPEG rendition of the four-skill OCI
   Enterprise AI agent release workflow to the project README.
 

@@ -5,6 +5,10 @@ manifest-based scripts pending.
 Date: 2026-09-23.
 Supersedes the draft submitted as pull request #1; delivered by pull request #3.
 
+> Superseded implementation note (2026-09-29): Spec 008 removes PowerShell
+> repository-root path joining and uses `scripts/lib/ToolEnvironment.psm1` for
+> interpreter selection and tenancy loading.
+
 ## Problem
 
 The repository's operational interfaces are Bash scripts. They run on macOS

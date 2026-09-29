@@ -4,6 +4,9 @@ Status: implemented; local validation passed; live OCI workflow observed for
 `hello_world:0.2.2`.
 Date: 2026-09-23.
 
+> Superseded configuration note (2026-09-29): Spec 008 supersedes these path
+> rules and schema version. Exporting `.env` is replaced by the tenancy-file loader.
+
 ## Problem
 
 The previous workflow mixed tenancy-wide values, agent identity, and release

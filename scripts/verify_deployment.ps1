@@ -9,7 +9,7 @@ param(
   [int]$PollSeconds = 5,
   [switch]$Help
 )
-$usage = 'Usage: .\scripts\verify_deployment.ps1 -ApplicationId OCID -Manifest PATH -Tag MAJOR.MINOR.PATCH [-Functional] [-TimeoutSeconds 300] [-PollSeconds 5]'
+$usage = "Usage: $PSCommandPath -ApplicationId OCID -Manifest PATH -Tag MAJOR.MINOR.PATCH [-Functional] [-TimeoutSeconds 300] [-PollSeconds 5]"
 if ($Help) { Write-Output $usage; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -22,14 +22,17 @@ function Invoke-Oci([string[]]$Arguments) {
 }
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
 
 if ($Manifest) {
-  if (-not (Test-PythonAvailable)) { Fail 1 'Python is required to read the agent manifest.' }
   if (-not $Tag) { [Console]::Error.WriteLine($usage); exit 64 }
   Get-ManifestDeploymentName -Manifest $Manifest -Tag $Tag | Out-Null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } elseif ($Functional) {
   Fail 64 '-Functional requires -Manifest.'
 }
+$settingsResult = Import-TenancySettings -Keys @('OCI_REGION')
+if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not $ApplicationId -or $ApplicationId -notmatch '^ocid1\.generativeaihostedapplication\.oc1\.') { Fail 64 'Application ID must be an OC1 Hosted Application OCID.' }
 if (-not $Tag -or $Tag -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$') { Fail 64 "Expected tag must be semantic (MAJOR.MINOR.PATCH): $Tag" }
 if ($TimeoutSeconds -lt 1) { Fail 64 "-TimeoutSeconds must be a positive integer: $TimeoutSeconds" }

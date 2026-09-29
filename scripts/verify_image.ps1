@@ -12,10 +12,8 @@ param(
   [string]$ContainerEngine = 'Auto',
   [switch]$Help
 )
-$usage = @'
-Usage: .\scripts\verify_image.ps1 -Manifest PATH -Tag VERSION [-Port 8080] [-TimeoutSeconds 90] [-ContainerEngine Auto|Docker|Podman]
-   or: .\scripts\verify_image.ps1 -Image NAME:TAG [-Port 8080] [-TimeoutSeconds 90] [-PostPath /PATH -PostBody JSON] [-ContainerEngine Auto|Docker|Podman]
-'@
+$usage = "Usage: $PSCommandPath -Manifest PATH -Tag VERSION [-Port 8080] [-TimeoutSeconds 90] [-ContainerEngine Auto|Docker|Podman]`n" +
+  "   or: $PSCommandPath -Image NAME:TAG [-Port 8080] [-TimeoutSeconds 90] [-PostPath /PATH -PostBody JSON] [-ContainerEngine Auto|Docker|Podman]"
 if ($Help) { Write-Output $usage; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -24,11 +22,12 @@ function Fail([int]$Code, [string]$Message) { [Console]::Error.WriteLine($Messag
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/ContainerEngine.psm1') -Force
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
 
 $bodyGiven = $PSBoundParameters.ContainsKey('PostBody')
 if ($Manifest) {
   if ($Image -or $PostPath -or $bodyGiven -or -not $Tag) { Fail 64 '-Manifest requires -Tag and cannot be combined with -Image or legacy POST options.' }
-  if (-not (Test-PythonAvailable)) { Fail 1 'Python is required to read the agent manifest.' }
   $imageName = Get-ManifestField -Manifest $Manifest -Field name; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   Get-ManifestDeploymentName -Manifest $Manifest -Tag $Tag | Out-Null; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $Image = "${imageName}:$Tag"

@@ -3,11 +3,15 @@
 param(
   [switch]$Help
 )
-if ($Help) { Write-Output 'Usage: .\scripts\resolve_ocir_registry.ps1'; exit 0 }
+if ($Help) { Write-Output "Usage: $PSCommandPath"; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { [Console]::Error.WriteLine("PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion). Open PowerShell 7 (pwsh), then run this command again."); exit 64 }
 function Fail([int]$Code, [string]$Message) { [Console]::Error.WriteLine($Message); exit $Code }
+Import-Module (Join-Path $PSScriptRoot 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
+$settingsResult = Import-TenancySettings -Keys @('OCI_REGION')
+if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not $env:OCI_REGION) { Fail 64 'Missing required environment variable: OCI_REGION' }
 if ($env:OCI_REGION -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') { Fail 64 "Invalid OCI_REGION value: $($env:OCI_REGION)" }
 if (-not (Get-Command oci -ErrorAction SilentlyContinue)) { Fail 1 'OCI CLI is not available in PATH. Activate the project Conda environment first.' }

@@ -9,17 +9,13 @@ function Get-AgentManifestScript {
     Join-Path (Split-Path -Parent $PSScriptRoot) 'agent_manifest.py'
 }
 
-function Test-PythonAvailable {
-    [bool](Get-Command python -ErrorAction SilentlyContinue)
-}
-
 function Invoke-AgentManifestCommand {
     param(
         [Parameter(Mandatory)]
         [string[]]$Arguments
     )
 
-    $output = & python (Get-AgentManifestScript) @Arguments
+    $output = & $env:OCI_AGENT_PYTHON (Get-AgentManifestScript) @Arguments
     if ($LASTEXITCODE -ne 0) {
         return $null
     }
@@ -57,7 +53,7 @@ function Test-ManifestRuntimeMatches {
         [Parameter(Mandatory)] [string]$Manifest,
         [Parameter(Mandatory)] [string]$ApplicationJson
     )
-    $ApplicationJson | & python (Get-AgentManifestScript) runtime-matches --manifest $Manifest | Out-Null
+    $ApplicationJson | & $env:OCI_AGENT_PYTHON (Get-AgentManifestScript) runtime-matches --manifest $Manifest | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
 
@@ -73,7 +69,7 @@ function Invoke-ManifestChecks {
         return
     }
     $checksScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'run_manifest_checks.py'
-    $checks | & python $checksScript --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
+    $checks | & $env:OCI_AGENT_PYTHON $checksScript --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
 }
 
-Export-ModuleMember -Function Test-PythonAvailable, Get-ManifestField, Get-ManifestDeploymentName, Get-ManifestRuntimeEnvironment, Test-ManifestRuntimeMatches, Invoke-ManifestChecks
+Export-ModuleMember -Function Get-ManifestField, Get-ManifestDeploymentName, Get-ManifestRuntimeEnvironment, Test-ManifestRuntimeMatches, Invoke-ManifestChecks

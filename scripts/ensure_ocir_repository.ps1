@@ -5,7 +5,7 @@ param(
   [switch]$Create,
   [switch]$Help
 )
-$usage = 'Usage: .\scripts\ensure_ocir_repository.ps1 -Repository NAME [-Create]'
+$usage = "Usage: $PSCommandPath -Repository NAME [-Create]"
 if ($Help) { Write-Output $usage; Write-Output 'Check an OCIR repository; -Create creates it if it is absent.'; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -16,9 +16,13 @@ function Invoke-Oci([string[]]$Arguments) {
   if ($LASTEXITCODE -ne 0) { Fail 1 "OCI CLI command failed (exit $LASTEXITCODE): oci $($Arguments -join ' ')" }
   return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
 }
+if (-not $Repository -or $Repository -notmatch '^[a-z0-9][a-z0-9._/-]*$' -or $Repository.Contains('//')) { Fail 64 'Provide a valid OCIR repository with -Repository.' }
+Import-Module (Join-Path $PSScriptRoot 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
+$settingsResult = Import-TenancySettings -Keys @('OCI_REGION', 'OCI_COMPARTMENT_NAME')
+if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not (Get-Command oci -ErrorAction SilentlyContinue)) { Fail 1 'OCI CLI is not available in PATH. Activate the project Conda environment first.' }
 foreach ($name in 'OCI_REGION', 'OCI_COMPARTMENT_NAME') { if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue).Value) { Fail 64 "Missing required environment variable: $name" } }
-if (-not $Repository -or $Repository -notmatch '^[a-z0-9][a-z0-9._/-]*$' -or $Repository.Contains('//')) { Fail 64 'Provide a valid OCIR repository with -Repository.' }
 
 $region = $env:OCI_REGION
 $active = 'data[?"lifecycle-state"==`ACTIVE`]'

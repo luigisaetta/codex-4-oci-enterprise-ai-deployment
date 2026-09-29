@@ -7,7 +7,7 @@ param(
   [switch]$Apply,
   [switch]$Help
 )
-$usage = 'Usage: .\scripts\deploy_hosted_application.ps1 [-Plan|-Apply] -Manifest PATH -Tag MAJOR.MINOR.PATCH'
+$usage = "Usage: $PSCommandPath [-Plan|-Apply] -Manifest PATH -Tag MAJOR.MINOR.PATCH"
 if ($Help) { Write-Output $usage; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
@@ -25,10 +25,14 @@ function Get-SingleOcid([string]$Json, [string]$Prefix) {
 }
 if ($Plan -and $Apply) { Fail 64 'Choose -Plan or -Apply, not both.' }
 if (-not $Manifest -or -not $Tag) { [Console]::Error.WriteLine($usage); exit 64 }
-foreach ($tool in 'oci', 'python') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Fail 1 "Missing required tool: $tool" } }
-foreach ($name in 'OCI_REGION', 'OCI_COMPARTMENT_NAME', 'OCIR_TENANCY_NAMESPACE') { if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue).Value) { Fail 64 "Missing required environment variable: $name" } }
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
+$settingsResult = Import-TenancySettings -Keys @('OCI_REGION', 'OCI_COMPARTMENT_NAME', 'OCIR_TENANCY_NAMESPACE')
+if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
+foreach ($tool in 'oci') { if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Fail 1 "Missing required tool: $tool" } }
+foreach ($name in 'OCI_REGION', 'OCI_COMPARTMENT_NAME', 'OCIR_TENANCY_NAMESPACE') { if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue).Value) { Fail 64 "Missing required environment variable: $name" } }
 
 $repository = Get-ManifestField -Manifest $Manifest -Field publish.repository; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $applicationName = Get-ManifestField -Manifest $Manifest -Field deploy.application_name; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

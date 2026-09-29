@@ -13,7 +13,7 @@ param(
   [string]$ContainerEngine = 'Auto',
   [switch]$Help
 )
-if ($Help) { Write-Output 'Usage: .\scripts\check_build_env.ps1 [-Builder NAME] [-ContainerEngine Auto|Docker|Podman]'; exit 0 }
+if ($Help) { Write-Output "Usage: $PSCommandPath [-Builder NAME] [-ContainerEngine Auto|Docker|Podman]"; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { [Console]::Error.WriteLine("PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion). Open PowerShell 7 (pwsh), then run this command again."); exit 64 }

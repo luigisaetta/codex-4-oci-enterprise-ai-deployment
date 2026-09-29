@@ -12,23 +12,21 @@ param(
   [string]$ContainerEngine = 'Auto',
   [switch]$Help
 )
-$usage = @'
-Usage: .\scripts\build_image.ps1 -Manifest PATH -Tag VERSION [-Builder NAME] [-NoCache] [-ContainerEngine Auto|Docker|Podman]
-   or: .\scripts\build_image.ps1 -Context DIR -Dockerfile PATH -Name NAME -Tag VERSION [-Builder NAME] [-NoCache] [-ContainerEngine Auto|Docker|Podman]
-'@
+$usage = "Usage: $PSCommandPath -Manifest PATH -Tag VERSION [-Builder NAME] [-NoCache] [-ContainerEngine Auto|Docker|Podman]`n" +
+  "   or: $PSCommandPath -Context DIR -Dockerfile PATH -Name NAME -Tag VERSION [-Builder NAME] [-NoCache] [-ContainerEngine Auto|Docker|Podman]"
 if ($Help) { Write-Output $usage; exit 0 }
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { [Console]::Error.WriteLine("PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion). Open PowerShell 7 (pwsh), then run this command again."); exit 64 }
 function Fail([int]$Code, [string]$Message) { [Console]::Error.WriteLine($Message); exit $Code }
 $scriptDir = Split-Path -Parent $PSCommandPath
-$repoRoot = Split-Path -Parent $scriptDir
 Import-Module (Join-Path $scriptDir 'lib/ContainerEngine.psm1') -Force
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
 
 if ($Manifest) {
   if ($Context -or $Dockerfile -or $Name) { Fail 64 '-Manifest cannot be combined with -Context, -Dockerfile, or -Name.' }
-  if (-not (Test-PythonAvailable)) { Fail 1 'Python is required to read the agent manifest.' }
   $Context = Get-ManifestField -Manifest $Manifest -Field build.context; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $Dockerfile = Get-ManifestField -Manifest $Manifest -Field build.dockerfile; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   $Name = Get-ManifestField -Manifest $Manifest -Field name; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

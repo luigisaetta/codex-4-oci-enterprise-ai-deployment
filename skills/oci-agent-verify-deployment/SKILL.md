@@ -101,11 +101,11 @@ not print or resolve Vault values.
 | --- | --- |
 | 0 | Application, deployment, tag, health, and readiness checks passed. |
 | 1 | Python with PyYAML, required OCI CLI (or, in Bash, curl) executable, or OCI operation is unavailable or failed. |
+| 13 | A functional check failed (only with `--functional`). |
 | 20 | Hosted Application is not `ACTIVE`. |
 | 21 | The application does not have exactly one `ACTIVE` Hosted Deployment. |
 | 22 | The active artifact tag differs from the expected tag. |
 | 23 | The bounded probe ended without both endpoints returning HTTP 200. |
-| 13 | A functional check failed (only with `--functional`). |
 | 64 | Invalid arguments, `OCI_REGION`, missing tenancy settings, manifest errors (including paths outside allowed roots), or invalid checks input. |
 
 ## Limitations

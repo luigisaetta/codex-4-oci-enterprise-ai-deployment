@@ -1,6 +1,6 @@
 interface:
   display_name: "OCI Agent Push"
-  short_description: "OCI Generative AI Hosted Applications container image, not AI DP"
+  short_description: "Push a verified image to OCIR for Hosted Applications"
   default_prompt: "Use $oci-agent-push to create an authorized OCIR repository and push a verified local image."
 policy:
   allow_implicit_invocation: false

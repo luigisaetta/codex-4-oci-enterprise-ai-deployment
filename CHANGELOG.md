@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-09-29: **Breaking:** agent manifests must use `schema_version: 2`, whose
+  build paths are relative to the manifest's folder; version 1 manifests are
+  rejected. To migrate, set `schema_version: 2` and rewrite `build.context` and
+  `build.dockerfile` relative to the manifest (the `hello_world` manifest is
+  already migrated).
+
 * 2026-09-29: Add user-scope skill installation and support for skills used
   from any agent repository; introduce manifest schema version 2, tenancy-file
   and interpreter selection, split tool and demo dependencies, and return exit

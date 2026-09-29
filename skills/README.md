@@ -49,13 +49,13 @@ repository is pending step 8 verification in [Spec 008](../specs/008-user-scope-
 
 ## Install at user scope
 
-From the tool home, install all skills with:
+Run the installer from the folder of this checkout (the tool home):
 
 ```bash
-"$TOOL_HOME/scripts/install_skills.sh"
-"$TOOL_HOME/scripts/install_skills.sh" --dry-run
-"$TOOL_HOME/scripts/install_skills.sh" --uninstall
-"$TOOL_HOME/scripts/install_skills.sh" --target /path/to/skills
+scripts/install_skills.sh
+scripts/install_skills.sh --dry-run
+scripts/install_skills.sh --uninstall
+scripts/install_skills.sh --target /path/to/skills
 ```
 
 An existing link to the same source is unchanged. Any other file, folder, or

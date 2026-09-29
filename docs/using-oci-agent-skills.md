@@ -66,7 +66,7 @@ manifest folder.
 
 5. Configure OCI CLI authentication outside the repository. Do not put an OCI
    API key, private key, auth token, Docker password, or endpoint override in
-  `.env` or `agent.yaml`.
+   `.env` or `agent.yaml`.
 
 Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
 (activated, or `conda run --no-capture-output -n
@@ -74,12 +74,20 @@ codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`.
 
 ## Creating a new agent repository
 
-Start from `skills/oci-agent-build/assets/`: create `Dockerfile`,
-`requirements.txt`, `.dockerignore`, and `agent.yaml` from the corresponding
-templates. Fill `{{REQUIREMENTS_PATH}}`, `{{PACKAGE_DIR}}`, and
-`{{APP_MODULE}}` in the Dockerfile, and `{{AGENT_NAME}}`,
-`{{OCIR_REPOSITORY}}`, and `{{APPLICATION_NAME}}` in the manifest. The build
-context is the agent's own folder (`context: .`).
+An agent kept in its own repository needs four files in the agent's folder,
+which is also the build context (`context: .` in the manifest):
+
+| File | Source | What to fill in |
+| --- | --- | --- |
+| `Dockerfile` | `skills/oci-agent-build/assets/Dockerfile.template` | `{{REQUIREMENTS_PATH}}` = `requirements.txt`; `{{PACKAGE_DIR}}` = the folder with the agent's Python package; `{{APP_MODULE}}` = `<module>:<app>`, for example `my_agent.app:app`. |
+| `requirements.txt` | Written by hand; there is no template. | The agent's runtime dependencies only, with version ranges that have `linux/amd64` wheels. |
+| `.dockerignore` | `skills/oci-agent-build/assets/dockerignore.template` | Nothing; copy it as is. |
+| `agent.yaml` | `skills/oci-agent-build/assets/agent.yaml.template` | `{{AGENT_NAME}}`, `{{OCIR_REPOSITORY}}`, `{{APPLICATION_NAME}}`, and any `verify` checks. |
+
+The container must follow the
+[container requirements](../skills/oci-agent-build/references/container-requirements.md):
+listen on `0.0.0.0:8080` and answer `GET /health` and `GET /ready` with HTTP
+200. Local verification fails otherwise.
 
 The target Hosted Application runtime needs pre-existing IAM permission to pull
 the private OCIR image. If the manifest uses a Vault secret, its runtime also

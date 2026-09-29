@@ -51,19 +51,18 @@ Clone the repository anywhere on a local NTFS drive. The PowerShell scripts do
 not depend on line endings, but keep the repository's LF endings so the Bash
 scripts stay usable from WSL2 or macOS.
 
-## Loading `.env`
+## Tenancy file
 
-The scripts never read `.env` automatically. Import only simple, non-secret
-`KEY=value` lines into the current session:
+The scripts read the tenancy file themselves: `OCI_AGENT_ENV_FILE` if set,
+otherwise `.env` in the checkout folder. They read only `OCI_REGION`,
+`OCI_COMPARTMENT_NAME`, `OCIR_TENANCY_NAMESPACE`, and `OCIR_USERNAME`, and a
+value already set in the session takes precedence. Do not import the file into
+the session yourself, and never add an auth token, password, or private key
+to it.
 
-```powershell
-Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } |
-  ForEach-Object { $key, $value = $_ -split '=', 2; Set-Item "Env:$key" $value }
-```
-
-`.env` holds only `OCI_REGION`, `OCI_COMPARTMENT_NAME`,
-`OCIR_TENANCY_NAMESPACE`, `OCIR_USERNAME`, and optionally `OCI_CLI_PROFILE`.
-Never add an auth token, password, or private key to it.
+To select a non-default OCI CLI profile, set `OCI_CLI_PROFILE` in the session
+(for example `$env:OCI_CLI_PROFILE = 'MY_PROFILE'`); the scripts do not read it
+from the tenancy file.
 
 ## Workflow
 
@@ -81,7 +80,11 @@ $OCIR_REGISTRY = .\scripts\resolve_ocir_registry.ps1
 .\scripts\push_ocir_image.ps1 -Manifest demos/hello_world/agent.yaml -Tag 0.4.0 -ContainerEngine Auto
 .\scripts\ensure_ocir_repository.ps1 -Repository agents/hello-world            # exit 20 = absent
 .\scripts\ensure_ocir_repository.ps1 -Repository agents/hello-world -Create    # only after authorization
-docker login --username $env:OCIR_USERNAME $OCIR_REGISTRY                      # or: podman login ...
+# The scripts do not export OCIR_USERNAME; read it from the session or the tenancy file.
+$ocirUsername = if ($env:OCIR_USERNAME) { $env:OCIR_USERNAME } else {
+  (python .\scripts\tool_config.py env --keys OCIR_USERNAME) -replace '^OCIR_USERNAME=', ''
+}
+docker login --username $ocirUsername $OCIR_REGISTRY                           # or: podman login ...
 .\scripts\push_ocir_image.ps1 -Push -Manifest demos/hello_world/agent.yaml -Tag 0.4.0 -ContainerEngine Auto
 
 # Step 3: plan, then create the Hosted Application release
@@ -119,9 +122,10 @@ sets aligned.
 | `PowerShell 7.4 or later is required` | You are in Windows PowerShell 5.1 or an old `pwsh`. Open PowerShell 7 (`pwsh`) and rerun. |
 | `Both Docker and Podman are usable` | Pass `-ContainerEngine Docker` or `-ContainerEngine Podman`. |
 | `No usable container engine was found` | Start Docker Desktop or the Podman machine, then rerun `docker info` or `podman info`. |
-| `Python is required to read the agent manifest` or a Microsoft Store window opens | The Conda environment is not active in this `pwsh` session; `python` resolves to the Store alias. Activate the environment. |
+| `Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.` or a Microsoft Store window opens | The Conda environment is not active in this `pwsh` session; `python` resolves to the Store alias. Activate the environment, or set `OCI_AGENT_PYTHON` to its `python.exe`. |
 | `Missing required tool: oci` | Same cause: OCI CLI lives in the Conda environment. |
-| `Manifest error: ...` (exit 64) | The manifest path is not repository-root-relative or the file fails validation; the message names the field. |
+| `Missing configuration key(s): ...` (exit 64) | A tenancy setting is neither in the session nor in the tenancy file named in the message. |
+| `Manifest error: ...` (exit 64) | The manifest file is not found (paths are relative to the current folder, or absolute), a build path leaves the allowed roots, or the file fails validation; the message names the field. |
 | Health probe times out but the container runs | Check that nothing else listens on the port and that a local policy does not block `127.0.0.1`. |
 | OCI CLI argument or JSON errors | Confirm `$PSNativeCommandArgumentPassing` is `Windows` or `Standard` (the 7.3+ default) and that `oci` resolves to `oci.exe`, not a `.cmd` shim. |
 

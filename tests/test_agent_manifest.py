@@ -19,6 +19,12 @@ from scripts.agent_manifest import (
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_allowed_roots_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent the operator's allowed-root configuration from affecting tests."""
+    monkeypatch.delenv("OCI_AGENT_ALLOWED_ROOTS", raising=False)
+
+
 def write_manifest(
     directory: Path, context: str = ".", dockerfile: str = "Dockerfile"
 ) -> Path:
@@ -116,6 +122,19 @@ def test_configured_single_allowed_root_is_used(
     manifest_path = write_manifest(root / "agent")
     monkeypatch.setenv("OCI_AGENT_ALLOWED_ROOTS", str(root.resolve()))
     assert load_manifest(str(manifest_path))["name"] == "hello-world"
+
+
+def test_manifest_outside_configured_allowed_root_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An explicitly configured root must contain the manifest itself."""
+    configured_root = tmp_path / "configured-root"
+    configured_root.mkdir()
+    manifest_path = write_manifest(tmp_path / "outside-root/agent")
+    monkeypatch.setenv("OCI_AGENT_ALLOWED_ROOTS", str(configured_root.resolve()))
+
+    with pytest.raises(ManifestError, match=f"allowed root\\(s\\): {configured_root}"):
+        load_manifest(str(manifest_path))
 
 
 def test_configured_several_allowed_roots_are_used(

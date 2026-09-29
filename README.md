@@ -11,7 +11,7 @@ Codex skills and reproducible demos for deploying AI agents to **OCI Enterprise
 AI Hosted Applications**. Install the skills once, then use them from the
 repository of any agent.
 
-## How a release works
+## How an agent release works
 
 Four skills take one agent release from source code to a running Hosted
 Application, in this order:
@@ -109,7 +109,7 @@ in the guide.
 
 ## The agent manifest
 
-Each agent has a versioned `agent.yaml` next to its code. It contains:
+Each agent must have a versioned `agent.yaml` next to its code. It contains:
 
 * the build context and Dockerfile;
 * the local image name and the OCIR repository;

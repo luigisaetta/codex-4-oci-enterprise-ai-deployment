@@ -13,8 +13,6 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from agent_manifest import ManifestError, load_manifest
-
 
 def is_subset(expected: Any, observed: Any) -> bool:
     """Return whether expected JSON is recursively contained in observed JSON."""
@@ -84,18 +82,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run agent manifest functional checks."
     )
-    parser.add_argument("--manifest", required=True)
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--timeout-seconds", required=True, type=int)
     args = parser.parse_args()
     if args.timeout_seconds < 1:
         parser.error("--timeout-seconds must be positive")
     try:
-        for check in load_manifest(args.manifest)["verify"]:
-            execute_check(args.base_url, check, args.timeout_seconds)
-    except ManifestError as error:
-        print(f"Manifest error: {error}", file=sys.stderr)
+        checks = json.load(sys.stdin)
+    except json.JSONDecodeError as error:
+        print(f"Invalid checks JSON: {error}", file=sys.stderr)
         return 64
+    if not isinstance(checks, list):
+        print("Invalid checks JSON: expected a list.", file=sys.stderr)
+        return 64
+    try:
+        for check in checks:
+            execute_check(args.base_url, check, args.timeout_seconds)
     except RuntimeError as error:
         print(f"Functional check failed: {error}", file=sys.stderr)
         return 13

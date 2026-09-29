@@ -212,8 +212,8 @@ while :; do
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
     if [[ "$functional" == true ]]; then
-      python "$script_directory/run_manifest_checks.py" --manifest "$manifest" \
-        --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
+      python "$script_directory/agent_manifest.py" checks --manifest "$manifest" | \
+        python "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
     fi
     report PASS "$elapsed_seconds"
     exit 0

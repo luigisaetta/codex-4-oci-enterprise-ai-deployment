@@ -125,9 +125,10 @@ The other fields are unchanged. The allowed root is this checkout, found through
 * Every script locates the tool home from its own path, as today, and never
   requires the working directory to be the tool home.
 * `run_manifest_checks.py` runs by path, for example
-  `"$OCI_AGENT_PYTHON" "$script_dir/run_manifest_checks.py"`, instead of
-  `python -m scripts.run_manifest_checks`. Its import of `agent_manifest` must
-  work in that mode. `Invoke-ManifestChecks` no longer needs `Push-Location`.
+  `"$OCI_AGENT_PYTHON" "$script_dir/run_manifest_checks.py"`, and receives
+  validated checks as JSON on standard input from
+  `agent_manifest.py checks --manifest PATH`; there is no import between the
+  two scripts. `Invoke-ManifestChecks` no longer needs `Push-Location`.
 * Manifest paths given by the operator are passed through unchanged and
   resolved by `agent_manifest.py` as described above. The PowerShell scripts no
   longer join build paths with the repository root.

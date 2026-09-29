@@ -5,6 +5,7 @@ License: MIT
 Description: Verify manifest utilities work when called outside the tool home.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -46,16 +47,14 @@ verify: []
     return manifest
 
 
-def test_manifest_checks_run_by_path_reports_manifest_error(tmp_path: Path) -> None:
-    """The checks script accepts a path invocation outside the repository."""
+def test_manifest_checks_run_by_path_rejects_invalid_json(tmp_path: Path) -> None:
+    """The checks script validates standard input outside the repository."""
     working_directory = tmp_path / "outside-tool-home"
     working_directory.mkdir()
     result = subprocess.run(
         [
             sys.executable,
             str(SCRIPTS / "run_manifest_checks.py"),
-            "--manifest",
-            "missing-agent.yaml",
             "--base-url",
             "http://127.0.0.1:8080",
             "--timeout-seconds",
@@ -65,10 +64,34 @@ def test_manifest_checks_run_by_path_reports_manifest_error(tmp_path: Path) -> N
         capture_output=True,
         text=True,
         check=False,
+        input="not-json",
     )
 
     assert result.returncode == 64
-    assert "Manifest error" in result.stderr
+    assert "Invalid checks JSON" in result.stderr
+
+
+def test_manifest_checks_run_by_path_accepts_an_empty_list(tmp_path: Path) -> None:
+    """The checks script accepts an empty check list outside the repository."""
+    working_directory = tmp_path / "outside-tool-home"
+    working_directory.mkdir()
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPTS / "run_manifest_checks.py"),
+            "--base-url",
+            "http://127.0.0.1:8080",
+            "--timeout-seconds",
+            "1",
+        ],
+        cwd=working_directory,
+        capture_output=True,
+        text=True,
+        check=False,
+        input="[]",
+    )
+
+    assert result.returncode == 0
 
 
 def test_build_image_reads_an_absolute_manifest_before_rejecting_tag(
@@ -83,6 +106,10 @@ def test_build_image_reads_an_absolute_manifest_before_rejecting_tag(
     manifest = write_manifest(tmp_path / "agent")
     working_directory = tmp_path / "outside-tool-home"
     working_directory.mkdir()
+    environment = os.environ.copy()
+    environment["PATH"] = (
+        f"{Path(sys.executable).parent}{os.pathsep}{environment.get('PATH', '')}"
+    )
     result = subprocess.run(
         [
             bash,
@@ -96,6 +123,7 @@ def test_build_image_reads_an_absolute_manifest_before_rejecting_tag(
         capture_output=True,
         text=True,
         check=False,
+        env=environment,
     )
 
     assert result.returncode == 3

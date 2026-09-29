@@ -62,14 +62,18 @@ function Test-ManifestRuntimeMatches {
 }
 
 function Invoke-ManifestChecks {
-    # Run the checks script by path so the caller's working directory is unchanged.
+    # Obtain validated checks before piping them to the checks script by path.
     param(
         [Parameter(Mandatory)] [string]$Manifest,
         [Parameter(Mandatory)] [string]$BaseUrl,
         [Parameter(Mandatory)] [int]$TimeoutSeconds
     )
+    $checks = Invoke-AgentManifestCommand -Arguments @('checks', '--manifest', $Manifest)
+    if ($LASTEXITCODE -ne 0) {
+        return
+    }
     $checksScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'run_manifest_checks.py'
-    & python $checksScript --manifest $Manifest --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
+    $checks | & python $checksScript --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
 }
 
 Export-ModuleMember -Function Test-PythonAvailable, Get-ManifestField, Get-ManifestDeploymentName, Get-ManifestRuntimeEnvironment, Test-ManifestRuntimeMatches, Invoke-ManifestChecks

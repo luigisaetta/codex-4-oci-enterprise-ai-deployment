@@ -230,7 +230,8 @@ Every `SKILL.md` is updated as follows:
   AI Hosted Applications", so that they are clearly distinct from the
   `aidp-*` skills (OCI AI Data Platform code-first agents) installed in the
   same user scope.
-* **Implicit invocation.** Open decision, see below.
+* **Implicit invocation.** `allow_implicit_invocation` is `false` for
+  `oci-agent-push` and `oci-agent-deploy`, and `true` for build and verify.
 
 ### 8. Tests
 
@@ -299,14 +300,6 @@ New or updated offline tests:
 8. Verification from an external repository (criteria 1–3 and 5), then the
    authorized remote run (criterion 4). Evidence goes in the verification
    record below.
-
-## Open decisions
-
-* **Implicit invocation of mutating skills.** Proposed:
-  `allow_implicit_invocation: false` for `oci-agent-push` and
-  `oci-agent-deploy`, `true` for build and verify. Once installed at user scope,
-  a generic request such as "deploy the agent" could otherwise select the wrong
-  family.
 
 ## Recovery and cleanup
 

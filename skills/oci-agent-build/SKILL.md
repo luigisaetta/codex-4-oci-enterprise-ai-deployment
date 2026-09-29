@@ -1,6 +1,6 @@
 ---
 name: oci-agent-build
-description: Build, rebuild, or verify a linux/amd64 agent container image for OCI Enterprise AI hosted deployment. Use when asked to build or verify an agent image; this skill does not push images or deploy resources.
+description: Build or verify a linux/amd64 container image for OCI Generative AI Hosted Applications, not OCI AI Data Platform (AI DP) code-first agents. It does not push images or deploy resources.
 ---
 
 # OCI Agent Build
@@ -12,21 +12,42 @@ verify an agent container for OCI Enterprise AI. The supplied manifest selects
 the agent; `hello_world` is a documented example and regression fixture, not a
 default workload.
 
+## Tool home and working directory
+
+Resolve the real path of this skill's folder, following symbolic links:
+
+```bash
+skill_real="$(cd -P -- "<this skill folder>" && pwd -P)"
+TOOL_HOME="$(dirname -- "$(dirname -- "$skill_real")")"
+```
+
+In PowerShell, resolve the link target of the skill folder and take its
+grandparent. Run every script as `"$TOOL_HOME/scripts/<name>.sh"` (PowerShell:
+`& "$TOOL_HOME\scripts\<name>.ps1"`) from the user's current folder. Never
+change directory into the tool home. Pass the manifest path as the user gives it
+(relative to the current folder) or as an absolute path. Its build paths are
+relative to the manifest's own folder.
+
+Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
+(activated, or `conda run --no-capture-output -n
+codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`. Tenancy
+settings come from `OCI_AGENT_ENV_FILE`, default `"$TOOL_HOME/.env"`; the
+scripts read it themselves. Never source it, and never print its content. In a
+sandboxed session, request permission for Docker and network access before the
+first Docker, OCI CLI, or HTTP command, instead of retrying after a failure.
+
 ## Prerequisites
 
 Read [container requirements](references/container-requirements.md).
-Locate the checkout containing this skill by resolving any discovery symlink;
-repository scripts are at `../../scripts/` relative to this skill directory.
-Run commands from that checkout's root, including when using a user-scope symlink.
 In Bash require Bash 3.2+, Docker with a running daemon, buildx, curl, and a free
 host port. In PowerShell 7.4+ require Docker Desktop or Podman, selected with
 `-ContainerEngine Auto|Docker|Podman`; `-Builder` is Docker-only.
-Run `scripts/check_build_env.sh` (with `--builder NAME` when supplied) before
+Run `"$TOOL_HOME/scripts/check_build_env.sh"` (with `--builder NAME` when supplied) before
 building. It checks advertised support; image execution establishes runtime behavior.
 
 ## Shell selection
 
-The examples below are Bash. From PowerShell 7.4+ run the `scripts/*.ps1` twin
+The examples below are Bash. From PowerShell 7.4+ run the matching PowerShell twin
 with the same option names in `-Option` form (`--timeout-seconds` becomes
 `-TimeoutSeconds`); outputs and exit codes are identical. Follow the shell in
 use, never the operating system, and do not mix the two families in one release.
@@ -34,8 +55,8 @@ Rule and mapping table: [Choosing Bash or PowerShell](../README.md#choosing-bash
 
 ## Required inputs
 
-* An agent manifest path, resolved from the repository root. Its build paths are
-  also repository-root-relative; `context: .` therefore means the checkout root.
+* An agent manifest path. Its build paths are relative to the manifest folder;
+  `context: .` therefore means that folder.
   If the current request does not name it, ask: “Which agent manifest should I
   use?” before inspecting Docker or running any command. Never choose a demo,
   scan for a manifest, or infer one from conversation history. “Use the same
@@ -59,8 +80,8 @@ Rule and mapping table: [Choosing Bash or PowerShell](../README.md#choosing-bash
 Example with a user-supplied tag of `0.1.0`:
 
 ```bash
-scripts/build_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
-scripts/verify_image.sh --manifest demos/hello_world/agent.yaml --tag 0.1.0
+"$TOOL_HOME/scripts/build_image.sh" --manifest /path/to/agent/agent.yaml --tag 0.1.0
+"$TOOL_HOME/scripts/verify_image.sh" --manifest /path/to/agent/agent.yaml --tag 0.1.0
 ```
 
 The manifest verifier checks the configured response status and JSON subset.
@@ -77,7 +98,7 @@ time (default 1800). Verification accepts `--port` (8080) and
 | Code | Meaning and action |
 | --- | --- |
 | 0 | Operation passed; inspect the report for warnings or skipped checks. |
-| 1 | Required tool, daemon, or selected builder unavailable; restore access. |
+| 1 | Python with PyYAML, a required tool, daemon, or selected builder is unavailable; restore access. |
 | 2 | Builder does not advertise amd64; follow the runtime-specific guidance. |
 | 3 | Invalid or forbidden tag; request a valid semantic version. |
 | 4 | Invalid context or Dockerfile path; correct the input. |
@@ -87,7 +108,7 @@ time (default 1800). Verification accepts `--port` (8080) and
 | 11 | Runtime architecture command failed or did not return x86_64. |
 | 12 | Container startup, health/readiness timeout, or cleanup failed. |
 | 13 | Functional POST failed or returned a non-200 status. |
-| 64 | Invalid arguments or timeout configuration; check script usage. |
+| 64 | Invalid arguments, timeout configuration, manifest errors (including paths outside allowed roots), or invalid checks input; correct the input. |
 
 Signals return 130 (interrupt) or 143 (termination) after cleanup.
 

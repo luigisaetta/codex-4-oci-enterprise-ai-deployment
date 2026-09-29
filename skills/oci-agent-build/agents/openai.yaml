@@ -1,5 +1,5 @@
 interface:
   display_name: "OCI Agent Build"
-  short_description: "Build and verify OCI agent images for linux/amd64"
+  short_description: "OCI Generative AI Hosted Applications container image, not AI DP"
 policy:
   allow_implicit_invocation: true

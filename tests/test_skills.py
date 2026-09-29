@@ -14,7 +14,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 MARKDOWN_LINK = re.compile(r"\[[^]]*\]\(([^)]+)\)")
-SCRIPT_PATH = re.compile(r"scripts/([A-Za-z0-9_-]+\.(?:sh|ps1))")
+SCRIPT_PATH = re.compile(r"scripts[\\/]([A-Za-z0-9_-]+\.(?:sh|ps1))")
+FENCED_CODE_BLOCK = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 
 
 def skill_directories() -> list[Path]:
@@ -24,6 +25,15 @@ def skill_directories() -> list[Path]:
         Sorted folders containing SKILL.md.
     """
     return sorted(path.parent for path in SKILLS.glob("*/SKILL.md"))
+
+
+def skill_content_files() -> list[Path]:
+    """Return instruction and reference Markdown files subject to content rules.
+
+    Returns:
+        Sorted skill instructions and their reference files.
+    """
+    return sorted([*SKILLS.glob("*/SKILL.md"), *SKILLS.glob("*/references/*.md")])
 
 
 def frontmatter(path: Path) -> dict[str, object]:
@@ -51,7 +61,13 @@ def test_skill_frontmatter_names_and_agents_are_complete() -> None:
         metadata = frontmatter(directory / "SKILL.md")
         assert metadata.get("name") == directory.name
         assert isinstance(metadata.get("description"), str) and metadata["description"]
-        assert (directory / "agents/openai.yaml").is_file()
+        assert "Hosted Application" in metadata["description"]
+        agent_config = directory / "agents/openai.yaml"
+        assert agent_config.is_file()
+        interface = yaml.safe_load(agent_config.read_text(encoding="utf-8"))[
+            "interface"
+        ]
+        assert "Hosted Application" in interface["short_description"]
         names.append(directory.name)
     assert len(names) == len(set(names))
     assert all(name.startswith("oci-agent-") for name in names)
@@ -78,3 +94,38 @@ def test_relative_markdown_links_resolve() -> None:
             assert (
                 (markdown.parent / destination).resolve().is_file()
             ), f"{markdown} links to unavailable file {target}"
+
+
+def test_skill_content_uses_user_scope_instructions() -> None:
+    """Skill instructions avoid checkout-root and unsafe tenancy-file guidance."""
+    prohibited_phrases = (
+        "checkout's root",
+        "run from this checkout",
+        "from the repository root",
+        ". ./.env",
+        "source .env",
+        "set -a",
+    )
+    for markdown in skill_content_files():
+        content = markdown.read_text(encoding="utf-8")
+        lowered = content.lower()
+        for phrase in prohibited_phrases:
+            assert (
+                phrase not in lowered
+            ), f"{markdown} contains prohibited phrase {phrase}"
+        if markdown.name == "SKILL.md":
+            assert "## Tool home and working directory" in content
+        for block in FENCED_CODE_BLOCK.findall(content):
+            for line in block.splitlines():
+                if SCRIPT_PATH.search(line):
+                    assert (
+                        "$TOOL_HOME/scripts/" in line or "$TOOL_HOME\\scripts\\" in line
+                    )
+
+
+def test_mutating_skills_disable_implicit_invocation() -> None:
+    """Push and deploy require explicit invocation because they can mutate OCI."""
+    for name in ("oci-agent-push", "oci-agent-deploy"):
+        config = SKILLS / name / "agents/openai.yaml"
+        policy = yaml.safe_load(config.read_text(encoding="utf-8"))["policy"]
+        assert policy["allow_implicit_invocation"] is False

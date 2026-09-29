@@ -40,21 +40,22 @@ Before a push, the operator needs Docker access, an OCI auth token, and IAM
 access to the target repository. OCI policies use the `repos` resource type and
 can restrict access with `target.repo.name`.
 
-The root `.env` selects the target with `OCI_COMPARTMENT_NAME`. OCI repository
+The tenancy file selected by `OCI_AGENT_ENV_FILE` (default `"$TOOL_HOME/.env"`)
+selects the target with `OCI_COMPARTMENT_NAME`. OCI repository
 commands require its OCID, so list active compartments with the configured OCI
 CLI profile and stop if the name has zero or multiple matches. List container
 repositories using the resolved OCID. The repository script performs this check
 without creation; exit code 20 means the repository is absent:
 
 ```bash
-scripts/ensure_ocir_repository.sh --repository <manifest publish.repository>
+"$TOOL_HOME/scripts/ensure_ocir_repository.sh" --repository <manifest publish.repository>
 ```
 
 If the requested repository is absent, create it only after explicit
 authorization:
 
 ```bash
-scripts/ensure_ocir_repository.sh --repository <manifest publish.repository> --create
+"$TOOL_HOME/scripts/ensure_ocir_repository.sh" --repository <manifest publish.repository> --create
 ```
 
 This creates a private, mutable repository, waits for `AVAILABLE`, and reports

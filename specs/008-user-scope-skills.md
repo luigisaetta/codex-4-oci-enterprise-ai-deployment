@@ -187,8 +187,9 @@ The other fields are unchanged. The allowed root is this checkout, found through
   environments, and tests.
 * A new `assets/agent.yaml.template` shows a version 2 manifest for an agent
   whose context is its own folder (`context: .`, `dockerfile: Dockerfile`).
-* The rule that the `hello_world` Dockerfile is the exact rendered form of the
-  template is kept or explicitly relaxed; the implementation records which.
+* The `hello_world` Dockerfile remains the exact rendered form of the template.
+  The template uses `{{REQUIREMENTS_PATH}}` so it supports both the repository-root
+  `hello_world` context and an external agent's own-folder context.
 
 ### 6. Installation at user scope
 
@@ -306,7 +307,6 @@ New or updated offline tests:
   `oci-agent-deploy`, `true` for build and verify. Once installed at user scope,
   a generic request such as "deploy the agent" could otherwise select the wrong
   family.
-* **Exact-template rule** for the `hello_world` Dockerfile (section 5).
 
 ## Recovery and cleanup
 

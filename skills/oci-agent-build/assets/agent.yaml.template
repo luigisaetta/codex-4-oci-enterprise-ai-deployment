@@ -1,0 +1,12 @@
+# Schema version 2 resolves build paths from this manifest's directory.
+schema_version: 2
+name: {{AGENT_NAME}}
+build:
+  context: .
+  dockerfile: Dockerfile
+publish:
+  repository: {{OCIR_REPOSITORY}}
+deploy:
+  application_name: {{APPLICATION_NAME}}
+  profile: public-noauth
+verify: []

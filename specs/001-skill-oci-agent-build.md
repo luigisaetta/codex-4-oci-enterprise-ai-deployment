@@ -182,6 +182,9 @@ Exit 0 only when all steps pass.
 
 ### `demos/hello_world/Dockerfile` and `assets/Dockerfile.template`
 
+> Spec 008 adds the `{{REQUIREMENTS_PATH}}` template placeholder for the split
+> tool and demo dependency layout.
+
 The template has placeholders for the application module (for example
 `{{APP_MODULE}}`, value `demos.hello_world.app:app`) and the package directory to copy
 (`{{PACKAGE_DIR}}`, value `demos`). The hello_world Dockerfile is the template with the

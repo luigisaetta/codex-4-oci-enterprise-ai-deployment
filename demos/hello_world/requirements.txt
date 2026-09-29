@@ -1,0 +1,4 @@
+fastapi>=0.115,<1
+langgraph>=1,<2
+pydantic>=2,<3
+uvicorn>=0.30,<1

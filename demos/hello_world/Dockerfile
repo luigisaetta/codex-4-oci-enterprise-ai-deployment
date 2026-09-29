@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt ./requirements.txt
+COPY demos/hello_world/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 
 RUN groupadd --gid 10001 agent \

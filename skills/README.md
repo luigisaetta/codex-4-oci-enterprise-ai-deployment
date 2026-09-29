@@ -9,8 +9,8 @@
 
 ## Choosing Bash or PowerShell
 
-Every lifecycle script exists twice, as `scripts/<name>.sh` and
-`scripts/<name>.ps1`, with the same options, report lines, and exit codes.
+Every lifecycle script exists twice, as `$TOOL_HOME/scripts/<name>.sh` and
+`$TOOL_HOME\scripts\<name>.ps1`, with the same options, report lines, and exit codes.
 The `SKILL.md` files show Bash examples only; translate them with this rule:
 
 * **Bash or zsh** (macOS, Linux, WSL2 on Windows): run `scripts/*.sh` with
@@ -20,11 +20,12 @@ The `SKILL.md` files show Bash examples only; translate them with this rule:
 
 | Bash | PowerShell |
 | --- | --- |
-| `scripts/build_image.sh --manifest PATH --tag TAG` | `.\scripts\build_image.ps1 -Manifest PATH -Tag TAG` |
+| `$TOOL_HOME/scripts/build_image.sh --manifest PATH --tag TAG` | `& "$TOOL_HOME\scripts\build_image.ps1" -Manifest PATH -Tag TAG` |
+| `$TOOL_HOME/scripts/install_skills.sh [--dry-run] [--uninstall] [--target DIR]` | `& "$TOOL_HOME\scripts\install_skills.ps1" [-DryRun] [-Uninstall] [-Target DIR]` |
 | `--timeout-seconds 120` | `-TimeoutSeconds 120` |
 | `--apply`, `--push`, `--create`, `--functional`, `--no-cache` | `-Apply`, `-Push`, `-Create`, `-Functional`, `-NoCache` |
 | `--application-id OCID` | `-ApplicationId OCID` |
-| `OCIR_REGISTRY="$(scripts/resolve_ocir_registry.sh)"` | `$OCIR_REGISTRY = .\scripts\resolve_ocir_registry.ps1` |
+| `OCIR_REGISTRY="$("$TOOL_HOME/scripts/resolve_ocir_registry.sh")"` | `$OCIR_REGISTRY = & "$TOOL_HOME\scripts\resolve_ocir_registry.ps1"` |
 | `docker login ...` | `docker login ...` or `podman login ...`, matching the selected engine |
 
 The decision follows the shell, not the operating system: a WSL2 session on
@@ -38,27 +39,30 @@ design in [Spec 007](../specs/007-windows-powershell-support.md).
 
 ## Discovery in this repository
 
-The repository link `.agents/skills -> ../skills` exposes the skill directory to
-Codex. Codex scans `.agents/skills` from the working directory up to the repository
-root and follows symlinks. Each skill needs a directory containing `SKILL.md`.
-Placing it under `skills/` alone does not make it visible without a discovery link.
+Opening this repository exposes the skills through `.agents/skills -> ../skills`.
+Alternatively, the installer links each skill into `$HOME/.agents/skills`, so a
+separate agent repository can be the Codex workspace. Each skill needs a
+directory containing `SKILL.md`.
 
-The link, `SKILL.md`, and supporting scripts are present. Actual discovery in the
-Codex skill selector remains to be verified under criterion 8 of Spec 001.
+Repository-scope discovery remains available. User-scope discovery from another
+repository is pending step 8 verification in [Spec 008](../specs/008-user-scope-skills.md).
 
-## Use from other repositories
+## Install at user scope
 
-Optionally run these commands from this repository's root
-to expose the skill at user scope:
+From the tool home, install all skills with:
 
 ```bash
-mkdir -p "$HOME/.agents/skills"
-ln -s "$PWD/skills/oci-agent-build" "$HOME/.agents/skills/oci-agent-build"
+"$TOOL_HOME/scripts/install_skills.sh"
+"$TOOL_HOME/scripts/install_skills.sh" --dry-run
+"$TOOL_HOME/scripts/install_skills.sh" --uninstall
+"$TOOL_HOME/scripts/install_skills.sh" --target /path/to/skills
 ```
 
-The destination must not already exist. Keep this checkout at its linked location;
-the skill depends on this repository's scripts. Remove only the user symlink to
-uninstall it. These commands are instructions, not part of repository setup.
+An existing link to the same source is unchanged. Any other file, folder, or
+link is a conflict, remains untouched, and makes the installer exit non-zero.
+Uninstall removes only links resolving to this checkout's skills. If the tool
+home moves, old links are conflicts and must be removed by hand. Keep the tool
+home at its installed location and start a new Codex session after changes.
 
 Codex scans `$HOME/.agents/skills/` across repositories. Use `$` or `/skills` in
 supported Codex surfaces to select a completed skill. Restart Codex if it does not

@@ -27,9 +27,12 @@ or makes public endpoint requests.
 
 ## Before using a skill
 
-Open this repository as the Codex workspace. Its `.agents/skills` link makes
-the four skills discoverable in compatible Codex surfaces. Select a skill from
-the interface, or invoke it explicitly as `$oci-agent-build`,
+Either install the skills at user scope, then open any agent repository as the
+Codex workspace, or open this repository, whose `.agents/skills` link still
+makes the four skills discoverable. Install with
+`scripts/install_skills.sh` (or `install_skills.ps1`); keep the tool home at
+its installed location and start a new Codex session after installation. Select
+a skill from the interface, or invoke it explicitly as `$oci-agent-build`,
 `$oci-agent-push`, `$oci-agent-deploy`, or
 `$oci-agent-verify-deployment`.
 
@@ -38,7 +41,8 @@ with Buildx and curl on macOS, Linux, or WSL2; Docker Desktop or Podman with
 PowerShell 7.4+ on Windows. Every lifecycle script exists as `scripts/*.sh` and
 as a `scripts/*.ps1` twin with the same options and exit codes; the skills use
 whichever matches your shell.
-Copy `.env.example` to the ignored `.env` and configure only these tenancy-wide,
+The tenancy file defaults to `<tool home>/.env`; set `OCI_AGENT_ENV_FILE` to use
+another file. Copy `.env.example` to the ignored `.env` and configure only these tenancy-wide,
 non-secret values:
 
 ```dotenv
@@ -57,6 +61,11 @@ agent-specific configuration: build context, Dockerfile, local image name,
 OCIR repository, Hosted Application name, optional runtime environment, and
 functional checks. The version is deliberately not stored there: pass a new
 semantic tag for every release.
+
+Use `schema_version: 2`: build paths are relative to the manifest folder.
+`OCI_AGENT_PYTHON` selects the Python interpreter used by scripts; it defaults
+to `python` and must provide PyYAML. `OCI_AGENT_ALLOWED_ROOTS` optionally sets
+the absolute allowed roots for manifests and build paths.
 
 ## Skills
 

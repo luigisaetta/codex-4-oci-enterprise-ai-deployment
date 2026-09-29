@@ -151,3 +151,18 @@ def test_unknown_requested_key_is_rejected() -> None:
 
     assert result.returncode == 64
     assert "Unsupported configuration key" in result.stderr
+
+
+def test_non_utf8_configuration_file_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A non-UTF-8 file produces a safe configuration error."""
+    configuration = tmp_path / "invalid.env"
+    configuration.write_bytes(b"OCI_REGION=\xff\n")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+
+    result = run_tool_config("OCI_REGION")
+
+    assert result.returncode == 64
+    assert str(configuration) in result.stderr
+    assert "UTF-8" in result.stderr

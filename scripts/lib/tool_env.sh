@@ -17,18 +17,22 @@ resolve_python() {
 
 load_tenancy_settings() {
     local output
-    local status
     local line
     local key
     local value
 
     if output=$("$OCI_AGENT_PYTHON" "$tool_env_scripts_directory/tool_config.py" env --keys "$@"); then
-        status=0
+        :
     else
-        status=$?
-        return "$status"
+        return $?
+    fi
+    if [ -z "$output" ]; then
+        return 0
     fi
     while IFS= read -r line || [ -n "$line" ]; do
+        if [ -z "$line" ]; then
+            continue
+        fi
         key=${line%%=*}
         value=${line#*=}
         case "$key" in

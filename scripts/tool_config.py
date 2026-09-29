@@ -84,7 +84,11 @@ def emit_environment(keys: list[str]) -> int:
         )
         return 64
     path = configuration_file()
-    file_values = read_configuration(path)
+    try:
+        file_values = read_configuration(path)
+    except UnicodeDecodeError:
+        print(f"Configuration file is not valid UTF-8: {path}", file=sys.stderr)
+        return 64
     missing = [
         key for key in keys if not os.environ.get(key) and key not in file_values
     ]

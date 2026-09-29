@@ -199,3 +199,113 @@ def test_build_image_rejects_an_interpreter_without_pyyaml(tmp_path: Path) -> No
 
     assert result.returncode == 1
     assert "codex-4-oci-enterprise-ai-deployment" in result.stderr
+
+
+def test_tool_environment_keeps_exported_values_with_a_missing_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An empty tool-config response preserves already exported tenancy values."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash is unavailable, so the Bash environment test cannot run.")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(tmp_path / "missing.env"))
+    monkeypatch.setenv("OCI_AGENT_PYTHON", sys.executable)
+    monkeypatch.setenv("OCI_REGION", "eu-frankfurt-1")
+    monkeypatch.setenv("OCI_COMPARTMENT_NAME", "target")
+    monkeypatch.setenv("OCIR_TENANCY_NAMESPACE", "namespace")
+    monkeypatch.setenv("OCIR_USERNAME", "user")
+    result = subprocess.run(
+        [
+            bash,
+            "-c",
+            'source "$1"; resolve_python; load_tenancy_settings "${@:2}"; '
+            'printf "%s|%s|%s|%s" "$OCI_REGION" "$OCI_COMPARTMENT_NAME" '
+            '"$OCIR_TENANCY_NAMESPACE" "$OCIR_USERNAME"',
+            "bash",
+            str(SCRIPTS / "lib/tool_env.sh"),
+            *TENANCY_KEYS,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "eu-frankfurt-1|target|namespace|user"
+
+
+def test_tool_environment_allows_nested_configuration_loading(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A child Bash process reloads an exported value without failure."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash is unavailable, so the nested Bash test cannot run.")
+    configuration = tmp_path / "tenancy.env"
+    configuration.write_text("OCI_REGION=eu-frankfurt-1\n", encoding="utf-8")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+    monkeypatch.setenv("OCI_AGENT_PYTHON", sys.executable)
+    parent_command = (
+        'source "$1"; resolve_python; load_tenancy_settings OCI_REGION; '
+        'bash -c \'source "$1"; resolve_python; '
+        'load_tenancy_settings OCI_REGION; printf "%s" "$OCI_REGION"\' '
+        'bash "$1"'
+    )
+    result = subprocess.run(
+        [
+            bash,
+            "-c",
+            parent_command,
+            "bash",
+            str(SCRIPTS / "lib/tool_env.sh"),
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "eu-frankfurt-1"
+
+
+def test_resolve_registry_uses_an_exported_region_with_fake_oci(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The registry resolver accepts exported configuration in a child script."""
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash is unavailable, so the registry test cannot run.")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_oci = fake_bin / "oci"
+    fake_oci.write_text(
+        """#!/usr/bin/env bash
+if [[ " $* " == *" --raw-output "* ]]; then
+  printf 'FRA\\n'
+else
+  printf '%s\\n' '{"data":[{"name":"eu-frankfurt-1","key":"FRA"}]}'
+fi
+""",
+        encoding="utf-8",
+    )
+    fake_oci.chmod(0o755)
+    monkeypatch.setenv("OCI_REGION", "eu-frankfurt-1")
+    monkeypatch.setenv("OCI_AGENT_PYTHON", sys.executable)
+    environment = os.environ.copy()
+    environment["PATH"] = (
+        f"{fake_bin}{os.pathsep}{Path(sys.executable).parent}"
+        f"{os.pathsep}{environment.get('PATH', '')}"
+    )
+    result = subprocess.run(
+        [bash, str(SCRIPTS / "resolve_ocir_registry.sh")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "fra.ocir.io\n"

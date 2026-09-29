@@ -34,13 +34,16 @@ skill to infer them from a previous conversation, scan the repository, or choose
 `hello_world` by default. The only shorthand allowed is an explicit instruction
 to use the manifest from the immediately preceding step.
 
-Manifest paths are relative to the repository root when commands are run
-directly. An absolute path is also suitable when providing it to Codex.
+Manifest paths are relative to the current folder or absolute; build paths are
+relative to the manifest folder. They must be inside `OCI_AGENT_ALLOWED_ROOTS`
+when it is set, otherwise inside the nearest parent containing `.git` or the
+manifest folder.
 
 ## One-time workstation preparation
 
-1. Open this repository as the Codex workspace, so its `.agents/skills` link
-   makes the four skills discoverable.
+1. Install the skills at user scope with `scripts/install_skills.sh`, then open
+   the agent repository as the Codex workspace; alternatively, open this
+   repository, whose `.agents/skills` link remains available.
 2. Create the Conda environment named
    `codex-4-oci-enterprise-ai-deployment` and install the project development
    requirements.
@@ -49,7 +52,9 @@ directly. An absolute path is also suitable when providing it to Codex.
    Docker Desktop or Podman. The engine must run Linux containers and support
    the required `linux/amd64` platform. See
    [Windows workstations](#windows-workstations) for the two Windows paths.
-4. Copy `.env.example` to the ignored `.env` and set only tenancy-wide,
+4. The scripts read the tenancy file themselves from `OCI_AGENT_ENV_FILE`,
+   defaulting to `<tool home>/.env`; never source it or print its contents. Copy
+   `.env.example` to the ignored `.env` and set only tenancy-wide,
    non-secret values:
 
    ```dotenv
@@ -61,7 +66,20 @@ directly. An absolute path is also suitable when providing it to Codex.
 
 5. Configure OCI CLI authentication outside the repository. Do not put an OCI
    API key, private key, auth token, Docker password, or endpoint override in
-   `.env` or `agent.yaml`.
+  `.env` or `agent.yaml`.
+
+Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
+(activated, or `conda run --no-capture-output -n
+codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`.
+
+## Creating a new agent repository
+
+Start from `skills/oci-agent-build/assets/`: create `Dockerfile`,
+`requirements.txt`, `.dockerignore`, and `agent.yaml` from the corresponding
+templates. Fill `{{REQUIREMENTS_PATH}}`, `{{PACKAGE_DIR}}`, and
+`{{APP_MODULE}}` in the Dockerfile, and `{{AGENT_NAME}}`,
+`{{OCIR_REPOSITORY}}`, and `{{APPLICATION_NAME}}` in the manifest. The build
+context is the agent's own folder (`context: .`).
 
 The target Hosted Application runtime needs pre-existing IAM permission to pull
 the private OCIR image. If the manifest uses a Vault secret, its runtime also
@@ -115,7 +133,7 @@ $oci-agent-push
 <absolute path>/demos/hello_world/agent.yaml tag: 0.4.0
 ```
 
-The skill reads the OCI region from `.env`, resolves its OCIR hostname through
+The skill reads the OCI region from the tenancy file, resolves its OCIR hostname through
 `oci iam region list`, and presents the exact source and destination image
 references. It then inspects the target repository.
 
@@ -237,13 +255,8 @@ two paths; choose one per workstation:
 | Native PowerShell | `pwsh` 7.4+ | `.\scripts\*.ps1 -Manifest ... -Tag ...` | Docker Desktop or Podman, via `-ContainerEngine` | [Native PowerShell 7](../notes/windows-powershell-native.md) |
 | WSL2 | Bash inside WSL2 | `scripts/*.sh --manifest ... --tag ...` | Rancher Desktop with Moby | [Rancher Desktop with WSL2](../notes/windows-rancher-desktop-wsl2.md) |
 
-On the native path, load the non-secret `.env` values into the session before
-the first skill, because the scripts never read the file themselves:
-
-```powershell
-Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } |
-  ForEach-Object { $key, $value = $_ -split '=', 2; Set-Item "Env:$key" $value }
-```
+On the native path, the scripts read the tenancy file themselves; set
+`OCI_AGENT_ENV_FILE` only when it is not `<tool home>/.env`.
 
 Registry login is `docker login` or `podman login`, matching the engine that
 built the image. Local verification binds to `127.0.0.1` only. The mapping

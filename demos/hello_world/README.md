@@ -10,7 +10,7 @@ Run these commands from the repository root:
 
 ```bash
 conda activate codex-4-oci-enterprise-ai-deployment
-python -m pip install -r requirements.txt
+python -m pip install -r demos/hello_world/requirements.txt
 python -m uvicorn demos.hello_world.app:app --host 0.0.0.0 --port 8080
 ```
 
@@ -42,7 +42,8 @@ Interactive API documentation is available at `http://localhost:8080/docs`.
 
 ## Development
 
-From the repository root, install the development tools and run:
+From the repository root, install `requirements-dev.txt` (which includes the
+demo requirements) and run:
 
 ```bash
 python -m pip install -r requirements-dev.txt
@@ -55,7 +56,7 @@ python -m pytest
 
 Run from the repository root with Docker, a running daemon, buildx, and a builder
 supporting `linux/amd64`. The root is the build context so the image can install
-the root `requirements.txt` and import the complete `demos` package.
+`demos/hello_world/requirements.txt` and import the complete `demos` package.
 
 Build and verify using the scripts defined in
 [Spec 001](../../specs/001-skill-oci-agent-build.md):
@@ -81,7 +82,7 @@ read-only filesystem and writable `/tmp`. OCI deployment is outside this workflo
 
 The image uses Python 3.11, binary wheels only, and a non-root user. Its command
 starts Uvicorn on `0.0.0.0:8080`. Dependency versions are resolved from the existing
-root requirements at build time. Builds download the base image and Python packages;
+demo requirements at build time. Builds download the base image and Python packages;
 no registry push or OCI deployment is performed.
 
 See [oci-agent-build](../../skills/oci-agent-build/SKILL.md) for the workflow and

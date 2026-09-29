@@ -68,7 +68,7 @@ for an image. Pull or checkout the intended revision before invoking a skill.
 
 The invocation must still pass both inputs explicitly:
 
-* the manifest path, relative to the repository checkout; and
+* the manifest path, relative to the current folder or absolute; and
 * the semantic release tag.
 
 For example, a workstation can request an image build through SSH:

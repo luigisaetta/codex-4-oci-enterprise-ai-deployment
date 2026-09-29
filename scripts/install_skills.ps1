@@ -13,12 +13,29 @@ $PSNativeCommandUseErrorActionPreference = $false
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { [Console]::Error.WriteLine("PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion). Open PowerShell 7 (pwsh), then run this command again."); exit 64 }
 function Fail([int]$Code, [string]$Message) { [Console]::Error.WriteLine($Message); exit $Code }
 function Report([string]$Action, [string]$Skill) { Write-Output "${Action}: ${Skill}" }
+function Resolve-RealPath([string]$Path) {
+  $item = Get-Item -LiteralPath $Path -Force
+  if ($item.LinkType) {
+    $target = $item.ResolveLinkTarget($true)
+    if (-not $target) { throw "Unable to resolve link target: $Path" }
+    return [IO.Path]::GetFullPath($target.FullName)
+  }
+  return [IO.Path]::GetFullPath($item.FullName)
+}
 function Link-PointsToSource([string]$Path, [string]$Source) {
-  try { return ([IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Path).Path) -eq $Source) } catch { return $false }
+  try {
+    $target = (Get-Item -LiteralPath $Path -Force).ResolveLinkTarget($true)
+    if (-not $target) { return $false }
+    return ([IO.Path]::GetFullPath($target.FullName) -eq (Resolve-RealPath $Source))
+  } catch { return $false }
+}
+function Test-LinkPrivilegeError([System.Management.Automation.ErrorRecord]$ErrorRecord) {
+  $exception = $ErrorRecord.Exception
+  return ($exception -is [UnauthorizedAccessException] -or $exception.Message -match 'privilege')
 }
 
-$scriptDir = Split-Path -Parent $PSCommandPath
-$toolHome = Split-Path -Parent $scriptDir
+$scriptDir = Split-Path -Parent (Resolve-RealPath $PSCommandPath)
+$toolHome = Resolve-RealPath (Split-Path -Parent $scriptDir)
 $skillsDir = Join-Path $toolHome 'skills'
 $hadConflict = $false
 if (-not (Test-Path -LiteralPath $skillsDir -PathType Container)) { Fail 1 "Skills source directory is unavailable: $skillsDir" }
@@ -34,7 +51,7 @@ if (-not $Uninstall) {
 }
 
 foreach ($source in Get-ChildItem -LiteralPath $skillsDir -Directory | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') -PathType Leaf }) {
-  $sourcePath = [IO.Path]::GetFullPath($source.FullName)
+  $sourcePath = Resolve-RealPath $source.FullName
   $targetPath = Join-Path $Target $source.Name
   $item = Get-Item -LiteralPath $targetPath -Force -ErrorAction SilentlyContinue
   if ($Uninstall) {
@@ -54,8 +71,13 @@ foreach ($source in Get-ChildItem -LiteralPath $skillsDir -Directory | Where-Obj
     New-Item -ItemType SymbolicLink -Path $targetPath -Target $sourcePath | Out-Null
     Report 'created' $source.Name
   } catch {
+    if (-not $IsWindows -or -not (Test-LinkPrivilegeError $_)) {
+      Fail 1 "Symbolic link creation failed for $($source.Name): $($_.Exception.Message)"
+    }
     # Codex discovery through a directory junction is unverified.
-    New-Item -ItemType Junction -Path $targetPath -Target $sourcePath | Out-Null
+    try { New-Item -ItemType Junction -Path $targetPath -Target $sourcePath | Out-Null } catch {
+      Fail 1 "Directory junction creation failed for $($source.Name): $($_.Exception.Message)"
+    }
     Report 'created junction' $source.Name
   }
 }

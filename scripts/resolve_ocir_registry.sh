@@ -14,7 +14,7 @@ readonly EXIT_INVALID_INPUT=64
 readonly EXIT_REGION_NOT_FOUND=65
 
 if [[ $# -ne 0 ]]; then
-  printf '%s\n' 'Usage: scripts/resolve_ocir_registry.sh' >&2
+  printf 'Usage: %s\n' "$0" >&2
   exit "$EXIT_INVALID_INPUT"
 fi
 

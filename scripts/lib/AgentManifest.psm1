@@ -5,10 +5,6 @@ Set-StrictMode -Version Latest
 # propagate the exact exit code (64 for manifest errors) exactly like the Bash
 # scripts do under `set -e`. Functions return $null when Python fails.
 
-function Get-RepositoryRoot {
-    Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-}
-
 function Get-AgentManifestScript {
     Join-Path (Split-Path -Parent $PSScriptRoot) 'agent_manifest.py'
 }
@@ -66,20 +62,14 @@ function Test-ManifestRuntimeMatches {
 }
 
 function Invoke-ManifestChecks {
-    # run_manifest_checks uses a package-relative import, so it must run as a
-    # module from the repository root, as the Bash scripts do.
+    # Run the checks script by path so the caller's working directory is unchanged.
     param(
         [Parameter(Mandatory)] [string]$Manifest,
         [Parameter(Mandatory)] [string]$BaseUrl,
         [Parameter(Mandatory)] [int]$TimeoutSeconds
     )
-    Push-Location (Get-RepositoryRoot)
-    try {
-        & python -m scripts.run_manifest_checks --manifest $Manifest --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
-    }
-    finally {
-        Pop-Location
-    }
+    $checksScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'run_manifest_checks.py'
+    & python $checksScript --manifest $Manifest --base-url $BaseUrl --timeout-seconds $TimeoutSeconds
 }
 
-Export-ModuleMember -Function Get-RepositoryRoot, Test-PythonAvailable, Get-ManifestField, Get-ManifestDeploymentName, Get-ManifestRuntimeEnvironment, Test-ManifestRuntimeMatches, Invoke-ManifestChecks
+Export-ModuleMember -Function Test-PythonAvailable, Get-ManifestField, Get-ManifestDeploymentName, Get-ManifestRuntimeEnvironment, Test-ManifestRuntimeMatches, Invoke-ManifestChecks

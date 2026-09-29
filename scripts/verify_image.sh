@@ -135,7 +135,7 @@ while :; do
     sleep 1
 done
 if [ -n "$manifest" ]; then
-    python -m scripts.run_manifest_checks --manifest "$manifest" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
+    python "$script_dir/run_manifest_checks.py" --manifest "$manifest" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
 elif [ -n "$post_path" ]; then
     if ! code=$(curl --silent --show-error --noproxy '*' --connect-timeout "$timeout_seconds" --max-time "$timeout_seconds" --output "$work_dir/post.body" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data-raw "$post_body" "$base_url$post_path"); then
         if [ -f "$work_dir/post.body" ]; then cat "$work_dir/post.body"; fi

@@ -26,9 +26,10 @@ manifest=""
 functional=false
 timeout_seconds=300
 poll_seconds=5
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 usage() {
-  printf '%s\n' 'Usage: scripts/verify_deployment.sh --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'
+  printf 'Usage: %s --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]\n' "$0"
 }
 
 require_positive_integer() {
@@ -120,7 +121,6 @@ if [[ -n "$manifest" ]]; then
     printf '%s\n' 'Python is required to read the agent manifest.' >&2
     exit 1
   fi
-  script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
   python "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$expected_tag" >/dev/null
 elif [[ "$functional" == true ]]; then
   printf '%s\n' '--functional requires --manifest.' >&2
@@ -212,7 +212,7 @@ while :; do
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
     if [[ "$functional" == true ]]; then
-      python -m scripts.run_manifest_checks --manifest "$manifest" \
+      python "$script_directory/run_manifest_checks.py" --manifest "$manifest" \
         --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
     fi
     report PASS "$elapsed_seconds"

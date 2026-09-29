@@ -17,7 +17,7 @@ apply_changes=false
 manifest=""
 tag=""
 
-usage() { printf '%s\n' 'Usage: scripts/deploy_hosted_application.sh [--plan|--apply] --manifest PATH --tag MAJOR.MINOR.PATCH'; }
+usage() { printf 'Usage: %s [--plan|--apply] --manifest PATH --tag MAJOR.MINOR.PATCH\n' "$0"; }
 
 require_environment_variable() {
   local variable_name="$1"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-23
+Date last modified: 2026-09-29
 License: MIT
 Description: Execute validated functional HTTP checks from an agent manifest.
 """
@@ -13,7 +13,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .agent_manifest import ManifestError, load_manifest
+from agent_manifest import ManifestError, load_manifest
 
 
 def is_subset(expected: Any, observed: Any) -> bool:
@@ -93,7 +93,10 @@ def main() -> int:
     try:
         for check in load_manifest(args.manifest)["verify"]:
             execute_check(args.base_url, check, args.timeout_seconds)
-    except (ManifestError, RuntimeError) as error:
+    except ManifestError as error:
+        print(f"Manifest error: {error}", file=sys.stderr)
+        return 64
+    except RuntimeError as error:
         print(f"Functional check failed: {error}", file=sys.stderr)
         return 13
     return 0

@@ -16,7 +16,7 @@ manifest=""
 tag=""
 
 usage() {
-  printf '%s\n' 'Usage: scripts/push_ocir_image.sh [--plan|--push] --manifest PATH --tag MAJOR.MINOR.PATCH'
+  printf 'Usage: %s [--plan|--push] --manifest PATH --tag MAJOR.MINOR.PATCH\n' "$0"
 }
 
 require_environment_variable() {
@@ -65,7 +65,7 @@ target_image="${ocir_registry}/${OCIR_TENANCY_NAMESPACE}/${repository}:${tag}"
 printf 'Mode: %s\n' "$([[ "$push_image" == true ]] && printf push || printf plan)"
 printf 'Source image: %s (%s)\n' "$source_image" "$image_platform"
 printf 'OCIR target: %s\n' "$target_image"
-printf 'Repository prerequisite: scripts/ensure_ocir_repository.sh --repository %s\n' "$repository"
+printf 'Repository prerequisite: %s/ensure_ocir_repository.sh --repository %s\n' "$script_directory" "$repository"
 if [[ "$push_image" == false ]]; then
   printf '%s\n' 'Plan complete. Authenticate with Docker and re-run with --push only after explicit authorization.'
   exit 0

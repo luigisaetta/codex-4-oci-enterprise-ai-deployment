@@ -19,7 +19,7 @@ create_repository=false
 repository_name=""
 
 usage() {
-  printf '%s\n' 'Usage: scripts/ensure_ocir_repository.sh --repository NAME [--create]'
+  printf 'Usage: %s --repository NAME [--create]\n' "$0"
   printf '%s\n' 'Check an OCIR repository; --create creates it if it is absent.'
 }
 

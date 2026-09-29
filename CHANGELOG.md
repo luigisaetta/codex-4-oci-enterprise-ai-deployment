@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-* 2026-09-24: Add an SVG overview of the four-skill OCI Enterprise AI agent
-  release workflow to the project README.
+* 2026-09-24: Add an SVG overview and JPEG rendition of the four-skill OCI
+  Enterprise AI agent release workflow to the project README.
 
 * 2026-09-23: Add PowerShell 7.4+ twins of every lifecycle script with the same
   options, report lines, and exit codes, plus Docker/Podman engine selection, a

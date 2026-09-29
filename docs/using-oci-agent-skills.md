@@ -77,6 +77,8 @@ codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`.
 An agent kept in its own repository needs four files in the agent's folder,
 which is also the build context (`context: .` in the manifest):
 
+Its `.gitignore` must exclude `__pycache__/`, `.pytest_cache/`, and `.env`.
+
 | File | Source | What to fill in |
 | --- | --- | --- |
 | `Dockerfile` | `skills/oci-agent-build/assets/Dockerfile.template` | `{{REQUIREMENTS_PATH}}` = `requirements.txt`; `{{PACKAGE_DIR}}` = the folder with the agent's Python package; `{{APP_MODULE}}` = `<module>:<app>`, for example `my_agent.app:app`. |

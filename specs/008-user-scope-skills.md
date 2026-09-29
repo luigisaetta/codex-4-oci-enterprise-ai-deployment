@@ -1,6 +1,6 @@
 # Spec 008: User-scope skills usable from any agent repository
 
-Status: implemented through step 7; end-to-end verification (step 8) pending.
+Status: implemented and verified end to end on macOS (Bash); PowerShell unverified.
 Date: 2026-09-29.
 
 ## Problem
@@ -312,6 +312,17 @@ New or updated offline tests:
   Specs 003 and 006; cleanup is a separate, explicitly authorized operation.
 
 ## Verification record
+
+### 2026-09-29: end-to-end verification from an external repository
+
+| Acceptance criterion | Evidence |
+| --- | --- |
+| 1 | The installer created the four user-scope links; existing `aidp-*` links were untouched. After a Codex restart, the skills were discovered from a folder outside both tool repositories. |
+| 2 | A new `text-stats` agent, created from the guide section in a separate Git repository, built and verified locally with `$oci-agent-build ./agent.yaml`. The `POST /analyze` functional check passed. |
+| 3 | Push and deploy plans run from the external repository read the tenancy file in the tool home with no exported variables. |
+| 4 | The repository was created and the image was pushed; its registry digest equalled the local image ID. The Hosted Application and deployment became `ACTIVE`, and `--functional` verification passed in `eu-frankfurt-1` (`/health` 200, `/ready` 200, and `POST /analyze` 200). The tenancy namespace is recorded as `<namespace>`; no OCIDs are recorded here. |
+| 5 | The `hello_world` regression build and verification passed with tag `0.2.3-rc1`, run from outside the repository. |
+| 8 | PowerShell was not executed; see [PowerShell: not executed on this machine](#powershell-not-executed-on-this-machine). |
 
 ### 2026-09-29: Step 8 finding
 

@@ -8,42 +8,66 @@
 ![Testing: pytest](https://img.shields.io/badge/testing-pytest-0A9EDC?logo=pytest&logoColor=white)
 
 Codex skills and reproducible demos for deploying AI agents to **OCI Enterprise
-AI Hosted Applications**.
+AI Hosted Applications**. Install the skills once, then use them from the
+repository of any agent.
 
-## Start here: release an agent with the four skills
+## How a release works
 
-Use the [step-by-step skill guide](docs/using-oci-agent-skills.md). It explains
-the complete operator workflow:
+Four skills take one agent release from source code to a running Hosted
+Application, in this order:
 
-1. Build and locally verify a `linux/amd64` agent image.
-2. Publish that verified image to OCIR.
-3. Review a deployment plan and, with explicit approval, deploy it.
-4. Verify the active OCI release using `/health` and `/ready`.
+1. **Build**: build a `linux/amd64` image and verify it locally.
+2. **Push**: publish the verified image to OCIR.
+3. **Deploy**: review a deployment plan, then deploy it after your approval.
+4. **Verify**: check the deployed release with `/health` and `/ready`.
 
-Every release needs an explicit agent manifest and semantic tag. The final
-verification also needs the Hosted Application OCID produced at deployment.
-The guide identifies the approval boundary for every operation that changes OCI
-or makes public endpoint requests.
+Every release needs:
 
-## Before using a skill
+* an agent manifest (`agent.yaml`);
+* a semantic version tag, for example `0.4.0`;
+* for the final verification only, the Hosted Application OCID returned by
+  the deployment.
 
-Either install the skills at user scope, then open any agent repository as the
-Codex workspace, or open this repository, whose `.agents/skills` link still
-makes the four skills discoverable. Install with
-`scripts/install_skills.sh` (or `install_skills.ps1`); keep the tool home at
-its installed location and start a new Codex session after installation. Select
-a skill from the interface, or invoke it explicitly as `$oci-agent-build`,
-`$oci-agent-push`, `$oci-agent-deploy`, or
-`$oci-agent-verify-deployment`.
+The skills ask for approval before every operation that changes OCI or calls
+a public endpoint. The [step-by-step guide](docs/using-oci-agent-skills.md)
+describes each step in detail.
 
-Prepare the project Conda environment, a container engine, and OCI CLI: Docker
-with Buildx and curl on macOS, Linux, or WSL2; Docker Desktop or Podman with
-PowerShell 7.4+ on Windows. Every lifecycle script exists as `scripts/*.sh` and
-as a `scripts/*.ps1` twin with the same options and exit codes; the skills use
-whichever matches your shell.
-The tenancy file defaults to `<tool home>/.env`; set `OCI_AGENT_ENV_FILE` to use
-another file. Copy `.env.example` to the ignored `.env` and configure only these tenancy-wide,
-non-secret values:
+## Skills
+
+| Skill | Use it to | Changes state? |
+| --- | --- | --- |
+| [oci-agent-build](skills/oci-agent-build/SKILL.md) | Build and locally verify an agent image. | Local Docker only. |
+| [oci-agent-push](skills/oci-agent-push/SKILL.md) | Publish a locally verified image to OCIR. | Creates a missing repository and pushes, each only with your approval. |
+| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan or create a Hosted Application deployment. | Creates OCI resources only with your approval. |
+| [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Check a deployed release's OCI state, health, and readiness. | Read-only OCI calls and approved public GET requests. |
+
+Push and deploy run only when you call them by name (`$oci-agent-push`,
+`$oci-agent-deploy`). The [skill catalog](skills/README.md) has the discovery
+and installation details; each `SKILL.md` is the authoritative instruction for
+its operation.
+
+## Setup
+
+Do this once per workstation. This checkout is the **tool home**: the
+installed skills point to it, so keep it where it is.
+
+### 1. Install the prerequisites
+
+* The Conda environment `codex-4-oci-enterprise-ai-deployment`, with
+  `requirements-dev.txt` installed. It provides Python, PyYAML, and OCI CLI.
+* A container engine:
+  * macOS, Linux, or WSL2: Docker with Buildx, plus curl;
+  * Windows: Docker Desktop or Podman, with PowerShell 7.4+.
+* OCI CLI authentication, configured outside this repository.
+
+Every script exists as a Bash version (`scripts/*.sh`) and a PowerShell twin
+(`scripts/*.ps1`) with the same options and exit codes. The skills use the one
+that matches your shell.
+
+### 2. Configure the tenancy
+
+Copy `.env.example` to `.env` (ignored by Git) and set only these non-secret
+values:
 
 ```dotenv
 OCI_REGION=eu-frankfurt-1
@@ -52,60 +76,101 @@ OCIR_TENANCY_NAMESPACE=<object-storage-namespace>
 OCIR_USERNAME=<complete-ocir-login-username>
 ```
 
-Configure OCI authentication outside the repository. Never commit or pass an
-OCI auth token, password, API private key, or Docker credential in `.env`, an
-agent manifest, or a command argument.
+The scripts read this file themselves; you do not need to export anything.
 
-Each agent has a versioned `agent.yaml` next to its code. It holds stable
-agent-specific configuration: build context, Dockerfile, local image name,
-OCIR repository, Hosted Application name, optional runtime environment, and
-functional checks. The version is deliberately not stored there: pass a new
-semantic tag for every release.
+### 3. Install the skills
 
-Use `schema_version: 2`: build paths are relative to the manifest folder.
-`OCI_AGENT_PYTHON` selects the Python interpreter used by scripts; it defaults
-to `python` and must provide PyYAML. `OCI_AGENT_ALLOWED_ROOTS` optionally sets
-the absolute allowed roots for manifests and build paths.
+From this checkout:
 
-## Skills
+```bash
+scripts/install_skills.sh
+```
 
-| Skill | Use it when | Changes state? |
+* It creates one link per skill in `~/.agents/skills` and never overwrites an
+  existing entry.
+* Use `--dry-run` to preview and `--uninstall` to remove only this checkout's
+  links. On Windows, use `scripts/install_skills.ps1`.
+* Start a new Codex session afterwards.
+
+Alternatively, skip this step and open this repository in Codex: its
+`.agents/skills` link makes the skills available inside it.
+
+## Using the skills
+
+* Open the agent's repository in Codex.
+* Select a skill in the interface, or call it by name: `$oci-agent-build`,
+  `$oci-agent-push`, `$oci-agent-deploy`, `$oci-agent-verify-deployment`.
+* Give the manifest path and the tag in your request, for example:
+  `$oci-agent-build ./agent.yaml tag: 0.4.0`.
+
+To create a new agent, see
+[Creating a new agent repository](docs/using-oci-agent-skills.md#creating-a-new-agent-repository)
+in the guide.
+
+## The agent manifest
+
+Each agent has a versioned `agent.yaml` next to its code. It contains:
+
+* the build context and Dockerfile;
+* the local image name and the OCIR repository;
+* the Hosted Application name;
+* an optional runtime environment;
+* optional functional checks.
+
+Rules:
+
+* use `schema_version: 2`; build paths are relative to the manifest's folder;
+* the version tag is never stored in the manifest: pass a new tag for every
+  release.
+
+## Optional settings
+
+| Variable | Purpose | Default |
 | --- | --- | --- |
-| [oci-agent-build](skills/oci-agent-build/SKILL.md) | Building and locally verifying an agent image. | Local Docker only. |
-| [oci-agent-push](skills/oci-agent-push/SKILL.md) | Publishing a locally verified image to OCIR. | Creates a missing repository and pushes only with explicit authorization. |
-| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Planning or creating a Hosted Application deployment. | OCI creation only with explicit authorization. |
-| [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Checking a deployed release's OCI state, health, and readiness. | Read-only OCI calls and authorized public GET probes. |
+| `OCI_AGENT_ENV_FILE` | Path of the tenancy file. | `.env` in the tool home. |
+| `OCI_AGENT_PYTHON` | Python interpreter used by the scripts; it must provide PyYAML. | `python` |
+| `OCI_AGENT_ALLOWED_ROOTS` | Absolute folders that may contain manifests and build files. | The Git repository that contains the manifest, or the manifest's folder outside Git. |
 
-The [skill catalog](skills/README.md) contains discovery details and links to
-the associated specifications. The individual `SKILL.md` files remain the
-authoritative instructions for each operation.
+## Security rules
+
+* Never put an OCI auth token, password, API private key, or Docker
+  credential in `.env`, in a manifest, or in a command argument.
+* The Docker login token is typed only at Docker's password prompt.
 
 ## Example agent
 
 [hello_world](demos/hello_world/README.md) is the reference FastAPI/LangGraph
-agent. Its [manifest](demos/hello_world/agent.yaml) is an example only, not a
-default selection. It provides `/hello`, `/health`, and `/ready` on port 8080.
+agent.
+
+* It provides `/hello`, `/health`, and `/ready` on port 8080.
+* Its [manifest](demos/hello_world/agent.yaml) is an example, never a default:
+  the skills always ask which manifest to use.
 
 ## Project layout
 
 | Directory | Purpose |
 | --- | --- |
-| `skills/` | Codex skills for lifecycle steps. |
+| `skills/` | Codex skills for the lifecycle steps. |
+| `scripts/` | Lifecycle automation, as Bash and PowerShell twins. |
 | `demos/` | Runnable agent examples. |
 | `docs/` | Operator guides and platform documentation. |
 | `notes/` | Architectural and environment notes. |
 | `specs/` | Specifications, acceptance criteria, and verification records. |
-| `scripts/` | Shared lifecycle automation, as Bash and PowerShell twins. |
 | `tests/` | Local unit tests and explicit integration-test support. |
 
-For Windows workstations, see [native PowerShell 7](notes/windows-powershell-native.md) or [Rancher Desktop with WSL2](notes/windows-rancher-desktop-wsl2.md). For remote Linux builds, see [Linux build machine over SSH](notes/linux-build-machine-over-ssh.md).
+Environment-specific guides:
+
+* Windows: [native PowerShell 7](notes/windows-powershell-native.md) or
+  [Rancher Desktop with WSL2](notes/windows-rancher-desktop-wsl2.md);
+* remote Linux builds: [Linux build machine over SSH](notes/linux-build-machine-over-ssh.md).
 
 ## Working on this repository
 
-Follow [AGENTS.md](AGENTS.md) for project conventions. Meaningful behavior
-changes are specified first; documentation and code comments are written in
-English. Remote OCI verification is distinct from local testing and is recorded
-in the relevant specification.
+* Follow [AGENTS.md](AGENTS.md) for the project conventions.
+* Specify meaningful behavior changes first, in `specs/`.
+* Write documentation and code comments in English.
+* Record remote OCI verification separately from local tests, in the relevant
+  specification.
 
 ## License
 

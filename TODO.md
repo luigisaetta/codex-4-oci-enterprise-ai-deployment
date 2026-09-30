@@ -37,28 +37,8 @@ this needs an update workflow (a separate specification).
 
 ## 2. Authentication with JWT tokens
 
-Today the only deployment profile is `public-noauth` (`NO_AUTH_CONFIG`): the
-endpoint is public and accepts unauthenticated calls.
-
-The OCI Python SDK 2.187.0 also offers inbound authentication type
-`IDCS_AUTH_CONFIG`, with `domainUrl`, `scope`, and `audience`: callers present
-a JWT access token issued by an OCI IAM identity domain.
-
-To do:
-
-* verify the behavior against the official documentation and a live test:
-  how a caller obtains a token (for example OAuth client credentials of a
-  confidential application in the identity domain), and how the endpoint
-  rejects missing, expired, or wrong-audience tokens;
-* a new manifest deployment profile (for example `public-jwt`) with the
-  identity-domain settings, validated like the existing fields, and without
-  any secret in the manifest;
-* deploy: create the application with `IDCS_AUTH_CONFIG`;
-* verify: health and readiness probes and functional checks with a bearer
-  token, obtained at run time and never printed or stored;
-* documentation for end users: how to call a protected agent;
-* decide how to move an existing `public-noauth` application to JWT: the
-  inbound authentication belongs to the application, as the environment does.
+Implemented; live acceptance pending (needs confidential-application
+credentials). See [Spec 010](specs/010-jwt-inbound-authentication.md).
 
 ## 3. Scaling configuration in the manifest
 

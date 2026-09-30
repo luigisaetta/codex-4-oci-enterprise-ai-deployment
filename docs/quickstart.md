@@ -71,6 +71,27 @@ Docker's password prompt, never in the chat.
 At the end, Codex reports that the agent is healthy and ready. Keep the
 **application OCID** it prints: it identifies your agent in OCI.
 
+## Protect your agent with a token
+
+Ask the identity-domain administrator for the domain URL, primary audience,
+scope, client ID, and client secret, and confirm whether the confidential
+application is new or reused. Put only the three non-secret values in
+`agent.yaml` under `deploy.auth` and set `deploy.profile: public-idcs`:
+
+```yaml
+deploy:
+  profile: public-idcs
+  auth:
+    domain_url: <identity-domain-url>
+    audience: <audience-of-the-confidential-application>
+    scope: <scope-of-the-confidential-application>
+```
+
+Before asking Codex to verify the protected agent, export the client ID and
+client secret in your own shell. Never paste either value, or an access token,
+into the chat. The deployment checks only the format of the three manifest
+values; verification tests them against the identity domain.
+
 ## 3. Publish a new version
 
 Change the code, then ask for a release with a **new** version number:

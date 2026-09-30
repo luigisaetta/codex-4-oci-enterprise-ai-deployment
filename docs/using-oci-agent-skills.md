@@ -104,7 +104,8 @@ Before creating a release, inspect the selected `agent.yaml`. It provides:
 
 * `build`: build context and Dockerfile;
 * `publish.repository`: OCIR repository below the tenancy namespace;
-* `deploy`: Hosted Application name and the current `public-noauth` profile;
+* `deploy`: Hosted Application name, an access profile, and (for `public-idcs`)
+  identity-domain authentication settings;
 * optional `runtime.env`: safe runtime configuration; and
 * `verify`: agent-specific functional checks.
 
@@ -113,6 +114,31 @@ Use a literal `runtime.env.value` only for non-secret committed data,
 `from_env` for tenancy-specific non-secret data, and `vault_secret_id` for
 secrets. Updating runtime variables on an existing Hosted Application is not
 implemented; a changed value requires an explicitly designed update workflow.
+
+## Protect an agent with identity-domain tokens
+
+For an endpoint that must require an OCI IAM identity-domain token, ask the
+identity-domain administrator for the domain URL, primary audience, scope,
+client ID, and client secret. Confirm whether the confidential application is
+new or an existing application that will be reused. The primary audience and
+scope must match that confidential application exactly.
+
+Put only the three non-secret values in the manifest:
+
+```yaml
+deploy:
+  profile: public-idcs
+  auth:
+    domain_url: <identity-domain-url>
+    audience: <audience-of-the-confidential-application>
+    scope: <scope-of-the-confidential-application>
+```
+
+The deploy checks the format of these values, but does not contact the identity
+domain or test that they work. Verification is the step that tests them. Never
+put the client ID, client secret, or an access token in `agent.yaml`, the
+tenancy file, or the chat. The client secret and access token must never be
+printed or stored.
 
 ## Step 1: build and verify the local image
 
@@ -213,8 +239,16 @@ $oci-agent-verify-deployment
 ocid1.generativeaihostedapplication.oc1.<region>.<unique-id>
 ```
 
-The skill asks for explicit authorization to perform OCI reads and public,
-unauthenticated GET probes. With approval, it checks that the application is
+For `public-idcs`, export `OCI_AGENT_IDCS_CLIENT_ID` and
+`OCI_AGENT_IDCS_CLIENT_SECRET` in your own shell before requesting verification.
+Do not paste either value into chat. The client secret and the access token are
+never printed or stored. `OCI_AGENT_IDCS_TOKEN_SCOPE` is optional when the
+identity domain requires an exact token scope other than the manifest-derived
+one. The verifier exits 24 if it cannot obtain an access token, and 25 if a
+protected endpoint accepts an unauthenticated request.
+
+The skill asks for explicit authorization to perform OCI reads and public GET
+probes. With approval, it checks that the application is
 `ACTIVE`, exactly one associated deployment is `ACTIVE`, and that the active
 artifact tag equals the requested release. Only then does it poll:
 
@@ -230,6 +264,21 @@ the verifier continues polling within its bounded timeout.
 Expected outcome: application and deployment OCIDs, expected tag, endpoint host,
 health and ready HTTP statuses, readiness duration, and `PASS` or a precise
 failure result. The default verifier never invokes the agent's business API.
+
+## Call a protected agent
+
+For a `public-idcs` agent, obtain an access token through the OAuth 2.0 client
+credentials grant from `<identity-domain-url>/oauth2/v1/token`, using the
+confidential application's client ID and client secret, then send
+`Authorization: Bearer <token>` with the request. Keep the client secret and
+access token out of chat, output, and files.
+
+The exact endpoint host, bearer-header behavior, protection of health and
+readiness, unauthenticated rejection status, token scope construction, and
+HTTP Basic client authentication are assumptions U1–U6 in
+[Spec 010](../specs/010-jwt-inbound-authentication.md#assumptions-to-confirm-during-the-live-acceptance).
+They remain pending the live acceptance; do not treat this guidance as a
+completed production-security acceptance.
 
 ## Optional functional check after deployment
 

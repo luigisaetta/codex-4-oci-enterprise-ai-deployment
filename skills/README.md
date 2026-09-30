@@ -3,6 +3,11 @@
 The deploy skill handles first releases, new versions, and rollbacks in the
 same Hosted Application.
 
+The `public-idcs` profile creates a public endpoint that requires an OCI IAM
+identity-domain bearer token. Its manifest contains only the domain URL,
+audience, and scope; verifier-only confidential-application credentials stay
+in the operator's shell.
+
 | Skill | Purpose | Status |
 | --- | --- | --- |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |

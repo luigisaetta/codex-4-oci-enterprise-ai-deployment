@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-30: Add Spec 010 `public-idcs` inbound-authentication documentation
+  for deployment, verification, and protected-agent calls; live acceptance
+  remains pending confidential-application credentials.
+
 * 2026-09-30: Add a plain-language Quickstart for publishing an agent, releasing
   new versions, and rolling back, and document new versions and rollback in
   the README.

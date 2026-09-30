@@ -57,6 +57,11 @@ a public endpoint. The [Quickstart](docs/quickstart.md) is the shortest path;
 the [step-by-step guide](docs/using-oci-agent-skills.md) describes each step in
 detail.
 
+For a token-protected public endpoint, use the `public-idcs` profile with an
+OCI IAM identity-domain domain URL, audience, and scope in the manifest. The
+identity-domain confidential application's client credentials are used only by
+the verifier and are never stored in project configuration.
+
 ## Skills
 
 | Skill | Use it to | Changes state? |
@@ -162,6 +167,12 @@ Rules:
 * Never put an OCI auth token, password, API private key, or Docker
   credential in `.env`, in a manifest, or in a command argument.
 * The Docker login token is typed only at Docker's password prompt.
+* For `public-idcs`, ask the identity-domain administrator for the domain URL,
+  audience, scope, client ID, and client secret. Store only the non-secret
+  domain URL, audience, and scope in the manifest.
+* Export the identity-domain client ID and secret only in the shell that runs
+  verification. Never type the client secret or access token into chat, print
+  it, or store it in a file.
 
 ## Example agent
 

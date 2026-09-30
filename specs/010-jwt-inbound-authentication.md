@@ -1,6 +1,6 @@
 # Spec 010: JWT inbound authentication for Hosted Applications
 
-Status: draft; not implemented.
+Status: implemented (Bash; PowerShell unexecuted); live acceptance pending.
 Date: 2026-09-30.
 
 ## Problem
@@ -281,3 +281,9 @@ only in the shell that runs the verifier.
   them from the manifest. The unauthenticated health check runs only after
   authenticated health and readiness probes have passed. U6 records the
   HTTP Basic client-credential assumption for live confirmation.
+* 2026-09-30 — Step 5b local checks: `black --check .` passed (24 files
+  unchanged); `pylint scripts tests` passed with 10.00/10; `pytest -q` passed
+  with 164 passed, 49 skipped, and 1 warning in 58.70s. PowerShell remains
+  unexecuted. Documentation-only review confirmed that every relative Markdown
+  link in the edited files resolves. Live acceptance remains pending
+  confidential-application credentials.

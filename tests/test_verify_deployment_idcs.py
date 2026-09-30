@@ -111,7 +111,7 @@ import sys
 
 name = os.path.basename(sys.argv[1])
 with open(os.environ["IDCS_PYTHON_LOG"], "a", encoding="utf-8") as log:
-    log.write(name + "\\n")
+    log.write(name + " " + " ".join(sys.argv[2:]) + "\\n")
 if name == "idcs_token.py":
     if os.environ.get("IDCS_TOKEN_FAILURE"):
         print("HTTP status: 401", file=sys.stderr)
@@ -238,8 +238,14 @@ def test_idcs_success_uses_stdin_bearer_auth_and_functional_token(
     )
     assert result.returncode == 0, result.stderr
     assert "auth=idcs unauthenticated_status=401 result=PASS" in result.stdout
-    assert [entry["authenticated"] for entry in curl_log] == [False, True, True]
-    assert "idcs_token.py" in read_log(result.log_paths["python"])
+    assert [entry["authenticated"] for entry in curl_log] == [True, True, False]
+    token_call = next(
+        line
+        for line in read_log(result.log_paths["python"]).splitlines()
+        if line.startswith("idcs_token.py ")
+    )
+    assert "--domain-url https://idcs-placeholder.example:443" in token_call
+    assert "--audience placeholder-audience --scope placeholder-scope" in token_call
     assert "run_manifest_checks.py" in read_log(result.log_paths["python"])
     assert CLIENT_SECRET not in all_output
     assert ACCESS_TOKEN not in all_output

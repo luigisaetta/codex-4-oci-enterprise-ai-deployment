@@ -90,6 +90,7 @@ of the verifier so that it can be changed if the live test contradicts it.
 | U3 | `/health` and `/ready` are protected like the business paths. | Probes send the header; the negative check uses `/health` |
 | U4 | A request without a token is rejected with 401 or 403. | Negative check |
 | U5 | The token scope is `<audience><scope>` (A4); when that does not fit the identity domain (for example audience `all`), the operator sets the exact token scope. | Token request |
+| U6 | The client credentials are sent with HTTP Basic authentication ([RFC 6749 section 2.3.1](https://www.rfc-editor.org/rfc/rfc6749#section-2.3.1)). | Token request |
 
 ## Configuration
 
@@ -275,3 +276,8 @@ only in the shell that runs the verifier.
   and offline fixtures were corrected so this value matches `public-noauth`
   only; it remains a mismatch for `public-idcs`. Local checks are recorded
   after this change.
+* 2026-09-30 — Step 3 review finding: the token helper receives only the
+  non-secret domain URL, audience, and scope as arguments; the verifier reads
+  them from the manifest. The unauthenticated health check runs only after
+  authenticated health and readiness probes have passed. U6 records the
+  HTTP Basic client-credential assumption for live confirmation.

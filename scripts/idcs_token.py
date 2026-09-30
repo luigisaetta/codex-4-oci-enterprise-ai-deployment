@@ -11,34 +11,12 @@ import base64
 import json
 import os
 import sys
-from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 EXIT_INVALID_INPUT = 64
 EXIT_TOKEN_FAILURE = 24
-
-
-def load_manifest_auth(manifest_path: str) -> dict[str, str]:
-    """Load the identity-domain values from a validated agent manifest.
-
-    Args:
-        manifest_path: Path to an agent manifest.
-
-    Returns:
-        The domain URL, audience, and scope.
-
-    Raises:
-        ValueError: If the manifest is not an IDCS deployment manifest.
-    """
-    # pylint: disable=import-error,import-outside-toplevel
-    from agent_manifest import load_manifest
-
-    manifest: dict[str, Any] = load_manifest(manifest_path)
-    if manifest["deploy"]["profile"] != "public-idcs":
-        raise ValueError("The manifest profile must be public-idcs.")
-    return manifest["deploy"]["auth"]
 
 
 def token_scope(auth: dict[str, str]) -> str:
@@ -65,6 +43,7 @@ def request_token(auth: dict[str, str], client_id: str, client_secret: str) -> s
         URLError: If the request cannot reach the identity domain.
         ValueError: If a successful response does not contain an access token.
     """
+    # U6: client credentials use HTTP Basic authentication.
     credentials = base64.b64encode(
         f"{client_id}:{client_secret}".encode("utf-8")
     ).decode("ascii")
@@ -97,14 +76,20 @@ def print_failure(status: str, oauth_error: str) -> int:
 def main() -> int:
     """Read credentials and print only a successfully acquired access token."""
     parser = argparse.ArgumentParser(description="Request an IDCS access token.")
-    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--domain-url", required=True)
+    parser.add_argument("--audience", required=True)
+    parser.add_argument("--scope", required=True)
     args = parser.parse_args()
     for name in ("OCI_AGENT_IDCS_CLIENT_ID", "OCI_AGENT_IDCS_CLIENT_SECRET"):
         if not os.environ.get(name):
             print(f"Missing required environment variable: {name}", file=sys.stderr)
             return EXIT_INVALID_INPUT
     try:
-        auth = load_manifest_auth(args.manifest)
+        auth = {
+            "domain_url": args.domain_url,
+            "audience": args.audience,
+            "scope": args.scope,
+        }
         token = request_token(
             auth,
             os.environ["OCI_AGENT_IDCS_CLIENT_ID"],

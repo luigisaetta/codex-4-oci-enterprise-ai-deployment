@@ -34,6 +34,9 @@ profile=public-noauth
 auth_mode=none
 access_token=""
 unauthenticated_status=not_applicable
+domain_url=""
+audience=""
+scope=""
 script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 . "$script_directory/lib/tool_env.sh"
 
@@ -187,6 +190,12 @@ if [[ -n "$manifest" ]]; then
         exit "$EXIT_INVALID_INPUT"
       fi
     done
+    domain_url="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+      --manifest "$manifest" --field deploy.auth.domain_url)"
+    audience="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+      --manifest "$manifest" --field deploy.auth.audience)"
+    scope="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+      --manifest "$manifest" --field deploy.auth.scope)"
   fi
 fi
 
@@ -320,7 +329,7 @@ if [[ "$auth_mode" == idcs ]]; then
     exit "$EXIT_APPLICATION_NOT_ACTIVE"
   fi
   if ! access_token="$("$OCI_AGENT_PYTHON" "$script_directory/idcs_token.py" \
-    --manifest "$manifest")"; then
+    --domain-url "$domain_url" --audience "$audience" --scope "$scope")"; then
     printf '%s\n' 'Could not obtain an access token from the identity domain.' >&2
     exit "$EXIT_TOKEN_FAILURE"
   fi
@@ -330,9 +339,6 @@ fi
 endpoint_host="inference.generativeai.${OCI_REGION}.oci.oraclecloud.com"
 endpoint_base="https://${endpoint_host}/${ENDPOINT_API_VERSION}/hostedApplications/"
 endpoint_base+="${application_id}/actions/invoke"
-if [[ "$auth_mode" == idcs ]]; then
-  probe_unauthenticated_health
-fi
 health_curl_exit=unattempted
 health_http_status=unattempted
 ready_curl_exit=unattempted
@@ -344,6 +350,9 @@ while :; do
 
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
+    if [[ "$auth_mode" == idcs ]]; then
+      probe_unauthenticated_health
+    fi
     if [[ "$functional" == true ]]; then
       checks_json=$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" checks \
         --manifest "$manifest")

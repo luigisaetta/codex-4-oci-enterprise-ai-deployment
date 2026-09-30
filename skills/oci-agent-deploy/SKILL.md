@@ -86,9 +86,9 @@ they mean. Never switch platform silently.
    "$TOOL_HOME/scripts/deploy_hosted_application.sh" --manifest /path/to/agent/agent.yaml --tag 0.1.0
    ```
 
-   Stop if the configured OCI CLI profile cannot resolve the region, the image
-   is not `linux/amd64`, the named compartment is ambiguous, required OCI
-   permissions are unavailable, or an existing same-named application is not
+   Stop if the configured OCI CLI profile cannot resolve the region, the named
+   compartment is ambiguous, required OCI permissions are unavailable, or an
+   existing same-named application is not
    `ACTIVE`. An ACTIVE manifest-compatible application is reused; a `DELETED`
    application does not block a new deployment.
 3. Show the plan again before asking for authorization. The plan reports the

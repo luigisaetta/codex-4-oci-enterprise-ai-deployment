@@ -9,6 +9,10 @@ Date: 2026-09-23.
 > the tag as a CLI input, and allows safe reuse of an ACTIVE exact-name application.
 > Historical verification below used the former `.env` names.
 
+> Superseded release note (2026-09-30): Spec 009 supports updating an existing
+> deployment as artifact activation for new versions and rollback. Deletion
+> remains out of scope.
+
 ## Problem
 
 After an agent image has been verified locally and published to OCIR, an operator

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-30: Add Spec 009 support for new versions and rollback in the same
+  Hosted Application, remove the derived deployment name, and wait during
+  `UPDATING` when verifying a deployment.
+
 * 2026-09-29: Allow all OCI Hosted Applications lifecycle skills to be selected
   from natural requests, add a target-platform check that distinguishes AI DP
   code-first agents, and retain explicit authorization before every push or

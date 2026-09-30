@@ -1,6 +1,6 @@
 # Spec 009: Release a new version into an existing Hosted Application
 
-Status: draft; not implemented. Platform behavior verified live on 2026-09-30.
+Status: implemented (Bash; PowerShell unexecuted); live acceptance pending.
 Date: 2026-09-30.
 
 ## Problem
@@ -195,5 +195,8 @@ A fake `oci` executable first on `PATH`, driven by a scenario file, for Bash
 
 ## Verification record
 
-Pending. The platform facts F1–F9 above were verified on 2026-09-30 before
-implementation.
+2026-09-30: platform facts F1–F9 above were verified before implementation.
+Local checks for steps 1–4 passed: `black --check .` reported 21 files left
+unchanged; `pylint scripts tests` rated the code 10.00/10; and `pytest -q`
+reported 115 passed, 41 skipped, and 1 warning in 40.88 seconds. PowerShell
+was not executed. Live release acceptance remains pending.

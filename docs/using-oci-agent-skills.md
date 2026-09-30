@@ -168,25 +168,39 @@ $oci-agent-deploy
 <absolute path>/demos/hello_world/agent.yaml tag: 0.4.0
 ```
 
-The first action is a read-only plan. Review these items before approving
-creation:
+The first action is a read-only plan. Review these items before approving the
+release:
 
 * the resolved OCIR image URI and release tag;
-* target compartment, application name, and derived deployment name;
+* target compartment and application name;
 * the public `NO_AUTH_CONFIG` endpoint posture and managed networking;
 * every runtime-variable name and source; Vault values and references are not
   displayed; and
 * any existing same-named application or deployment state.
 
-If the plan is correct, explicitly authorize apply when the skill asks. It can
-create a missing Hosted Application and the derived Hosted Deployment, or reuse
-only a compatible `ACTIVE` application. It does not delete, replace, or update
-an existing deployment. OCI creation is asynchronous: `CREATING` is a normal
+If the plan is correct, explicitly authorize apply when the skill asks. The
+deploy skill handles four cases: first release creates the application and its
+deployment; an already active tag makes no change; a new tag is added and
+activated; and an inactive previous tag is activated as a rollback. See
+[oci-agent-deploy](../skills/oci-agent-deploy/SKILL.md#release-cases) for the
+full release rules. OCI creation is asynchronous: `CREATING` is a normal
 intermediate state, not proof of failure.
 
 Expected outcome: application and deployment OCIDs. Retain the application OCID
 for the next step. Do not infer that a deployment is ready merely because the
 create request was accepted.
+
+## Release a new version or roll back
+
+Build and push the new tag as usual, then deploy that tag to the same
+application. To roll back, deploy the previous tag. The endpoint does not
+change; the verifier waits within its timeout while the deployment is
+`UPDATING`.
+
+## Clean up old artifacts
+
+Cleanup is manual and outside the skills: only inactive artifacts may be
+removed. An application has a limit of 20 artifacts.
 
 ## Step 4: verify the deployed release
 

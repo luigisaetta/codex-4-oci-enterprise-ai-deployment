@@ -1,10 +1,13 @@
 # Repository skills
 
+The deploy skill handles first releases, new versions, and rollbacks in the
+same Hosted Application.
+
 | Skill | Purpose | Status |
 | --- | --- | --- |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
-| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image to OCI Generative AI Hosted Applications. | Implemented; remote creation acceptance passed for Frankfurt; endpoint invocation not performed; see [Spec 003](../specs/003-skill-oci-agent-deploy.md). |
+| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image for a first release, new version, or rollback in the same OCI Generative AI Hosted Application. | Implemented in Bash; PowerShell execution and live release acceptance pending; see [Spec 009](../specs/009-release-new-version.md). |
 | [oci-agent-verify-deployment](oci-agent-verify-deployment/SKILL.md) | Verify an active Hosted Application release with OCI state checks and health/readiness probes. | Implemented; static and live Frankfurt verification passed for `hello-world:0.2.0`; see [Spec 005](../specs/005-skill-oci-agent-verify-deployment.md). |
 
 ## Choosing Bash or PowerShell

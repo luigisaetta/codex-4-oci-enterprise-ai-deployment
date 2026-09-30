@@ -8,6 +8,9 @@ Date: 2026-09-23.
 > and an explicitly authorized `--functional` mode. Default verification retains
 > the original OCI reads and GET-only `/health` and `/ready` probes.
 
+> Superseded release note (2026-09-30): Spec 009 makes the verifier wait within
+> its timeout while the deployment is `UPDATING`.
+
 ## Problem
 
 An active OCI Generative AI Hosted Deployment does not by itself prove that its

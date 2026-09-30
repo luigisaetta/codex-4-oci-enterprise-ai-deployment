@@ -7,6 +7,10 @@ Date: 2026-09-23.
 > Superseded configuration note (2026-09-29): Spec 008 supersedes these path
 > rules and schema version. Exporting `.env` is replaced by the tenancy-file loader.
 
+> Superseded deployment-name note (2026-09-30): The deployment name derived
+> from the tag is removed. OCI ignores the deployment display name (Spec 009,
+> F8).
+
 ## Problem
 
 The previous workflow mixed tenancy-wide values, agent identity, and release

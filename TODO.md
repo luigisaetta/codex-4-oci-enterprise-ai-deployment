@@ -35,10 +35,27 @@ it is created. Changing them on an existing application is not implemented;
 the deploy stops when the manifest and the application differ. Decide whether
 this needs an update workflow (a separate specification).
 
-## 2. Authentication with JWT tokens
+## 2. Live tests of JWT authentication
 
-Implemented; live acceptance pending (needs confidential-application
-credentials). See [Spec 010](specs/010-jwt-inbound-authentication.md).
+The `public-idcs` profile is implemented and tested offline
+([Spec 010](specs/010-jwt-inbound-authentication.md)). Only the live
+acceptance remains, and it needs the domain URL, audience, scope, client ID,
+and client secret of a confidential application (new or reused).
+
+Tests to do, in eu-frankfurt-1, with explicit authorization:
+
+* release a new application (for example `text-stats-idcs`) with the
+  `public-idcs` profile;
+* run the verifier with `--functional`: token request, authenticated health
+  and readiness, rejected unauthenticated `/health`, functional checks;
+* call the endpoint with a token for another audience or scope, and record
+  the status;
+* confirm or correct the assumptions U1-U6 of Spec 010 (endpoint host,
+  bearer header, protected probes, rejection status, token scope, HTTP Basic
+  client authentication);
+* check that no secret or token appears in any output, file, or command line;
+* record the results in Spec 010, and delete the test application when no
+  longer needed.
 
 ## 3. Scaling configuration in the manifest
 

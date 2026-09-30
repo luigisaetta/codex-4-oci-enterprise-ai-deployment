@@ -225,6 +225,7 @@ if ($Tag -notmatch $versionPattern) {
 
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
 if (-not (Resolve-AgentPython)) {
     Fail 1 (
         'Python with PyYAML is required. Activate the Conda environment ' +

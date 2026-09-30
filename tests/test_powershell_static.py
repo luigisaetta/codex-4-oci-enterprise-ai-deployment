@@ -30,6 +30,28 @@ def test_powershell_never_evaluates_tenancy_configuration() -> None:
         assert re.search(r"\biex\b", content, re.IGNORECASE) is None
 
 
+def test_powershell_scripts_import_modules_for_exported_function_calls() -> None:
+    """Every script importing a lib export also imports its defining module."""
+    modules = sorted((SCRIPTS / "lib").glob("*.psm1"))
+    exports_by_module = {}
+    for module in modules:
+        content = module.read_text(encoding="utf-8")
+        match = re.search(r"Export-ModuleMember -Function (.+)", content)
+        assert match is not None
+        exports_by_module[module.name] = [
+            function.strip() for function in match.group(1).split(",")
+        ]
+    for script in sorted(SCRIPTS.rglob("*.ps1")):
+        content = script.read_text(encoding="utf-8")
+        for module_name, functions in exports_by_module.items():
+            imports_module = module_name in content
+            for function in functions:
+                if re.search(rf"\b{re.escape(function)}\b", content):
+                    assert (
+                        imports_module
+                    ), f"{script.name} calls {function} without {module_name}"
+
+
 def test_deploy_hosted_application_release_safety() -> None:
     """The deployer supports every release case without deleting resources."""
     content = (SCRIPTS / "deploy_hosted_application.ps1").read_text(encoding="utf-8")

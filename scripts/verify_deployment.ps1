@@ -231,6 +231,7 @@ while ($true) {
     if ($Functional) {
       $checks = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') checks --manifest $Manifest
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      $checks = ((@($checks) | ForEach-Object { "$_" }) -join "`n")
       $checksScript = Join-Path $scriptDir 'run_manifest_checks.py'
       $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
       $startInfo.FileName = $env:OCI_AGENT_PYTHON

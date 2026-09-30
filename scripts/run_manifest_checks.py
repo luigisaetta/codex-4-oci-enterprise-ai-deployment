@@ -8,6 +8,7 @@ Description: Execute validated functional HTTP checks from an agent manifest.
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -34,6 +35,9 @@ def execute_check(base_url: str, check: dict[str, Any], timeout_seconds: int) ->
     """
     body = None
     headers: dict[str, str] = {}
+    access_token = os.environ.get("OCI_AGENT_ACCESS_TOKEN")
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
     if "body" in check:
         body = json.dumps(check["body"]).encode("utf-8")
         headers["Content-Type"] = "application/json"

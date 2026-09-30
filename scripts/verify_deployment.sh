@@ -20,6 +20,8 @@ readonly EXIT_APPLICATION_NOT_ACTIVE=20
 readonly EXIT_DEPLOYMENT_NOT_ACTIVE=21
 readonly EXIT_TAG_MISMATCH=22
 readonly EXIT_PROBE_TIMEOUT=23
+readonly EXIT_TOKEN_FAILURE=24
+readonly EXIT_UNAUTHENTICATED_ACCEPTED=25
 readonly ENDPOINT_API_VERSION=20251112
 
 application_id=""
@@ -28,6 +30,10 @@ manifest=""
 functional=false
 timeout_seconds=300
 poll_seconds=5
+profile=public-noauth
+auth_mode=none
+access_token=""
+unauthenticated_status=not_applicable
 script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 . "$script_directory/lib/tool_env.sh"
 
@@ -52,7 +58,20 @@ probe_endpoint() {
   local code=""
   local curl_exit=0
 
-  if code="$(curl --silent --show-error --output /dev/null \
+  # U2: authenticated requests use an Authorization Bearer header.
+  # U3: health and readiness probes require that header too.
+  if [[ "$auth_mode" == idcs ]]; then
+    if code="$(printf 'header = "Authorization: Bearer %s"\n' "$access_token" | \
+      curl -K - --silent --show-error --output /dev/null \
+        --write-out '%{http_code}' \
+        --connect-timeout "$poll_seconds" \
+        --max-time "$poll_seconds" \
+        "$probe_url")"; then
+      curl_exit=0
+    else
+      curl_exit=$?
+    fi
+  elif code="$(curl --silent --show-error --output /dev/null \
     --write-out '%{http_code}' \
     --connect-timeout "$poll_seconds" \
     --max-time "$poll_seconds" \
@@ -78,6 +97,28 @@ probe_endpoint() {
   esac
 }
 
+probe_unauthenticated_health() {
+  local probe_url="${endpoint_base}/health"
+  local code=""
+
+  # U4: a protected endpoint must reject a request without a token.
+  code="$(curl --silent --show-error --output /dev/null \
+    --write-out '%{http_code}' \
+    --connect-timeout "$poll_seconds" \
+    --max-time "$poll_seconds" \
+    "$probe_url")" || true
+  unauthenticated_status="${code:-000}"
+  if [[ "$unauthenticated_status" =~ ^2[0-9][0-9]$ ]]; then
+    printf '%s\n' 'The endpoint accepted a request without a token' >&2
+    exit "$EXIT_UNAUTHENTICATED_ACCEPTED"
+  fi
+  if [[ "$unauthenticated_status" != 401 && "$unauthenticated_status" != 403 ]]; then
+    printf 'Unauthenticated health request returned HTTP %s; expected 401 or 403.\n' \
+      "$unauthenticated_status" >&2
+    exit "$EXIT_PROBE_TIMEOUT"
+  fi
+}
+
 report() {
   local result="$1"
   local readiness_seconds="$2"
@@ -86,8 +127,12 @@ report() {
     "$application_id" "$deployment_id" "$expected_tag" "$endpoint_host"
   printf 'health_curl_exit=%s health_http_status=%s ready_curl_exit=%s ' \
     "$health_curl_exit" "$health_http_status" "$ready_curl_exit"
-  printf 'ready_http_status=%s readiness_seconds=%s result=%s\n' \
-    "$ready_http_status" "$readiness_seconds" "$result"
+  printf 'ready_http_status=%s readiness_seconds=%s auth=%s ' \
+    "$ready_http_status" "$readiness_seconds" "$auth_mode"
+  if [[ "$auth_mode" == idcs ]]; then
+    printf 'unauthenticated_status=%s ' "$unauthenticated_status"
+  fi
+  printf 'result=%s\n' "$result"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -130,6 +175,19 @@ if [[ -n "$manifest" ]]; then
 elif [[ "$functional" == true ]]; then
   printf '%s\n' '--functional requires --manifest.' >&2
   exit "$EXIT_INVALID_INPUT"
+fi
+if [[ -n "$manifest" ]]; then
+  profile="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+    --manifest "$manifest" --field deploy.profile)"
+  if [[ "$profile" == public-idcs ]]; then
+    auth_mode=idcs
+    for required_variable in OCI_AGENT_IDCS_CLIENT_ID OCI_AGENT_IDCS_CLIENT_SECRET; do
+      if [[ -z "${!required_variable:-}" ]]; then
+        printf 'Missing required environment variable: %s\n' "$required_variable" >&2
+        exit "$EXIT_INVALID_INPUT"
+      fi
+    done
+  fi
 fi
 
 if [[ ! "$application_id" =~ ^ocid1\.generativeaihostedapplication\.oc1\. ]]; then
@@ -253,9 +311,28 @@ if [[ "$active_artifact_tag" != "$expected_tag" ]]; then
   exit "$EXIT_TAG_MISMATCH"
 fi
 
+if [[ "$auth_mode" == idcs ]]; then
+  application_json="$(oci --region "$OCI_REGION" generative-ai hosted-application get \
+    --hosted-application-id "$application_id" --output json)"
+  if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" inbound-auth-matches --manifest "$manifest"; then
+    printf '%s\n' 'Hosted Application inbound authentication differs from the manifest.' >&2
+    exit "$EXIT_APPLICATION_NOT_ACTIVE"
+  fi
+  if ! access_token="$("$OCI_AGENT_PYTHON" "$script_directory/idcs_token.py" \
+    --manifest "$manifest")"; then
+    printf '%s\n' 'Could not obtain an access token from the identity domain.' >&2
+    exit "$EXIT_TOKEN_FAILURE"
+  fi
+fi
+
+# U1: protected applications use the current inference endpoint host.
 endpoint_host="inference.generativeai.${OCI_REGION}.oci.oraclecloud.com"
 endpoint_base="https://${endpoint_host}/${ENDPOINT_API_VERSION}/hostedApplications/"
 endpoint_base+="${application_id}/actions/invoke"
+if [[ "$auth_mode" == idcs ]]; then
+  probe_unauthenticated_health
+fi
 health_curl_exit=unattempted
 health_http_status=unattempted
 ready_curl_exit=unattempted
@@ -270,7 +347,7 @@ while :; do
     if [[ "$functional" == true ]]; then
       checks_json=$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" checks \
         --manifest "$manifest")
-      printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" \
+      printf '%s' "$checks_json" | OCI_AGENT_ACCESS_TOKEN="$access_token" "$OCI_AGENT_PYTHON" \
         "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" \
         --timeout-seconds "$poll_seconds"
     fi

@@ -73,7 +73,7 @@ author, was tested end to end on another workstation:
 
 | # | Fact |
 | --- | --- |
-| A6 | `NO_AUTH_CONFIG` is reported as `UNKNOWN_ENUM_VALUE` by OCI SDK 2.187.0 and CLI 3.94.0; the companion repository describes it as a Limited Availability type absent from the public SDK model. Checks of the inbound type compare the raw JSON value, and treat "unknown" as "not `IDCS_AUTH_CONFIG`", never as a match. |
+| A6 | `NO_AUTH_CONFIG` is reported as `UNKNOWN_ENUM_VALUE` by OCI SDK 2.187.0 and CLI 3.94.0; the companion repository describes it as a Limited Availability type absent from the public SDK model. The CLI cannot return raw `NO_AUTH_CONFIG`: for `public-noauth`, match `NO_AUTH_CONFIG` or `UNKNOWN_ENUM_VALUE` only when `idcs-config` is null or absent; never match `IDCS_AUTH_CONFIG`. For `public-idcs`, match only `IDCS_AUTH_CONFIG` with exactly matching `domain-url`, `scope`, and `audience`; never match `UNKNOWN_ENUM_VALUE`. |
 | A7 | The service accepts `IDCS_AUTH_CONFIG` at creation without validating the identity domain (an application exists with placeholder values). A wrong configuration surfaces only when the endpoint is called: the verifier's checks are the real test. |
 | A8 | An application created with a real identity domain has audience `all` and scope `invoke`. The audience is not always a URL; it must equal the primary audience configured on the confidential application. |
 | A9 | For the unauthenticated `text-stats` application, both `inference.generativeai.eu-frankfurt-1…` and `application.generativeai.eu-frankfurt-1…` answer `/health` with 200. |
@@ -214,9 +214,8 @@ without `pwsh`, plus static checks.
   rejected.
 * Deploy with `public-idcs`: the create command carries the A2 JSON built
   from the manifest; the plan shows the access line; an existing application
-  with a different inbound configuration, or reported as
-  `UNKNOWN_ENUM_VALUE`, exits 20 with no mutation; no call to the identity
-  domain in any scenario.
+  with a different inbound configuration, including `UNKNOWN_ENUM_VALUE`,
+  exits 20 with no mutation; no call to the identity domain in any scenario.
 * Verify with `public-idcs`:
   * missing client ID or secret → 64, with no OCI or HTTP call;
   * the token request receives the secret on standard input, never in the
@@ -270,4 +269,9 @@ only in the shell that runs the verifier.
 
 ## Verification record
 
-Pending.
+* 2026-09-30 — Step 2 review finding: `hosted-application get --output json`
+  uses kebab-case inbound-authentication keys and reports unauthenticated
+  applications as `UNKNOWN_ENUM_VALUE` with `idcs-config: null`. The matcher
+  and offline fixtures were corrected so this value matches `public-noauth`
+  only; it remains a mismatch for `public-idcs`. Local checks are recorded
+  after this change.

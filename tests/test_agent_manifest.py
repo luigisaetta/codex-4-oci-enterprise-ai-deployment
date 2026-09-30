@@ -472,7 +472,10 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
             "public-noauth",
             {
                 "data": {
-                    "inbound-auth-config": {"inboundAuthConfigType": "NO_AUTH_CONFIG"}
+                    "inbound-auth-config": {
+                        "idcs-config": None,
+                        "inbound-auth-config-type": "NO_AUTH_CONFIG",
+                    }
                 }
             },
             0,
@@ -481,7 +484,22 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
             "public-noauth",
             {
                 "data": {
-                    "inbound-auth-config": {"inboundAuthConfigType": "IDCS_AUTH_CONFIG"}
+                    "inbound-auth-config": {
+                        "idcs-config": None,
+                        "inbound-auth-config-type": "UNKNOWN_ENUM_VALUE",
+                    }
+                }
+            },
+            0,
+        ),
+        (
+            "public-noauth",
+            {
+                "data": {
+                    "inbound-auth-config": {
+                        "idcs-config": None,
+                        "inbound-auth-config-type": "IDCS_AUTH_CONFIG",
+                    }
                 }
             },
             1,
@@ -491,9 +509,9 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
             {
                 "data": {
                     "inbound-auth-config": {
-                        "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
-                        "idcsConfig": {
-                            "domainUrl": IDCS_DOMAIN_URL,
+                        "inbound-auth-config-type": "IDCS_AUTH_CONFIG",
+                        "idcs-config": {
+                            "domain-url": IDCS_DOMAIN_URL,
                             "scope": IDCS_SCOPE,
                             "audience": IDCS_AUDIENCE,
                         },
@@ -507,9 +525,9 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
             {
                 "data": {
                     "inbound-auth-config": {
-                        "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
-                        "idcsConfig": {
-                            "domainUrl": IDCS_DOMAIN_URL,
+                        "inbound-auth-config-type": "IDCS_AUTH_CONFIG",
+                        "idcs-config": {
+                            "domain-url": IDCS_DOMAIN_URL,
                             "scope": IDCS_SCOPE,
                             "audience": "other-audience",
                         },
@@ -523,7 +541,8 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
             {
                 "data": {
                     "inbound-auth-config": {
-                        "inboundAuthConfigType": "UNKNOWN_ENUM_VALUE"
+                        "idcs-config": None,
+                        "inbound-auth-config-type": "UNKNOWN_ENUM_VALUE",
                     }
                 }
             },

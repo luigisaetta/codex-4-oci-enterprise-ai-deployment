@@ -605,18 +605,25 @@ def inbound_auth_matches(manifest: dict[str, Any], payload: dict[str, Any]) -> b
     observed = data.get("inbound-auth-config")
     if not isinstance(observed, dict):
         return False
-    expected = inbound_auth_config(manifest)
-    if observed.get("inboundAuthConfigType") != expected["inboundAuthConfigType"]:
-        return False
+    observed_type = observed.get("inbound-auth-config-type")
     if manifest["deploy"]["profile"] == "public-noauth":
-        return True
-    observed_idcs = observed.get("idcsConfig")
+        return (
+            observed_type in {"NO_AUTH_CONFIG", "UNKNOWN_ENUM_VALUE"}
+            and observed.get("idcs-config") is None
+        )
+    if observed_type != "IDCS_AUTH_CONFIG":
+        return False
+    observed_idcs = observed.get("idcs-config")
     if not isinstance(observed_idcs, dict):
         return False
-    expected_idcs = expected["idcsConfig"]
+    auth = manifest["deploy"]["auth"]
     return all(
-        observed_idcs.get(field) == expected_idcs[field]
-        for field in ("domainUrl", "scope", "audience")
+        observed_idcs.get(observed_field) == auth[manifest_field]
+        for observed_field, manifest_field in (
+            ("domain-url", "domain_url"),
+            ("scope", "scope"),
+            ("audience", "audience"),
+        )
     )
 
 

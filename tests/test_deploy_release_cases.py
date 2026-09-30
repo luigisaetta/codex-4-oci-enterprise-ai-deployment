@@ -169,7 +169,10 @@ def scenario_for(case: str) -> dict[str, object]:
         "application_count": 1,
         "deployment_count": 1,
         "runtime": [],
-        "inbound_auth": {"inboundAuthConfigType": "NO_AUTH_CONFIG"},
+        "inbound_auth": {
+            "idcs-config": None,
+            "inbound-auth-config-type": "UNKNOWN_ENUM_VALUE",
+        },
         "deployment_state": "ACTIVE",
         "active": "1.0.0",
         "target": "1.0.1",
@@ -185,9 +188,6 @@ def scenario_for(case: str) -> dict[str, object]:
         "updating": {"deployment_state": "UPDATING"},
         "two_deployments": {"deployment_count": 2},
         "runtime_mismatch": {"runtime": [{"name": "OTHER", "value": "value"}]},
-        "unknown_inbound_auth": {
-            "inbound_auth": {"inboundAuthConfigType": "UNKNOWN_ENUM_VALUE"}
-        },
         "work_request_failed": {
             "work_request_state": "FAILED",
             "activation_succeeds": False,
@@ -215,9 +215,9 @@ def scenario_for(case: str) -> dict[str, object]:
         scenario["artifacts"] = artifacts * 20
     elif case in {"idcs_application", "idcs_to_noauth_mismatch"}:
         scenario["inbound_auth"] = {
-            "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
-            "idcsConfig": {
-                "domainUrl": "https://idcs-example.identity.oraclecloud.com:443",
+            "inbound-auth-config-type": "IDCS_AUTH_CONFIG",
+            "idcs-config": {
+                "domain-url": "https://idcs-example.identity.oraclecloud.com:443",
                 "scope": "example-scope",
                 "audience": "example-audience",
             },
@@ -230,7 +230,6 @@ def profile_for_case(case: str) -> str:
     idcs_cases = {
         "idcs_first_release",
         "noauth_to_idcs_mismatch",
-        "unknown_inbound_auth",
     }
     return "public-idcs" if case in idcs_cases else "public-noauth"
 
@@ -502,7 +501,6 @@ def test_public_idcs_plan_reports_token_access_settings(tmp_path: Path) -> None:
     [
         "idcs_to_noauth_mismatch",
         "noauth_to_idcs_mismatch",
-        "unknown_inbound_auth",
     ],
 )
 def test_inbound_auth_mismatches_stop_bash_reuse_before_mutation(
@@ -547,6 +545,18 @@ def test_apply_already_released_does_not_mutate(
     )
     assert result.returncode == 0, result.stderr
     assert not mutating_commands(result)
+
+
+def test_public_noauth_unknown_enum_reaches_already_released(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """An unauthenticated CLI UNKNOWN_ENUM_VALUE permits reuse and release checks."""
+    result = run_release(
+        tmp_path, "already_released", apply=False, runner=release_runner
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Release case: Already released" in result.stdout
+    assert "different inbound authentication" not in result.stderr
 
 
 def test_apply_new_version_adds_then_activates_and_confirms(

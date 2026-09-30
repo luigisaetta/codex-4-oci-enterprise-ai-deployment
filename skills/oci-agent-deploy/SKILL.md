@@ -91,10 +91,14 @@ they mean. Never switch platform silently.
    permissions are unavailable, or an existing same-named application is not
    `ACTIVE`. An ACTIVE manifest-compatible application is reused; a `DELETED`
    application does not block a new deployment.
-3. Show the resolved image URI, compartment, Hosted Application name, Hosted
-   Deployment name, runtime-variable source report, and planned resource creation. State that the endpoint will
-   be public and have `NO_AUTH_CONFIG`.
-4. Obtain explicit authorization immediately before creation. Then run:
+3. Show the plan again before asking for authorization. The plan reports the
+   resolved image URI, compartment, Hosted Application name, release case,
+   current and target tags, artifact count, endpoint status, runtime-variable
+   source report, and planned action. State that the endpoint is public with
+   `NO_AUTH_CONFIG`.
+4. Obtain one explicit authorization for the apply of the case shown in the
+   plan. For a new version, that single authorization covers both adding and
+   activating the artifact. Then run:
 
    ```bash
    "$TOOL_HOME/scripts/deploy_hosted_application.sh" --apply --manifest /path/to/agent/agent.yaml --tag 0.1.0
@@ -103,11 +107,34 @@ they mean. Never switch platform silently.
 5. Report resulting OCIDs and CLI work-request outcomes. Do not invoke the
    endpoint without separate user direction: it is public and unauthenticated.
 
+### Release cases
+
+The script identifies the deployment as the application's single non-deleted
+deployment.
+
+| Script case | Plan shows | Apply does |
+| --- | --- | --- |
+| `First release` | The application and deployment will be created with the target artifact. | Creates the Hosted Application and its first Hosted Deployment. |
+| `Already released` | The target tag is already active and no change is needed. | Makes no mutation and exits 0. |
+| `New version` | The target tag will be added and activated in place of the current tag. | Adds the artifact, then activates it and waits for the work request. |
+| `Return to a previous version` | The inactive target artifact will be activated. | Activates that artifact only. This is rollback: deploy the previous tag. |
+
+Stop with exit 20 and make no change if application or deployment state cannot
+be reused, the runtime environment differs, there is not exactly one applicable
+resource, the target artifact is `FAILED` or `UPDATING`, or adding it would
+exceed the 20-artifact limit. Report the observed state and ask the operator to
+check it; never suggest deletion.
+
+Never delete or recreate an application or a deployment to release a new
+version. Manual cleanup of old artifacts is outside this skill: only inactive
+artifacts may be removed, using the Console or `oci generative-ai
+hosted-deployment delete-hosted-deployment-artifact`.
+
 ## Exit codes
 
 | Code | Meaning and action |
 | --- | --- |
-| 0 | Plan completed, or authorized creation completed. |
+| 0 | Plan completed, an authorized release completed, or the tag was already active. |
 | 1 | Python with PyYAML, OCI CLI, or an OCI operation is unavailable or failed. |
 | 20 | An existing resource cannot be reused; inspect the reported state. |
 | 64 | Invalid arguments, missing tenancy settings, or manifest errors (including paths outside allowed roots); correct the input. |
@@ -118,5 +145,5 @@ they mean. Never switch platform silently.
 The script deliberately omits `--storage-configs` and custom networking. It
 supplies `--environment-variables` only from validated manifest `runtime.env`
 data. It never creates IAM policies or dynamic groups needed for the Hosted
-Deployment runtime to pull a private image. It does not update or replace an
-existing deployment and does not delete resources.
+Deployment runtime to pull a private image. It activates or adds artifacts in
+an existing deployment but never deletes resources.

@@ -77,7 +77,9 @@ they mean. Never switch platform silently.
    authorization before making the public probe requests.
 2. Run the verifier from the project Conda environment. It first checks that the
    application is `ACTIVE`, that exactly one associated deployment is `ACTIVE`,
-   and that its active artifact tag is the requested release.
+   and that its active artifact tag is the requested release. If the single
+   non-deleted deployment is `UPDATING`, it polls its state at the configured
+   interval until it is `ACTIVE` or the time budget ends.
 
    ```bash
    conda run --no-capture-output -n codex-4-oci-enterprise-ai-deployment \
@@ -96,8 +98,10 @@ they mean. Never switch platform silently.
    certification.
 
 Use `--timeout-seconds` (default 300) and `--poll-seconds` (default 5) to bound
-the probe. Do not add Authorization headers or try alternate endpoint hosts or
-path encodings when a probe fails; report the observed result.
+the deployment-state wait and the probe loop together. `readiness_seconds`
+counts from the start of verification, including any `UPDATING` wait. Do not add
+Authorization headers or try alternate endpoint hosts or path encodings when a
+probe fails; report the observed result.
 
 Functional checks defined in the manifest are not part of this default read-only
 workflow. Only after separately obtaining authorization to invoke business paths
@@ -114,7 +118,7 @@ not print or resolve Vault values.
 | 1 | Python with PyYAML, required OCI CLI (or, in Bash, curl) executable, or OCI operation is unavailable or failed. |
 | 13 | A functional check failed (only with `--functional`). |
 | 20 | Hosted Application is not `ACTIVE`. |
-| 21 | The application does not have exactly one `ACTIVE` Hosted Deployment. |
+| 21 | The application does not have exactly one `ACTIVE` Hosted Deployment, or its deployment remains `UPDATING` when the time budget ends. |
 | 22 | The active artifact tag differs from the expected tag. |
 | 23 | The bounded probe ended without both endpoints returning HTTP 200. |
 | 64 | Invalid arguments, `OCI_REGION`, missing tenancy settings, manifest errors (including paths outside allowed roots), or invalid checks input. |

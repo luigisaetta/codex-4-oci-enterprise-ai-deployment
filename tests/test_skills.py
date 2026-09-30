@@ -5,6 +5,8 @@ License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
 
+# pylint: disable=duplicate-code
+
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -130,6 +132,22 @@ def test_mutating_skills_require_explicit_authorization() -> None:
         workflow = content.split("## Workflow", maxsplit=1)[1].lower()
         assert "explicit" in workflow
         assert "authorization" in workflow
+
+
+def test_deploy_skill_documents_release_cases_and_no_delete_rule() -> None:
+    """The deploy skill names script cases and prohibits release-time deletion."""
+    content = (SKILLS / "oci-agent-deploy" / "SKILL.md").read_text(encoding="utf-8")
+    for case in (
+        "First release",
+        "Already released",
+        "New version",
+        "Return to a previous version",
+    ):
+        assert case in content
+    assert (
+        "Never delete or recreate an application or a deployment to release a new"
+        in content
+    )
 
 
 def test_skills_include_target_platform_check() -> None:

@@ -9,6 +9,8 @@
 # --timeout-seconds and --poll-seconds.
 # Side effects: OCI CLI reads and unauthenticated GET requests to /health and
 # /ready only. --functional additionally invokes manifest business paths.
+# The timeout budget starts before deployment-state polling and is shared with
+# subsequent health, readiness, and optional functional probes.
 # Usage: scripts/verify_deployment.sh --application-id OCID --manifest PATH --tag TAG
 
 set -euo pipefail
@@ -30,7 +32,8 @@ script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 . "$script_directory/lib/tool_env.sh"
 
 usage() {
-  printf 'Usage: %s --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]\n' "$0"
+  printf '%s\n' "Usage: $0 --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH"\
+' [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'
 }
 
 require_positive_integer() {
@@ -79,9 +82,11 @@ report() {
   local result="$1"
   local readiness_seconds="$2"
 
-  printf 'Application=%s deployment=%s expected_tag=%s endpoint_host=%s health_curl_exit=%s health_http_status=%s ready_curl_exit=%s ready_http_status=%s readiness_seconds=%s result=%s\n' \
-    "$application_id" "$deployment_id" "$expected_tag" "$endpoint_host" \
-    "$health_curl_exit" "$health_http_status" "$ready_curl_exit" \
+  printf 'Application=%s deployment=%s expected_tag=%s endpoint_host=%s ' \
+    "$application_id" "$deployment_id" "$expected_tag" "$endpoint_host"
+  printf 'health_curl_exit=%s health_http_status=%s ready_curl_exit=%s ' \
+    "$health_curl_exit" "$health_http_status" "$ready_curl_exit"
+  printf 'ready_http_status=%s readiness_seconds=%s result=%s\n' \
     "$ready_http_status" "$readiness_seconds" "$result"
 }
 
@@ -120,7 +125,8 @@ done
 resolve_python
 load_tenancy_settings OCI_REGION
 if [[ -n "$manifest" ]]; then
-  "$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" deployment-name --manifest "$manifest" --tag "$expected_tag" >/dev/null
+  "$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" deployment-name \
+    --manifest "$manifest" --tag "$expected_tag" >/dev/null
 elif [[ "$functional" == true ]]; then
   printf '%s\n' '--functional requires --manifest.' >&2
   exit "$EXIT_INVALID_INPUT"
@@ -165,30 +171,82 @@ compartment_id="$(oci --region "$OCI_REGION" generative-ai hosted-application ge
   --query 'data."compartment-id"' \
   --raw-output)"
 active_deployment_query='data.items[?"lifecycle-state"==`ACTIVE`]'
-active_deployment_count="$(oci --region "$OCI_REGION" generative-ai hosted-deployment-collection list-hosted-deployments \
+non_deleted_deployment_query='data.items[?"lifecycle-state"!=`DELETED`]'
+started_seconds="$(date +%s)"
+active_deployment_count="$(oci --region "$OCI_REGION" generative-ai \
+  hosted-deployment-collection list-hosted-deployments \
   --compartment-id "$compartment_id" \
   --application-id "$application_id" \
   --all \
   --query "length(${active_deployment_query})" \
   --raw-output)"
 if [[ "$active_deployment_count" != '1' ]]; then
-  printf 'Expected exactly one ACTIVE Hosted Deployment; found %s.\n' \
-    "$active_deployment_count" >&2
-  exit "$EXIT_DEPLOYMENT_NOT_ACTIVE"
+  non_deleted_deployment_count="$(oci --region "$OCI_REGION" generative-ai \
+    hosted-deployment-collection list-hosted-deployments \
+    --compartment-id "$compartment_id" \
+    --application-id "$application_id" \
+    --all \
+    --query "length(${non_deleted_deployment_query})" \
+    --raw-output)"
+  if [[ "$non_deleted_deployment_count" != '1' ]]; then
+    printf 'Expected exactly one ACTIVE Hosted Deployment; found %s.\n' \
+      "$active_deployment_count" >&2
+    exit "$EXIT_DEPLOYMENT_NOT_ACTIVE"
+  fi
+  deployment_id="$(oci --region "$OCI_REGION" generative-ai \
+    hosted-deployment-collection list-hosted-deployments \
+    --compartment-id "$compartment_id" \
+    --application-id "$application_id" \
+    --all \
+    --query "(${non_deleted_deployment_query})[0].id" \
+    --raw-output)"
+  deployment_state="$(oci --region "$OCI_REGION" generative-ai hosted-deployment get \
+    --hosted-deployment-id "$deployment_id" \
+    --query 'data."lifecycle-state"' \
+    --raw-output)"
+  if [[ "$deployment_state" != 'UPDATING' ]]; then
+    printf 'Expected exactly one ACTIVE Hosted Deployment; found %s.\n' \
+      "$active_deployment_count" >&2
+    exit "$EXIT_DEPLOYMENT_NOT_ACTIVE"
+  fi
+  while [[ "$deployment_state" == 'UPDATING' ]]; do
+    elapsed_seconds=$(( $(date +%s) - started_seconds ))
+    if (( elapsed_seconds >= timeout_seconds )); then
+      printf 'Hosted Deployment was still UPDATING after %s seconds.\n' \
+        "$timeout_seconds" >&2
+      exit "$EXIT_DEPLOYMENT_NOT_ACTIVE"
+    fi
+    sleep "$poll_seconds"
+    deployment_state="$(oci --region "$OCI_REGION" generative-ai hosted-deployment get \
+      --hosted-deployment-id "$deployment_id" \
+      --query 'data."lifecycle-state"' \
+      --raw-output)"
+  done
+  if [[ "$deployment_state" != 'ACTIVE' ]]; then
+    printf 'Expected exactly one ACTIVE Hosted Deployment; found %s.\n' \
+      "$active_deployment_count" >&2
+    exit "$EXIT_DEPLOYMENT_NOT_ACTIVE"
+  fi
+  active_artifact_tag="$(oci --region "$OCI_REGION" generative-ai hosted-deployment get \
+    --hosted-deployment-id "$deployment_id" \
+    --query 'data."active-artifact".tag' \
+    --raw-output)"
+else
+  deployment_id="$(oci --region "$OCI_REGION" generative-ai \
+    hosted-deployment-collection list-hosted-deployments \
+    --compartment-id "$compartment_id" \
+    --application-id "$application_id" \
+    --all \
+    --query "(${active_deployment_query})[0].id" \
+    --raw-output)"
+  active_artifact_tag="$(oci --region "$OCI_REGION" generative-ai \
+    hosted-deployment-collection list-hosted-deployments \
+    --compartment-id "$compartment_id" \
+    --application-id "$application_id" \
+    --all \
+    --query "(${active_deployment_query})[0].\"active-artifact\".tag" \
+    --raw-output)"
 fi
-
-deployment_id="$(oci --region "$OCI_REGION" generative-ai hosted-deployment-collection list-hosted-deployments \
-  --compartment-id "$compartment_id" \
-  --application-id "$application_id" \
-  --all \
-  --query "(${active_deployment_query})[0].id" \
-  --raw-output)"
-active_artifact_tag="$(oci --region "$OCI_REGION" generative-ai hosted-deployment-collection list-hosted-deployments \
-  --compartment-id "$compartment_id" \
-  --application-id "$application_id" \
-  --all \
-  --query "(${active_deployment_query})[0].\"active-artifact\".tag" \
-  --raw-output)"
 if [[ "$active_artifact_tag" != "$expected_tag" ]]; then
   printf 'Active artifact tag mismatch: expected %s, observed %s.\n' \
     "$expected_tag" "$active_artifact_tag" >&2
@@ -196,13 +254,12 @@ if [[ "$active_artifact_tag" != "$expected_tag" ]]; then
 fi
 
 endpoint_host="inference.generativeai.${OCI_REGION}.oci.oraclecloud.com"
-endpoint_base="https://${endpoint_host}/${ENDPOINT_API_VERSION}/hostedApplications/${application_id}/actions/invoke"
+endpoint_base="https://${endpoint_host}/${ENDPOINT_API_VERSION}/hostedApplications/"
+endpoint_base+="${application_id}/actions/invoke"
 health_curl_exit=unattempted
 health_http_status=unattempted
 ready_curl_exit=unattempted
 ready_http_status=unattempted
-started_seconds="$(date +%s)"
-
 while :; do
   probe_endpoint health
   probe_endpoint ready
@@ -211,8 +268,11 @@ while :; do
   if [[ "$health_curl_exit" == '0' && "$health_http_status" == '200' && \
     "$ready_curl_exit" == '0' && "$ready_http_status" == '200' ]]; then
     if [[ "$functional" == true ]]; then
-      checks_json=$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" checks --manifest "$manifest")
-      printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" --timeout-seconds "$poll_seconds"
+      checks_json=$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" checks \
+        --manifest "$manifest")
+      printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" \
+        "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" \
+        --timeout-seconds "$poll_seconds"
     fi
     report PASS "$elapsed_seconds"
     exit 0

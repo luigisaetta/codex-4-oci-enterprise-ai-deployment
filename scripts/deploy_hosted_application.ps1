@@ -123,6 +123,14 @@ function Write-Plan {
     Write-Output "OCIR artifact: ${containerUri}:$Tag"
     Write-Output "Compartment: $compartmentId"
     Write-Output "Hosted Application: $applicationName ($deployProfile; $applicationAction)"
+    if ($deployProfile -eq 'public-idcs') {
+        Write-Output 'Access: public endpoint, identity-domain token required'
+        Write-Output "Identity domain URL: $domainUrl"
+        Write-Output "Audience: $audience"
+        Write-Output "Scope: $scope"
+    } else {
+        Write-Output 'Access: public unauthenticated endpoint.'
+    }
     Write-Output "Release case: $releaseCase"
     Write-Output "Current active tag: $activeTag"
     Write-Output "Target tag: $Tag"
@@ -163,11 +171,11 @@ function Activate-Artifact {
 
 # Create the missing Hosted Application and report its identifier.
 function New-HostedApplication {
-    Write-Output 'Creating Hosted Application with NO_AUTH_CONFIG and Oracle-managed networking.'
+    Write-Output "Creating Hosted Application with $deployProfile and Oracle-managed networking."
     $applicationOutput = Invoke-Oci @(
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'create',
         '--display-name', $applicationName, '--compartment-id', $compartmentId, '--inbound-auth-config',
-        '{"inboundAuthConfigType":"NO_AUTH_CONFIG"}', '--networking-config',
+        $inboundAuthJson, '--networking-config',
         '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":' +
         '{"networkMode":"MANAGED"}}', '--environment-variables', $environmentJson, '--wait-for-state',
         'SUCCEEDED', '--max-wait-seconds', $waitSeconds
@@ -217,7 +225,6 @@ if ($Tag -notmatch $versionPattern) {
 
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
-Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
 if (-not (Resolve-AgentPython)) {
     Fail 1 (
         'Python with PyYAML is required. Activate the Conda environment ' +
@@ -243,6 +250,20 @@ $applicationName = Get-ManifestField -Manifest $Manifest -Field deploy.applicati
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $deployProfile = Get-ManifestField -Manifest $Manifest -Field deploy.profile
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$inboundAuthJson = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') inbound-auth --manifest $Manifest
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$inboundAuthJson = ((@($inboundAuthJson) | ForEach-Object { "$_" }) -join "`n").Trim()
+$domainUrl = ''
+$audience = ''
+$scope = ''
+if ($deployProfile -eq 'public-idcs') {
+    $domainUrl = Get-ManifestField -Manifest $Manifest -Field deploy.auth.domain_url
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $audience = Get-ManifestField -Manifest $Manifest -Field deploy.auth.audience
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $scope = Get-ManifestField -Manifest $Manifest -Field deploy.auth.scope
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 $environmentJson = Get-ManifestRuntimeEnvironment -Manifest $Manifest -Format oci-json
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $environmentReport = Get-ManifestRuntimeEnvironment -Manifest $Manifest -Format report
@@ -293,6 +314,14 @@ if ($applicationCount -eq '1') {
     $applicationState = ($applicationJson | ConvertFrom-Json).data.'lifecycle-state'
     if ($applicationState -ne 'ACTIVE') {
         Fail $exitExistingResource "Existing Hosted Application must be ACTIVE to reuse; observed: $applicationState."
+    }
+    $applicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+        inbound-auth-matches --manifest $Manifest | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Fail $exitExistingResource (
+            'The existing Hosted Application uses a different inbound authentication; ' +
+            'changing authentication is not supported.'
+        )
     }
     if (-not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $applicationJson)) {
         Fail $exitExistingResource 'Existing Hosted Application runtime environment differs from the manifest.'

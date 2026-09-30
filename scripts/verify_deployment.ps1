@@ -55,6 +55,31 @@ if ($Manifest) {
 } elseif ($Functional) {
   Fail 64 '-Functional requires -Manifest.'
 }
+$deployProfile = 'public-noauth'
+$authMode = 'none'
+$domainUrl = ''
+$audience = ''
+$scope = ''
+$accessToken = ''
+$unauthenticatedStatus = 'not_applicable'
+if ($Manifest) {
+  $deployProfile = Get-ManifestField -Manifest $Manifest -Field deploy.profile
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  if ($deployProfile -eq 'public-idcs') {
+    foreach ($name in 'OCI_AGENT_IDCS_CLIENT_ID', 'OCI_AGENT_IDCS_CLIENT_SECRET') {
+      if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue).Value) {
+        Fail 64 "Missing required environment variable: $name"
+      }
+    }
+    $authMode = 'idcs'
+    $domainUrl = Get-ManifestField -Manifest $Manifest -Field deploy.auth.domain_url
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $audience = Get-ManifestField -Manifest $Manifest -Field deploy.auth.audience
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $scope = Get-ManifestField -Manifest $Manifest -Field deploy.auth.scope
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
+}
 $settingsResult = Import-TenancySettings -Keys @('OCI_REGION')
 if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not $ApplicationId -or $ApplicationId -notmatch '^ocid1\.generativeaihostedapplication\.oc1\.') {
@@ -140,35 +165,88 @@ if ($activeCount -ne '1') {
 }
 if ($activeTag -ne $Tag) { Fail 22 "Active artifact tag mismatch: expected $Tag, observed $activeTag." }
 
+if ($authMode -eq 'idcs') {
+  $applicationJson = Invoke-Oci @(
+    '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'get',
+    '--hosted-application-id', $ApplicationId
+  )
+  $applicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+    inbound-auth-matches --manifest $Manifest | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Fail 20 'Hosted Application inbound authentication differs from the manifest.'
+  }
+  $accessToken = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'idcs_token.py') `
+    --domain-url $domainUrl --audience $audience --scope $scope
+  if ($LASTEXITCODE -ne 0) {
+    Fail 24 'Could not obtain an access token from the identity domain.'
+  }
+  $accessToken = ((@($accessToken) | ForEach-Object { "$_" }) -join "`n").Trim()
+}
+
 $endpointHost = "inference.generativeai.$region.oci.oraclecloud.com"
 $endpointBase = "https://$endpointHost/20251112/hostedApplications/$ApplicationId/actions/invoke"
 # Report keys match the Bash script; the *_curl_exit fields carry 0 on transport success and 1 on transport failure.
-function Invoke-Probe([string]$Url) {
+function Invoke-Probe([string]$Url, [hashtable]$Headers) {
   try {
-    $response = Invoke-WebRequest -Uri $Url -Method Get -TimeoutSec $PollSeconds -SkipHttpErrorCheck -ErrorAction Stop
+    $response = Invoke-WebRequest -Uri $Url -Method Get -Headers $Headers -TimeoutSec $PollSeconds `
+      -SkipHttpErrorCheck -ErrorAction Stop
     return @{ Exit = '0'; Status = "$([int]$response.StatusCode)" }
   } catch {
     return @{ Exit = '1'; Status = '000' }
   }
 }
 function Write-Report([string]$Result, [int]$ReadinessSeconds) {
+  $authentication = "auth=$authMode"
+  if ($authMode -eq 'idcs') {
+    $authentication += " unauthenticated_status=$unauthenticatedStatus"
+  }
   Write-Output (
     "Application=$ApplicationId deployment=$deploymentId expected_tag=$Tag " +
     "endpoint_host=$endpointHost health_curl_exit=$($health.Exit) " +
     "health_http_status=$($health.Status) ready_curl_exit=$($ready.Exit) " +
-    "ready_http_status=$($ready.Status) readiness_seconds=$ReadinessSeconds result=$Result"
+    "ready_http_status=$($ready.Status) readiness_seconds=$ReadinessSeconds $authentication result=$Result"
   )
+}
+$authenticatedHeaders = @{}
+if ($authMode -eq 'idcs') {
+  $authenticatedHeaders.Authorization = "Bearer $accessToken"
 }
 $health = @{ Exit = 'unattempted'; Status = 'unattempted' }
 $ready = @{ Exit = 'unattempted'; Status = 'unattempted' }
 while ($true) {
-  $health = Invoke-Probe "$endpointBase/health"
-  $ready = Invoke-Probe "$endpointBase/ready"
+  $health = Invoke-Probe "$endpointBase/health" $authenticatedHeaders
+  $ready = Invoke-Probe "$endpointBase/ready" $authenticatedHeaders
   $elapsed = [int]((Get-Date) - $started).TotalSeconds
   if ($health.Exit -eq '0' -and $health.Status -eq '200' -and $ready.Exit -eq '0' -and $ready.Status -eq '200') {
+    if ($authMode -eq 'idcs') {
+      $unauthenticated = Invoke-Probe "$endpointBase/health" @{}
+      $unauthenticatedStatus = $unauthenticated.Status
+      if ($unauthenticatedStatus -match '^2[0-9][0-9]$') {
+        Fail 25 'The endpoint accepted a request without a token'
+      }
+      if ($unauthenticatedStatus -ne '401' -and $unauthenticatedStatus -ne '403') {
+        Fail 23 "Unauthenticated health request returned HTTP $unauthenticatedStatus; expected 401 or 403."
+      }
+    }
     if ($Functional) {
-      Invoke-ManifestChecks -Manifest $Manifest -BaseUrl $endpointBase -TimeoutSeconds $PollSeconds
+      $checks = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') checks --manifest $Manifest
       if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      $checksScript = Join-Path $scriptDir 'run_manifest_checks.py'
+      $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+      $startInfo.FileName = $env:OCI_AGENT_PYTHON
+      $startInfo.UseShellExecute = $false
+      $startInfo.RedirectStandardInput = $true
+      $startInfo.Environment['OCI_AGENT_ACCESS_TOKEN'] = $accessToken
+      [void]$startInfo.ArgumentList.Add($checksScript)
+      [void]$startInfo.ArgumentList.Add('--base-url')
+      [void]$startInfo.ArgumentList.Add($endpointBase)
+      [void]$startInfo.ArgumentList.Add('--timeout-seconds')
+      [void]$startInfo.ArgumentList.Add("$PollSeconds")
+      $checksProcess = [System.Diagnostics.Process]::Start($startInfo)
+      $checksProcess.StandardInput.Write($checks)
+      $checksProcess.StandardInput.Close()
+      $checksProcess.WaitForExit()
+      if ($checksProcess.ExitCode -ne 0) { exit $checksProcess.ExitCode }
     }
     Write-Report -Result 'PASS' -ReadinessSeconds $elapsed
     exit 0

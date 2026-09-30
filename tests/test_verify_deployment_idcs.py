@@ -19,6 +19,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify_deployment.sh"
+POWERSHELL_SCRIPT = ROOT / "scripts" / "verify_deployment.ps1"
+PWSH = shutil.which("pwsh")
 APPLICATION_ID = "ocid1.generativeaihostedapplication.oc1.test"
 CLIENT_SECRET = "placeholder-client-secret"
 ACCESS_TOKEN = "placeholder-access-token"
@@ -134,6 +136,7 @@ os.execv(sys.executable, [sys.executable] + sys.argv[1:])
 def run_verifier(
     tmp_path: Path,
     profile: str = "public-idcs",
+    runner: tuple[Path, list[str]] | None = None,
     **scenario_updates: object,
 ) -> subprocess.CompletedProcess[str]:
     """Run the Bash verifier against offline identity-domain scenarios."""
@@ -174,15 +177,14 @@ def run_verifier(
         environment["IDCS_TOKEN_FAILURE"] = "1"
     if scenario.get("missing"):
         environment.pop(str(scenario["missing"]))
+    manifest = str(
+        write_manifest(tmp_path / "agent", profile, bool(scenario.get("functional")))
+    )
     options = [
         "--application-id",
         APPLICATION_ID,
         "--manifest",
-        str(
-            write_manifest(
-                tmp_path / "agent", profile, bool(scenario.get("functional"))
-            )
-        ),
+        manifest,
         "--tag",
         "1.2.3",
         "--timeout-seconds",
@@ -192,8 +194,24 @@ def run_verifier(
     ]
     if scenario.get("functional"):
         options.append("--functional")
+    script, command = runner or (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+    if script.suffix == ".ps1":
+        options = [
+            "-ApplicationId",
+            APPLICATION_ID,
+            "-Manifest",
+            manifest,
+            "-Tag",
+            "1.2.3",
+            "-TimeoutSeconds",
+            "1",
+            "-PollSeconds",
+            "1",
+        ]
+        if scenario.get("functional"):
+            options.append("-Functional")
     result = subprocess.run(
-        [shutil.which("bash") or "/bin/bash", str(SCRIPT), *options],
+        [*command, str(script), *options],
         capture_output=True,
         check=False,
         cwd=tmp_path,
@@ -202,6 +220,24 @@ def run_verifier(
     )
     result.log_paths = log_paths
     return result
+
+
+@pytest.fixture(
+    name="idcs_preflight_runner",
+    params=[
+        pytest.param((SCRIPT, [shutil.which("bash") or "/bin/bash"]), id="bash"),
+        pytest.param(
+            (POWERSHELL_SCRIPT, [PWSH, "-NoProfile", "-File"]),
+            id="powershell",
+            marks=pytest.mark.skipif(PWSH is None, reason="pwsh is unavailable."),
+        ),
+    ],
+)
+def _idcs_preflight_runner(
+    request: pytest.FixtureRequest,
+) -> tuple[Path, list[str]]:
+    """Return a verifier runner for IDCS preflight-only scenarios."""
+    return request.param
 
 
 def read_log(path: Path) -> str:
@@ -214,10 +250,10 @@ def read_log(path: Path) -> str:
     ["OCI_AGENT_IDCS_CLIENT_ID", "OCI_AGENT_IDCS_CLIENT_SECRET"],
 )
 def test_missing_idcs_credentials_stop_before_oci_or_http(
-    tmp_path: Path, missing: str
+    tmp_path: Path, missing: str, idcs_preflight_runner: tuple[Path, list[str]]
 ) -> None:
     """Credential preflight names an absent variable without invoking external tools."""
-    result = run_verifier(tmp_path, missing=missing)
+    result = run_verifier(tmp_path, missing=missing, runner=idcs_preflight_runner)
     assert result.returncode == 64
     assert missing in result.stderr
     assert not read_log(result.log_paths["oci"])
@@ -269,10 +305,13 @@ def test_idcs_accepted_unauthenticated_request_stops(tmp_path: Path) -> None:
     assert "The endpoint accepted a request without a token" in result.stderr
 
 
-def test_idcs_inbound_mismatch_stops_before_token_request(tmp_path: Path) -> None:
+def test_idcs_inbound_mismatch_stops_before_token_request(
+    tmp_path: Path, idcs_preflight_runner: tuple[Path, list[str]]
+) -> None:
     """Verifier reuse rejects an application whose inbound authentication differs."""
     result = run_verifier(
         tmp_path,
+        runner=idcs_preflight_runner,
         inbound={"inbound-auth-config-type": "UNKNOWN_ENUM_VALUE", "idcs-config": None},
     )
     assert result.returncode == 20

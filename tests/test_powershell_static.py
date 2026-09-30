@@ -44,3 +44,21 @@ def test_deploy_hosted_application_release_safety() -> None:
     assert "add-artifact-create-single-docker-artifact-details" in content
     assert "'hosted-deployment', 'update'" in content
     assert "Get-ManifestDeploymentName" not in content
+
+
+def test_powershell_idcs_paths_avoid_secret_command_arguments() -> None:
+    """PowerShell deploy and verify scripts contain the supported IDCS flow."""
+    deploy = (SCRIPTS / "deploy_hosted_application.ps1").read_text(encoding="utf-8")
+    verify = (SCRIPTS / "verify_deployment.ps1").read_text(encoding="utf-8")
+    assert re.search(r"inbound-auth\s+--manifest \$Manifest", deploy)
+    assert re.search(r"inbound-auth-matches\s+--manifest \$Manifest", deploy)
+    assert re.search(r"inbound-auth-matches\s+--manifest \$Manifest", verify)
+    assert "idcs_token.py" in verify
+    assert "Fail 24" in verify
+    assert "Fail 25" in verify
+    assert "OCI_AGENT_ACCESS_TOKEN" in verify
+    token_invocation = verify[
+        verify.index("idcs_token.py") - 200 : verify.index("idcs_token.py") + 200
+    ]
+    assert "Bearer" not in token_invocation
+    assert "OCI_AGENT_IDCS_CLIENT_SECRET" not in token_invocation

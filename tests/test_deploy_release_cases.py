@@ -99,15 +99,19 @@ elif "list-hosted-applications" in arguments:
     application_id = "ocid1.generativeaihostedapplication.test"
     output(str(scenario["application_count"]) if "length(" in query else application_id)
 elif "hosted-application" in arguments and "get" in arguments:
-    output(
-        {
-            "data": {
-                "lifecycle-state": "ACTIVE",
-                "environment-variables": scenario["runtime"],
-                "inbound-auth-config": scenario["inbound_auth"],
+    query = arguments[arguments.index("--query") + 1] if "--query" in arguments else ""
+    if "--raw-output" in arguments:
+        output("ACTIVE" if "lifecycle-state" in query else "ocid1.compartment.test")
+    else:
+        output(
+            {
+                "data": {
+                    "lifecycle-state": "ACTIVE",
+                    "environment-variables": scenario["runtime"],
+                    "inbound-auth-config": scenario["inbound_auth"],
+                }
             }
-        }
-    )
+        )
 elif "list-hosted-deployments" in arguments:
     query = arguments[arguments.index("--query") + 1]
     deployment_id = "ocid1.generativeaihosteddeployment.test"
@@ -454,14 +458,15 @@ def test_apply_first_release_creates_and_reports_ocids(
     )
 
 
-def test_public_idcs_first_release_uses_manifest_inbound_auth(tmp_path: Path) -> None:
-    """A Bash first release sends the exact IDCS inbound configuration to OCI."""
-    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+def test_public_idcs_first_release_uses_manifest_inbound_auth(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """A first release sends the exact IDCS inbound configuration to OCI."""
     result = run_release(
         tmp_path,
         "idcs_first_release",
         apply=True,
-        runner=runner,
+        runner=release_runner,
     )
     assert result.returncode == 0, result.stderr
     create_call = next(
@@ -476,14 +481,15 @@ def test_public_idcs_first_release_uses_manifest_inbound_auth(tmp_path: Path) ->
     )
 
 
-def test_public_idcs_plan_reports_token_access_settings(tmp_path: Path) -> None:
-    """A Bash IDCS plan describes the public endpoint and manifest settings."""
-    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+def test_public_idcs_plan_reports_token_access_settings(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """An IDCS plan describes the public endpoint and manifest settings."""
     result = run_release(
         tmp_path,
         "idcs_first_release",
         apply=False,
-        runner=runner,
+        runner=release_runner,
     )
     assert result.returncode == 0, result.stderr
     assert "Access: public endpoint, identity-domain token required" in result.stdout
@@ -503,16 +509,15 @@ def test_public_idcs_plan_reports_token_access_settings(tmp_path: Path) -> None:
         "noauth_to_idcs_mismatch",
     ],
 )
-def test_inbound_auth_mismatches_stop_bash_reuse_before_mutation(
-    tmp_path: Path, case: str
+def test_inbound_auth_mismatches_stop_reuse_before_mutation(
+    tmp_path: Path, case: str, release_runner: tuple[Path, list[str]]
 ) -> None:
     """Reusing an application never changes a mismatched inbound configuration."""
-    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
     result = run_release(
         tmp_path,
         case,
         apply=True,
-        runner=runner,
+        runner=release_runner,
     )
     assert result.returncode == 20
     assert result.stderr.strip() == (

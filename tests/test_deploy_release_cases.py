@@ -123,6 +123,9 @@ elif "hosted-application" in arguments and "create" in arguments:
 elif "create-hosted-deployment-single-docker-artifact" in arguments:
     output({"data": {"id": "ocid1.generativeaihosteddeployment.created"}})
 elif "update" in arguments:
+    if "--force" not in arguments:
+        print("Abort", file=sys.stderr)
+        sys.exit(1)
     if scenario.get("update_command_fails"):
         sys.exit(1)
     output({"data": {"status": scenario["work_request_state"]}})
@@ -460,6 +463,8 @@ def test_apply_new_version_adds_then_activates_and_confirms(
         )
         == 2
     )
+    update_call = next(call for call in result.invocations if "update" in call)
+    assert "--force" in update_call
 
 
 def test_apply_rollback_only_activates(
@@ -490,10 +495,11 @@ def test_failed_update_reports_unknown_work_request_status(
         tmp_path, "update_command_fails", apply=True, runner=release_runner
     )
     assert result.returncode == 1
-    assert (
-        result.stderr.strip()
-        == "Artifact activation failed: work-request status=unknown."
+    expected_message = (
+        "Artifact activation failed: work-request status=unknown. "
+        "See the OCI CLI error above."
     )
+    assert result.stderr.strip() == expected_message
 
 
 def test_release_cases_work_with_bash_3_when_available(tmp_path: Path) -> None:

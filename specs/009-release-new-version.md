@@ -63,6 +63,7 @@ endpoint every 2 seconds:
 | F7 | Rollback is the activation of an `INACTIVE` artifact. | 0.1.2 → 0.1.1 by `update`, same timing as F4. |
 | F8 | The service ignores the deployment `--display-name`. | The script passed `text-stats-0-1-0`; the deployment got a generated name (`generativeaihosteddeployment<timestamp>`). |
 | F9 | At most 20 artifacts per application (increase on request). Only inactive artifacts can be deleted. | Documentation. |
+| F10 | `hosted-deployment update` requires `--force` when run non-interactively. | Without it, the OCI CLI prompts before replacing `active-artifact`; a non-terminal defaults to `No`, prints `Abort`, and exits 1 without creating a work request. |
 
 The probe interval (2 s) bounds what "no interruption" means; shorter outages
 cannot be excluded.
@@ -200,3 +201,11 @@ Local checks for steps 1–4 passed: `black --check .` reported 21 files left
 unchanged; `pylint scripts tests` rated the code 10.00/10; and `pytest -q`
 reported 115 passed, 41 skipped, and 1 warning in 40.88 seconds. PowerShell
 was not executed. Live release acceptance remains pending.
+
+2026-09-30: Live acceptance finding 1: release activation did not activate
+0.1.2; 0.1.1 remained active and OCI created no work request. The
+`hosted-deployment update` command lacked `--force`, so its confirmation prompt
+defaulted to `No` without a terminal, printed `Abort`, and exited 1. Offline
+tests missed this because the fake OCI CLI did not model that confirmation. The
+fix adds `--force` only to artifact activation updates, documents the required
+non-interactive behavior, and makes the fake CLI reject unforced updates.

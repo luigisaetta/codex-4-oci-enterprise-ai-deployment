@@ -143,14 +143,15 @@ function Activate-Artifact {
         containerUri = $containerUri
         tag = $Tag
     } | ConvertTo-Json -Compress
+    # The skill plan and explicit -Apply authorization cover this mutation.
     $updateOutput = & oci @(
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment', 'update',
         '--hosted-deployment-id', $deploymentId, '--active-artifact', $activeArtifact,
         '--wait-for-state', 'SUCCEEDED', '--wait-for-state', 'FAILED', '--max-wait-seconds',
-        $waitSeconds
+        $waitSeconds, '--force'
     )
     if ($LASTEXITCODE -ne 0) {
-        Fail 1 'Artifact activation failed: work-request status=unknown.'
+        Fail 1 'Artifact activation failed: work-request status=unknown. See the OCI CLI error above.'
     }
     $updateOutput = ((@($updateOutput) | ForEach-Object { "$_" }) -join "`n").Trim()
     $workRequestStatus = ($updateOutput | ConvertFrom-Json).data.status

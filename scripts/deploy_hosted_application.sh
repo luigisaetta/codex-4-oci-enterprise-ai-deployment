@@ -128,13 +128,15 @@ activate_artifact() {
   local update_output
   local work_request_status
 
+  # The skill plan and explicit --apply authorization cover this mutation.
   update_output="$(oci --region "$OCI_REGION" --output json generative-ai \
     hosted-deployment update --hosted-deployment-id "$deployment_id" \
     --active-artifact "$(printf \
       '{"artifactType":"SIMPLE_DOCKER_ARTIFACT","containerUri":"%s","tag":"%s"}' \
       "$container_uri" "$tag")" --wait-for-state SUCCEEDED --wait-for-state FAILED \
-    --max-wait-seconds "$WAIT_SECONDS")" || {
-      printf 'Artifact activation failed: work-request status=unknown.\n' >&2
+    --max-wait-seconds "$WAIT_SECONDS" --force)" || {
+      printf '%s%s\n' 'Artifact activation failed: work-request status=unknown.' \
+        ' See the OCI CLI error above.' >&2
       exit 1
     }
   work_request_status="$(printf '%s' "$update_output" | "$OCI_AGENT_PYTHON" -c '

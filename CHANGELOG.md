@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* 2026-09-30: Fix non-interactive Hosted Deployment artifact activation by
+  passing `--force` only to the OCI update command.
+
 * 2026-09-30: Add Spec 009 support for new versions and rollback in the same
   Hosted Application, remove the derived deployment name, and wait during
   `UPDATING` when verifying a deployment.

@@ -123,6 +123,8 @@ elif "hosted-application" in arguments and "create" in arguments:
 elif "create-hosted-deployment-single-docker-artifact" in arguments:
     output({"data": {"id": "ocid1.generativeaihosteddeployment.created"}})
 elif "update" in arguments:
+    if scenario.get("update_command_fails"):
+        sys.exit(1)
     output({"data": {"status": scenario["work_request_state"]}})
 else:
     output({"data": {}})
@@ -192,11 +194,17 @@ def scenario_for(case: str) -> dict[str, object]:
         scenario.update(runtime=[{"name": "OTHER", "value": "value"}])
     elif case == "work_request_failed":
         scenario.update(work_request_state="FAILED", activation_succeeds=False)
+    elif case == "update_command_fails":
+        scenario.update(update_command_fails=True)
     return scenario
 
 
 def run_release(
-    tmp_path: Path, case: str, apply: bool, runner: tuple[Path, list[str]]
+    tmp_path: Path,
+    case: str,
+    apply: bool,
+    runner: tuple[Path, list[str]],
+    tag: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run the release script with the selected fake OCI scenario.
 
@@ -205,6 +213,7 @@ def run_release(
         case: Scenario to execute.
         apply: Whether to use apply mode.
         runner: Script path and executable command used to run it.
+        tag: Optional release tag to validate or deploy.
 
     Returns:
         Captured script process result.
@@ -225,8 +234,8 @@ def run_release(
         OCI_RELEASE_LOG=str(log_path),
         PATH=f"{fake_bin}{os.pathsep}{environment['PATH']}",
     )
-    target_tag = "1.0.1"
-    if case == "already_released":
+    target_tag = tag or "1.0.1"
+    if tag is None and case == "already_released":
         target_tag = "1.0.0"
     script, command = runner
     manifest = str(write_manifest(tmp_path / "agent"))
@@ -249,9 +258,12 @@ def run_release(
         env=environment,
         text=True,
     )
-    result.invocations = [
-        json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
-    ]
+    result.invocations = []
+    if log_path.exists():
+        result.invocations = [
+            json.loads(line)
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+        ]
     return result
 
 
@@ -321,6 +333,70 @@ def test_stop_conditions_do_not_mutate(
     result = run_release(tmp_path, case, apply=True, runner=release_runner)
     assert result.returncode == 20
     assert not mutating_commands(result)
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        (
+            "updating",
+            "Hosted Deployment must be ACTIVE; observed: UPDATING. Check it and retry.",
+        ),
+        (
+            "failed_artifact",
+            "Target artifact tag 1.0.1 is FAILED. Check it and retry; "
+            "no changes were made.",
+        ),
+        (
+            "artifact_limit",
+            "Adding tag 1.0.1 exceeds the artifact limit of 20; no changes were made.",
+        ),
+        (
+            "two_deployments",
+            "Expected zero or one non-deleted Hosted Deployment; found 2.",
+        ),
+        (
+            "runtime_mismatch",
+            "Existing Hosted Application runtime environment differs from "
+            "the manifest.",
+        ),
+    ],
+)
+def test_stop_condition_messages_match_bash(
+    tmp_path: Path,
+    case: str,
+    message: str,
+    release_runner: tuple[Path, list[str]],
+) -> None:
+    """Both deployers report the documented stop condition verbatim."""
+    result = run_release(tmp_path, case, apply=True, runner=release_runner)
+    assert result.returncode == 20
+    assert result.stderr.strip() == message
+
+
+@pytest.mark.parametrize("tag", ["01.2.3", "1.2.3.4", "latest"])
+def test_invalid_tags_stop_before_calling_oci(
+    tmp_path: Path, tag: str, release_runner: tuple[Path, list[str]]
+) -> None:
+    """Invalid tags fail consistently before the deployer reads OCI state."""
+    result = run_release(
+        tmp_path, "new_version", apply=False, runner=release_runner, tag=tag
+    )
+    assert result.returncode == 64
+    assert result.stderr.strip() == "Tag must be semantic (MAJOR.MINOR.PATCH)."
+    assert not result.invocations
+
+
+@pytest.mark.parametrize("tag", ["1.2.3", "1.2.3-rc.1"])
+def test_valid_semantic_tags_are_accepted(
+    tmp_path: Path, tag: str, release_runner: tuple[Path, list[str]]
+) -> None:
+    """Strict SemVer tags proceed to OCI state discovery."""
+    result = run_release(
+        tmp_path, "new_version", apply=False, runner=release_runner, tag=tag
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.invocations
 
 
 def test_apply_first_release_creates_and_reports_ocids(
@@ -404,6 +480,20 @@ def test_failed_work_request_reports_state_and_fails(
     )
     assert result.returncode == 1
     assert "work-request status=FAILED" in result.stderr
+
+
+def test_failed_update_reports_unknown_work_request_status(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """An OCI update error reports the activation-specific failure message."""
+    result = run_release(
+        tmp_path, "update_command_fails", apply=True, runner=release_runner
+    )
+    assert result.returncode == 1
+    assert (
+        result.stderr.strip()
+        == "Artifact activation failed: work-request status=unknown."
+    )
 
 
 def test_release_cases_work_with_bash_3_when_available(tmp_path: Path) -> None:

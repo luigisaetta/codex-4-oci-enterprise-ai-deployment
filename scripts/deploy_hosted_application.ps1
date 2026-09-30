@@ -143,16 +143,16 @@ function Activate-Artifact {
         containerUri = $containerUri
         tag = $Tag
     } | ConvertTo-Json -Compress
-    try {
-        $updateOutput = Invoke-Oci @(
-            '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment', 'update',
-            '--hosted-deployment-id', $deploymentId, '--active-artifact', $activeArtifact,
-            '--wait-for-state', 'SUCCEEDED', '--wait-for-state', 'FAILED', '--max-wait-seconds',
-            $waitSeconds
-        )
-    } catch {
+    $updateOutput = & oci @(
+        '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment', 'update',
+        '--hosted-deployment-id', $deploymentId, '--active-artifact', $activeArtifact,
+        '--wait-for-state', 'SUCCEEDED', '--wait-for-state', 'FAILED', '--max-wait-seconds',
+        $waitSeconds
+    )
+    if ($LASTEXITCODE -ne 0) {
         Fail 1 'Artifact activation failed: work-request status=unknown.'
     }
+    $updateOutput = ((@($updateOutput) | ForEach-Object { "$_" }) -join "`n").Trim()
     $workRequestStatus = ($updateOutput | ConvertFrom-Json).data.status
     Read-DeploymentDetails
     if ($workRequestStatus -eq 'FAILED' -or $activeTag -ne $Tag) {
@@ -208,7 +208,9 @@ if (-not $Manifest -or -not $Tag) {
     [Console]::Error.WriteLine($usage)
     exit $exitInvalidInput
 }
-if ($Tag -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$') {
+# A SemVer core with optional Docker-compatible prerelease identifiers, no build metadata.
+$versionPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+if ($Tag -notmatch $versionPattern) {
     Fail $exitInvalidInput 'Tag must be semantic (MAJOR.MINOR.PATCH).'
 }
 
@@ -216,7 +218,10 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
 Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
 if (-not (Resolve-AgentPython)) {
-    Fail 1 'Python with PyYAML is required. Activate the named Conda environment or set OCI_AGENT_PYTHON.'
+    Fail 1 (
+        'Python with PyYAML is required. Activate the Conda environment ' +
+        'codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.'
+    )
 }
 $settingsResult = Import-TenancySettings -Keys @(
     'OCI_REGION', 'OCI_COMPARTMENT_NAME', 'OCIR_TENANCY_NAMESPACE'

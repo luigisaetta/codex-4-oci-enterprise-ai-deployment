@@ -230,7 +230,11 @@ if [[ -z "$manifest" || -z "$tag" ]]; then
   usage >&2
   exit "$EXIT_INVALID_INPUT"
 fi
-if ! [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+# A SemVer core with optional Docker-compatible prerelease identifiers, no build metadata.
+version_pattern='^(0|[1-9][0-9]*)\.'\
+'(0|[1-9][0-9]*)\.'\
+'(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+if ! [[ "$tag" =~ $version_pattern ]]; then
   printf 'Tag must be semantic (MAJOR.MINOR.PATCH).\n' >&2
   exit "$EXIT_INVALID_INPUT"
 fi

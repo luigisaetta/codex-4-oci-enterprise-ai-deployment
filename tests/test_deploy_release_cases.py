@@ -16,6 +16,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "deploy_hosted_application.sh"
+POWERSHELL_SCRIPT = ROOT / "scripts" / "deploy_hosted_application.ps1"
+PWSH = shutil.which("pwsh")
 MUTATING_COMMANDS = {
     "create",
     "create-hosted-deployment-single-docker-artifact",
@@ -194,7 +196,7 @@ def scenario_for(case: str) -> dict[str, object]:
 
 
 def run_release(
-    tmp_path: Path, case: str, apply: bool, shell: str
+    tmp_path: Path, case: str, apply: bool, runner: tuple[Path, list[str]]
 ) -> subprocess.CompletedProcess[str]:
     """Run the release script with the selected fake OCI scenario.
 
@@ -202,7 +204,7 @@ def run_release(
         tmp_path: Temporary test directory.
         case: Scenario to execute.
         apply: Whether to use apply mode.
-        shell: Bash executable used to run the script.
+        runner: Script path and executable command used to run it.
 
     Returns:
         Captured script process result.
@@ -226,16 +228,21 @@ def run_release(
     target_tag = "1.0.1"
     if case == "already_released":
         target_tag = "1.0.0"
+    script, command = runner
+    manifest = str(write_manifest(tmp_path / "agent"))
+    options = [
+        "-Apply" if apply else "-Plan",
+        "-Manifest",
+        manifest,
+        "-Tag",
+        target_tag,
+    ]
+    if script.suffix == ".sh":
+        options[0] = "--apply" if apply else "--plan"
+        options[1] = "--manifest"
+        options[3] = "--tag"
     result = subprocess.run(
-        [
-            shell,
-            str(SCRIPT),
-            "--apply" if apply else "--plan",
-            "--manifest",
-            str(write_manifest(tmp_path / "agent")),
-            "--tag",
-            target_tag,
-        ],
+        [*command, str(script), *options],
         capture_output=True,
         check=False,
         cwd=tmp_path,
@@ -246,6 +253,22 @@ def run_release(
         json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
     ]
     return result
+
+
+@pytest.fixture(
+    name="release_runner",
+    params=[
+        pytest.param((SCRIPT, [shutil.which("bash") or "/bin/bash"]), id="bash"),
+        pytest.param(
+            (POWERSHELL_SCRIPT, [PWSH, "-NoProfile", "-File"]),
+            id="powershell",
+            marks=pytest.mark.skipif(PWSH is None, reason="pwsh is unavailable."),
+        ),
+    ],
+)
+def _release_runner(request: pytest.FixtureRequest) -> tuple[Path, list[str]]:
+    """Return an available deployer command for shared release scenarios."""
+    return request.param
 
 
 def mutating_commands(result: subprocess.CompletedProcess[str]) -> list[str]:
@@ -273,12 +296,10 @@ def mutating_commands(result: subprocess.CompletedProcess[str]) -> list[str]:
     ],
 )
 def test_plan_never_mutates_for_any_scenario(
-    tmp_path: Path, case: str, returncode: int
+    tmp_path: Path, case: str, returncode: int, release_runner: tuple[Path, list[str]]
 ) -> None:
     """Every release and stop case remains read-only in plan mode."""
-    result = run_release(
-        tmp_path, case, apply=False, shell=shutil.which("bash") or "/bin/bash"
-    )
+    result = run_release(tmp_path, case, apply=False, runner=release_runner)
     assert result.returncode == returncode, result.stderr
     assert not mutating_commands(result)
 
@@ -293,20 +314,20 @@ def test_plan_never_mutates_for_any_scenario(
         "runtime_mismatch",
     ],
 )
-def test_stop_conditions_do_not_mutate(tmp_path: Path, case: str) -> None:
+def test_stop_conditions_do_not_mutate(
+    tmp_path: Path, case: str, release_runner: tuple[Path, list[str]]
+) -> None:
     """Unsafe deployment states stop before any OCI mutation."""
-    result = run_release(
-        tmp_path, case, apply=True, shell=shutil.which("bash") or "/bin/bash"
-    )
+    result = run_release(tmp_path, case, apply=True, runner=release_runner)
     assert result.returncode == 20
     assert not mutating_commands(result)
 
 
-def test_apply_first_release_creates_and_reports_ocids(tmp_path: Path) -> None:
+def test_apply_first_release_creates_and_reports_ocids(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """The first release creates application then deployment and reports both IDs."""
-    result = run_release(
-        tmp_path, "first_release", apply=True, shell=shutil.which("bash") or "/bin/bash"
-    )
+    result = run_release(tmp_path, "first_release", apply=True, runner=release_runner)
     assert result.returncode == 0, result.stderr
     assert mutating_commands(result) == [
         "create",
@@ -322,13 +343,12 @@ def test_apply_first_release_creates_and_reports_ocids(tmp_path: Path) -> None:
     )
 
 
-def test_application_without_deployment_reuses_application(tmp_path: Path) -> None:
+def test_application_without_deployment_reuses_application(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """An application without a deployment creates only its first deployment."""
     result = run_release(
-        tmp_path,
-        "application_without_deployment",
-        apply=True,
-        shell=shutil.which("bash") or "/bin/bash",
+        tmp_path, "application_without_deployment", apply=True, runner=release_runner
     )
     assert result.returncode == 0, result.stderr
     assert mutating_commands(result) == [
@@ -337,23 +357,22 @@ def test_application_without_deployment_reuses_application(tmp_path: Path) -> No
     assert "Reusing ACTIVE Hosted Application" in result.stdout
 
 
-def test_apply_already_released_does_not_mutate(tmp_path: Path) -> None:
+def test_apply_already_released_does_not_mutate(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """An active target tag succeeds without an OCI mutation."""
     result = run_release(
-        tmp_path,
-        "already_released",
-        apply=True,
-        shell=shutil.which("bash") or "/bin/bash",
+        tmp_path, "already_released", apply=True, runner=release_runner
     )
     assert result.returncode == 0, result.stderr
     assert not mutating_commands(result)
 
 
-def test_apply_new_version_adds_then_activates_and_confirms(tmp_path: Path) -> None:
+def test_apply_new_version_adds_then_activates_and_confirms(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """A new tag is added before update and is confirmed by a final deployment get."""
-    result = run_release(
-        tmp_path, "new_version", apply=True, shell=shutil.which("bash") or "/bin/bash"
-    )
+    result = run_release(tmp_path, "new_version", apply=True, runner=release_runner)
     assert result.returncode == 0, result.stderr
     assert mutating_commands(result) == [
         "add-artifact-create-single-docker-artifact-details",
@@ -367,22 +386,21 @@ def test_apply_new_version_adds_then_activates_and_confirms(tmp_path: Path) -> N
     )
 
 
-def test_apply_rollback_only_activates(tmp_path: Path) -> None:
+def test_apply_rollback_only_activates(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """An inactive artifact is activated without adding another artifact."""
-    result = run_release(
-        tmp_path, "rollback", apply=True, shell=shutil.which("bash") or "/bin/bash"
-    )
+    result = run_release(tmp_path, "rollback", apply=True, runner=release_runner)
     assert result.returncode == 0, result.stderr
     assert mutating_commands(result) == ["update"]
 
 
-def test_failed_work_request_reports_state_and_fails(tmp_path: Path) -> None:
+def test_failed_work_request_reports_state_and_fails(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
     """A failed activation reports its work-request status and exits nonzero."""
     result = run_release(
-        tmp_path,
-        "work_request_failed",
-        apply=True,
-        shell=shutil.which("bash") or "/bin/bash",
+        tmp_path, "work_request_failed", apply=True, runner=release_runner
     )
     assert result.returncode == 1
     assert "work-request status=FAILED" in result.stderr
@@ -396,5 +414,7 @@ def test_release_cases_work_with_bash_3_when_available(tmp_path: Path) -> None:
     )
     if not bash32.is_file() or not version.stdout.startswith("GNU bash, version 3."):
         pytest.skip("/bin/bash is not Bash 3.x.")
-    result = run_release(tmp_path, "rollback", apply=True, shell=str(bash32))
+    result = run_release(
+        tmp_path, "rollback", apply=True, runner=(SCRIPT, [str(bash32)])
+    )
     assert result.returncode == 0, result.stderr

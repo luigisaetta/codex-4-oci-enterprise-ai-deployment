@@ -20,6 +20,7 @@ MUTATING_COMMANDS = {
     "create",
     "create-hosted-deployment-single-docker-artifact",
     "add-artifact-create-single-docker-artifact-details",
+    "delete",
     "update",
 }
 
@@ -159,6 +160,8 @@ def scenario_for(case: str) -> dict[str, object]:
     }
     if case == "first_release":
         scenario.update(application_count=0, deployment_count=0)
+    elif case == "application_without_deployment":
+        scenario.update(deployment_count=0)
     elif case == "already_released":
         scenario.update(target="1.0.0")
     elif case == "rollback":
@@ -258,6 +261,7 @@ def mutating_commands(result: subprocess.CompletedProcess[str]) -> list[str]:
     ("case", "returncode"),
     [
         ("first_release", 0),
+        ("application_without_deployment", 0),
         ("already_released", 0),
         ("new_version", 0),
         ("rollback", 0),
@@ -316,6 +320,21 @@ def test_apply_first_release_creates_and_reports_ocids(tmp_path: Path) -> None:
         "Created Hosted Deployment: ocid1.generativeaihosteddeployment.created"
         in result.stdout
     )
+
+
+def test_application_without_deployment_reuses_application(tmp_path: Path) -> None:
+    """An application without a deployment creates only its first deployment."""
+    result = run_release(
+        tmp_path,
+        "application_without_deployment",
+        apply=True,
+        shell=shutil.which("bash") or "/bin/bash",
+    )
+    assert result.returncode == 0, result.stderr
+    assert mutating_commands(result) == [
+        "create-hosted-deployment-single-docker-artifact"
+    ]
+    assert "Reusing ACTIVE Hosted Application" in result.stdout
 
 
 def test_apply_already_released_does_not_mutate(tmp_path: Path) -> None:

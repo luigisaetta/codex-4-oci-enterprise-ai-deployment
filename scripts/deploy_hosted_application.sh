@@ -2,8 +2,9 @@
 #
 # Plan or release a manifest-defined OCI Generative AI Hosted Application image.
 #
-# Prerequisites: Bash 3.2+, OCI CLI authentication, Python with PyYAML,
-# and OCI_REGION, OCI_COMPARTMENT_NAME, and OCIR_TENANCY_NAMESPACE exported.
+# Prerequisites: Bash 3.2+, OCI CLI authentication, and Python with PyYAML.
+# Tenancy settings are read from OCI_AGENT_ENV_FILE (default: <tool home>/.env)
+# or from the environment.
 # Inputs: --manifest PATH --tag MAJOR.MINOR.PATCH; --apply authorizes mutations.
 # Side effects: plans read OCI only. Applies create missing resources, or add and
 # activate artifacts in place. It never deletes or replaces resources.
@@ -149,10 +150,9 @@ print(json.load(sys.stdin).get("data", {}).get("status", "unknown"))
   fi
 }
 
-# Create the application and its first deployment, reporting both identifiers.
-create_first_release() {
+# Create the missing Hosted Application and report its identifier.
+create_hosted_application() {
   local application_output
-  local deployment_output
 
   printf '%s\n' 'Creating Hosted Application with NO_AUTH_CONFIG and Oracle-managed networking.'
   application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
@@ -166,6 +166,17 @@ create_first_release() {
   application_id="$(printf '%s' "$application_output" | \
     extract_expected_ocid 'ocid1.generativeaihostedapplication.')"
   printf 'Created Hosted Application: %s\n' "$application_id"
+}
+
+# Create the first deployment after creating or reusing its Hosted Application.
+create_first_release() {
+  local deployment_output
+
+  if [[ -z "$application_id" ]]; then
+    create_hosted_application
+  else
+    printf 'Reusing ACTIVE Hosted Application: %s\n' "$application_id"
+  fi
   printf '%s\n' 'Creating Hosted Deployment from the selected OCIR artifact.'
   deployment_output="$(oci --region "$OCI_REGION" --output json generative-ai \
     hosted-deployment create-hosted-deployment-single-docker-artifact \
@@ -299,41 +310,43 @@ print(json.load(sys.stdin)["data"].get("lifecycle-state", ""))
     hosted-deployment-collection list-hosted-deployments \
     --compartment-id "$compartment_id" --application-id "$application_id" --all \
     --query "length(${non_deleted_query})" --raw-output)"
-  if [[ "$deployment_count" != '1' ]]; then
-    printf 'Expected exactly one non-deleted Hosted Deployment; found %s.\n' \
+  if [[ "$deployment_count" != '0' && "$deployment_count" != '1' ]]; then
+    printf 'Expected zero or one non-deleted Hosted Deployment; found %s.\n' \
       "$deployment_count" >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
-  deployment_id="$(oci --region "$OCI_REGION" generative-ai \
-    hosted-deployment-collection list-hosted-deployments \
-    --compartment-id "$compartment_id" --application-id "$application_id" --all \
-    --query "(${non_deleted_query})[0].id" --raw-output)"
-  read_deployment_details
-  if [[ "$deployment_state" != 'ACTIVE' ]]; then
-    printf 'Hosted Deployment must be ACTIVE; observed: %s. Check it and retry.\n' \
-      "$deployment_state" >&2
-    exit "$EXIT_EXISTING_RESOURCE"
-  fi
-  if [[ "$target_status" == 'FAILED' || "$target_status" == 'UPDATING' ]]; then
-    printf 'Target artifact tag %s is %s. Check it and retry; no changes were made.\n' \
-      "$tag" "$target_status" >&2
-    exit "$EXIT_EXISTING_RESOURCE"
-  fi
-  if [[ "$active_tag" == "$tag" ]]; then
-    release_case='Already released'
-  elif [[ -z "$target_status" ]]; then
-    if [[ "$artifact_count" -ge "$ARTIFACT_LIMIT" ]]; then
-      printf 'Adding tag %s exceeds the artifact limit of %s; no changes were made.\n' \
-        "$tag" "$ARTIFACT_LIMIT" >&2
+  if [[ "$deployment_count" == '1' ]]; then
+    deployment_id="$(oci --region "$OCI_REGION" generative-ai \
+      hosted-deployment-collection list-hosted-deployments \
+      --compartment-id "$compartment_id" --application-id "$application_id" --all \
+      --query "(${non_deleted_query})[0].id" --raw-output)"
+    read_deployment_details
+    if [[ "$deployment_state" != 'ACTIVE' ]]; then
+      printf 'Hosted Deployment must be ACTIVE; observed: %s. Check it and retry.\n' \
+        "$deployment_state" >&2
       exit "$EXIT_EXISTING_RESOURCE"
     fi
-    release_case='New version'
-  elif [[ "$target_status" == 'INACTIVE' ]]; then
-    release_case='Return to a previous version'
-  else
-    printf 'Target artifact tag %s has unsupported status: %s.\n' \
-      "$tag" "$target_status" >&2
-    exit "$EXIT_EXISTING_RESOURCE"
+    if [[ "$target_status" == 'FAILED' || "$target_status" == 'UPDATING' ]]; then
+      printf 'Target artifact tag %s is %s. Check it and retry; no changes were made.\n' \
+        "$tag" "$target_status" >&2
+      exit "$EXIT_EXISTING_RESOURCE"
+    fi
+    if [[ "$active_tag" == "$tag" ]]; then
+      release_case='Already released'
+    elif [[ -z "$target_status" ]]; then
+      if [[ "$artifact_count" -ge "$ARTIFACT_LIMIT" ]]; then
+        printf 'Adding tag %s exceeds the artifact limit of %s; no changes were made.\n' \
+          "$tag" "$ARTIFACT_LIMIT" >&2
+        exit "$EXIT_EXISTING_RESOURCE"
+      fi
+      release_case='New version'
+    elif [[ "$target_status" == 'INACTIVE' ]]; then
+      release_case='Return to a previous version'
+    else
+      printf 'Target artifact tag %s has unsupported status: %s.\n' \
+        "$tag" "$target_status" >&2
+      exit "$EXIT_EXISTING_RESOURCE"
+    fi
   fi
 fi
 

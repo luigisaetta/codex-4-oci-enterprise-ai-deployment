@@ -109,6 +109,14 @@ print_plan() {
   printf 'Compartment: %s\n' "$compartment_id"
   printf 'Hosted Application: %s (%s; %s)\n' \
     "$application_name" "$profile" "$application_action"
+  if [[ "$profile" == 'public-idcs' ]]; then
+    printf '%s\n' 'Access: public endpoint, identity-domain token required'
+    printf 'Identity domain URL: %s\n' "$domain_url"
+    printf 'Audience: %s\n' "$audience"
+    printf 'Scope: %s\n' "$scope"
+  else
+    printf '%s\n' 'Access: public unauthenticated endpoint.'
+  fi
   printf 'Release case: %s\n' "$release_case"
   printf 'Current active tag: %s\n' "$active_tag"
   printf 'Target tag: %s\n' "$tag"
@@ -156,11 +164,12 @@ print(json.load(sys.stdin).get("data", {}).get("status", "unknown"))
 create_hosted_application() {
   local application_output
 
-  printf '%s\n' 'Creating Hosted Application with NO_AUTH_CONFIG and Oracle-managed networking.'
+  printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' \
+    "$profile"
   application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
     hosted-application create --display-name "$application_name" \
     --compartment-id "$compartment_id" \
-    --inbound-auth-config '{"inboundAuthConfigType":"NO_AUTH_CONFIG"}' \
+    --inbound-auth-config "$inbound_auth_json" \
     --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
 '"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
     --environment-variables "$environment_variables_json" --wait-for-state SUCCEEDED \
@@ -254,6 +263,19 @@ application_name="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" ge
   --manifest "$manifest" --field deploy.application_name)"
 profile="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
   --manifest "$manifest" --field deploy.profile)"
+inbound_auth_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
+  inbound-auth --manifest "$manifest")"
+domain_url=""
+audience=""
+scope=""
+if [[ "$profile" == 'public-idcs' ]]; then
+  domain_url="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+    --manifest "$manifest" --field deploy.auth.domain_url)"
+  audience="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+    --manifest "$manifest" --field deploy.auth.audience)"
+  scope="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
+    --manifest "$manifest" --field deploy.auth.scope)"
+fi
 environment_variables_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
   runtime-env --manifest "$manifest" --format oci-json)"
 environment_report="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
@@ -305,6 +327,13 @@ print(json.load(sys.stdin)["data"].get("lifecycle-state", ""))
   if [[ "$application_state" != 'ACTIVE' ]]; then
     printf 'Existing Hosted Application must be ACTIVE to reuse; observed: %s.\n' \
       "$application_state" >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
+  if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" inbound-auth-matches --manifest "$manifest"; then
+    printf '%s%s\n' \
+      'The existing Hosted Application uses a different inbound authentication; ' \
+      'changing authentication is not supported.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
   if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \

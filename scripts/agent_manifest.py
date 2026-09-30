@@ -274,6 +274,8 @@ def validate_domain_url(value: Any) -> str:
     location = "manifest.deploy.auth.domain_url"
     if not isinstance(value, str) or not value:
         raise ManifestError(f"{location} must be a non-empty HTTPS URL.")
+    if "?" in value or "#" in value:
+        raise ManifestError(f"{location} must not contain a query or fragment marker.")
     try:
         parsed = urlparse(value)
         hostname = parsed.hostname
@@ -587,6 +589,52 @@ def inbound_auth_config(manifest: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def inbound_auth_matches(manifest: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """Compare a Hosted Application inbound configuration to the manifest.
+
+    Args:
+        manifest: Validated agent manifest.
+        payload: Raw JSON returned by ``hosted-application get``.
+
+    Returns:
+        True when the supported inbound authentication fields match exactly.
+    """
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return False
+    observed = data.get("inbound-auth-config")
+    if not isinstance(observed, dict):
+        return False
+    expected = inbound_auth_config(manifest)
+    if observed.get("inboundAuthConfigType") != expected["inboundAuthConfigType"]:
+        return False
+    if manifest["deploy"]["profile"] == "public-noauth":
+        return True
+    observed_idcs = observed.get("idcsConfig")
+    if not isinstance(observed_idcs, dict):
+        return False
+    expected_idcs = expected["idcsConfig"]
+    return all(
+        observed_idcs.get(field) == expected_idcs[field]
+        for field in ("domainUrl", "scope", "audience")
+    )
+
+
+def print_runtime_environment(manifest: dict[str, Any], output_format: str) -> None:
+    """Print resolved runtime environment variables in a requested format.
+
+    Args:
+        manifest: Validated agent manifest.
+        output_format: Runtime environment output format requested by the CLI.
+    """
+    local = output_format.startswith("local-")
+    if output_format.endswith("json"):
+        variables, _ = resolve_runtime_environment(manifest, local)
+        print(json.dumps(variables, separators=(",", ":")))
+    else:
+        print(runtime_report(manifest, local))
+
+
 def main() -> int:
     """Run the manifest command-line interface."""
     parser = argparse.ArgumentParser(description="Validate an OCI agent manifest.")
@@ -612,6 +660,8 @@ def main() -> int:
     matches_parser.add_argument("--manifest", required=True)
     inbound_auth_parser = subparsers.add_parser("inbound-auth")
     inbound_auth_parser.add_argument("--manifest", required=True)
+    inbound_matches_parser = subparsers.add_parser("inbound-auth-matches")
+    inbound_matches_parser.add_argument("--manifest", required=True)
     args = parser.parse_args()
     try:
         manifest = load_manifest(args.manifest)
@@ -622,14 +672,14 @@ def main() -> int:
         elif args.command == "checks":
             print(json.dumps(manifest["verify"], separators=(",", ":")))
         elif args.command == "runtime-env":
-            local = args.format.startswith("local-")
-            if args.format.endswith("json"):
-                variables, _ = resolve_runtime_environment(manifest, local)
-                print(json.dumps(variables, separators=(",", ":")))
-            else:
-                print(runtime_report(manifest, local))
-        elif args.command == "runtime-matches":
-            if not runtime_matches(manifest, json.load(sys.stdin)):
+            print_runtime_environment(manifest, args.format)
+        elif args.command in {"runtime-matches", "inbound-auth-matches"}:
+            matcher = (
+                runtime_matches
+                if args.command == "runtime-matches"
+                else inbound_auth_matches
+            )
+            if not matcher(manifest, json.load(sys.stdin)):
                 return 1
         elif args.command == "inbound-auth":
             print(json.dumps(inbound_auth_config(manifest), separators=(",", ":")))

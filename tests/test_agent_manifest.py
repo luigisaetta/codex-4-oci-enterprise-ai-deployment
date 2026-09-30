@@ -5,6 +5,7 @@ License: MIT
 Description: Unit tests for the strict agent manifest configuration contract.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -238,13 +239,14 @@ def add_idcs_auth(manifest_path: Path, auth: str) -> None:
 
 
 def manifest_command(
-    manifest_path: Path, *arguments: str
+    manifest_path: Path, *arguments: str, input_text: str | None = None
 ) -> subprocess.CompletedProcess[str]:
     """Run the manifest command-line interface for a temporary manifest.
 
     Args:
         manifest_path: Manifest file supplied to the command.
         *arguments: Command and its additional arguments.
+        input_text: Optional JSON text supplied on standard input.
 
     Returns:
         Completed command result with captured text output.
@@ -254,6 +256,7 @@ def manifest_command(
         [sys.executable, str(script), *arguments, "--manifest", str(manifest_path)],
         check=False,
         capture_output=True,
+        input=input_text,
         text=True,
     )
 
@@ -376,6 +379,16 @@ def test_invalid_deploy_profile_configuration_is_rejected(
             "domain_url",
         ),
         (
+            "{domain_url: 'https://h.example.com?', audience: example-audience, "
+            "scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: 'https://h.example.com#', audience: example-audience, "
+            "scope: example-scope}",
+            "domain_url",
+        ),
+        (
             "{domain_url: https://user@idcs-example.identity.oraclecloud.com, "
             "audience: example-audience, scope: example-scope}",
             "domain_url",
@@ -450,6 +463,91 @@ def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
     )
     assert result.returncode == 64
     assert "public-noauth profile has no auth section" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("profile", "payload", "returncode"),
+    [
+        (
+            "public-noauth",
+            {
+                "data": {
+                    "inbound-auth-config": {"inboundAuthConfigType": "NO_AUTH_CONFIG"}
+                }
+            },
+            0,
+        ),
+        (
+            "public-noauth",
+            {
+                "data": {
+                    "inbound-auth-config": {"inboundAuthConfigType": "IDCS_AUTH_CONFIG"}
+                }
+            },
+            1,
+        ),
+        (
+            "public-idcs",
+            {
+                "data": {
+                    "inbound-auth-config": {
+                        "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
+                        "idcsConfig": {
+                            "domainUrl": IDCS_DOMAIN_URL,
+                            "scope": IDCS_SCOPE,
+                            "audience": IDCS_AUDIENCE,
+                        },
+                    }
+                }
+            },
+            0,
+        ),
+        (
+            "public-idcs",
+            {
+                "data": {
+                    "inbound-auth-config": {
+                        "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
+                        "idcsConfig": {
+                            "domainUrl": IDCS_DOMAIN_URL,
+                            "scope": IDCS_SCOPE,
+                            "audience": "other-audience",
+                        },
+                    }
+                }
+            },
+            1,
+        ),
+        (
+            "public-idcs",
+            {
+                "data": {
+                    "inbound-auth-config": {
+                        "inboundAuthConfigType": "UNKNOWN_ENUM_VALUE"
+                    }
+                }
+            },
+            1,
+        ),
+    ],
+)
+def test_inbound_auth_matches_compares_raw_hosted_application_json(
+    profile: str, payload: dict[str, object], returncode: int, tmp_path: Path
+) -> None:
+    """The matcher accepts only the inbound authentication required by the profile."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    if profile == "public-idcs":
+        add_idcs_auth(
+            manifest_path,
+            "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+            "audience: example-audience, scope: example-scope}",
+        )
+    result = manifest_command(
+        manifest_path,
+        "inbound-auth-matches",
+        input_text=json.dumps(payload),
+    )
+    assert result.returncode == returncode
 
 
 @pytest.mark.parametrize("field", ["tag: 0.2.0", "unknown: value"])

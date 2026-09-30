@@ -27,7 +27,7 @@ MUTATING_COMMANDS = {
 }
 
 
-def write_manifest(directory: Path) -> Path:
+def write_manifest(directory: Path, profile: str = "public-noauth") -> Path:
     """Create a minimal deployable manifest fixture.
 
     Args:
@@ -39,14 +39,24 @@ def write_manifest(directory: Path) -> Path:
     directory.mkdir()
     (directory / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
     manifest = directory / "agent.yaml"
+    auth = ""
+    if profile == "public-idcs":
+        auth = (
+            "  auth:\n"
+            "    domain_url: https://idcs-example.identity.oraclecloud.com:443\n"
+            "    audience: example-audience\n"
+            "    scope: example-scope\n"
+        )
     manifest.write_text(
-        """schema_version: 2
-name: release-test
-build: {context: ., dockerfile: Dockerfile}
-publish: {repository: agents/release-test}
-deploy: {application_name: release-test, profile: public-noauth}
-verify: []
-""",
+        "schema_version: 2\n"
+        "name: release-test\n"
+        "build: {context: ., dockerfile: Dockerfile}\n"
+        "publish: {repository: agents/release-test}\n"
+        "deploy:\n"
+        "  application_name: release-test\n"
+        f"  profile: {profile}\n"
+        f"{auth}"
+        "verify: []\n",
         encoding="utf-8",
     )
     return manifest
@@ -94,6 +104,7 @@ elif "hosted-application" in arguments and "get" in arguments:
             "data": {
                 "lifecycle-state": "ACTIVE",
                 "environment-variables": scenario["runtime"],
+                "inbound-auth-config": scenario["inbound_auth"],
             }
         }
     )
@@ -158,6 +169,7 @@ def scenario_for(case: str) -> dict[str, object]:
         "application_count": 1,
         "deployment_count": 1,
         "runtime": [],
+        "inbound_auth": {"inboundAuthConfigType": "NO_AUTH_CONFIG"},
         "deployment_state": "ACTIVE",
         "active": "1.0.0",
         "target": "1.0.1",
@@ -165,13 +177,25 @@ def scenario_for(case: str) -> dict[str, object]:
         "activation_succeeds": True,
         "work_request_state": "SUCCEEDED",
     }
-    if case == "first_release":
-        scenario.update(application_count=0, deployment_count=0)
-    elif case == "application_without_deployment":
-        scenario.update(deployment_count=0)
-    elif case == "already_released":
-        scenario.update(target="1.0.0")
-    elif case == "rollback":
+    updates = {
+        "first_release": {"application_count": 0, "deployment_count": 0},
+        "idcs_first_release": {"application_count": 0, "deployment_count": 0},
+        "application_without_deployment": {"deployment_count": 0},
+        "already_released": {"target": "1.0.0"},
+        "updating": {"deployment_state": "UPDATING"},
+        "two_deployments": {"deployment_count": 2},
+        "runtime_mismatch": {"runtime": [{"name": "OTHER", "value": "value"}]},
+        "unknown_inbound_auth": {
+            "inbound_auth": {"inboundAuthConfigType": "UNKNOWN_ENUM_VALUE"}
+        },
+        "work_request_failed": {
+            "work_request_state": "FAILED",
+            "activation_succeeds": False,
+        },
+        "update_command_fails": {"update_command_fails": True},
+    }
+    scenario.update(updates.get(case, {}))
+    if case == "rollback":
         artifacts.append(
             {
                 "container-uri": "fra.ocir.io/namespace/agents/release-test",
@@ -179,8 +203,6 @@ def scenario_for(case: str) -> dict[str, object]:
                 "status": "INACTIVE",
             }
         )
-    elif case == "updating":
-        scenario.update(deployment_state="UPDATING")
     elif case == "failed_artifact":
         artifacts.append(
             {
@@ -191,15 +213,26 @@ def scenario_for(case: str) -> dict[str, object]:
         )
     elif case == "artifact_limit":
         scenario["artifacts"] = artifacts * 20
-    elif case == "two_deployments":
-        scenario.update(deployment_count=2)
-    elif case == "runtime_mismatch":
-        scenario.update(runtime=[{"name": "OTHER", "value": "value"}])
-    elif case == "work_request_failed":
-        scenario.update(work_request_state="FAILED", activation_succeeds=False)
-    elif case == "update_command_fails":
-        scenario.update(update_command_fails=True)
+    elif case in {"idcs_application", "idcs_to_noauth_mismatch"}:
+        scenario["inbound_auth"] = {
+            "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
+            "idcsConfig": {
+                "domainUrl": "https://idcs-example.identity.oraclecloud.com:443",
+                "scope": "example-scope",
+                "audience": "example-audience",
+            },
+        }
     return scenario
+
+
+def profile_for_case(case: str) -> str:
+    """Return the manifest profile required by an inbound authentication scenario."""
+    idcs_cases = {
+        "idcs_first_release",
+        "noauth_to_idcs_mismatch",
+        "unknown_inbound_auth",
+    }
+    return "public-idcs" if case in idcs_cases else "public-noauth"
 
 
 def run_release(
@@ -241,7 +274,7 @@ def run_release(
     if tag is None and case == "already_released":
         target_tag = "1.0.0"
     script, command = runner
-    manifest = str(write_manifest(tmp_path / "agent"))
+    manifest = str(write_manifest(tmp_path / "agent", profile_for_case(case)))
     options = [
         "-Apply" if apply else "-Plan",
         "-Manifest",
@@ -420,6 +453,75 @@ def test_apply_first_release_creates_and_reports_ocids(
         "Created Hosted Deployment: ocid1.generativeaihosteddeployment.created"
         in result.stdout
     )
+
+
+def test_public_idcs_first_release_uses_manifest_inbound_auth(tmp_path: Path) -> None:
+    """A Bash first release sends the exact IDCS inbound configuration to OCI."""
+    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+    result = run_release(
+        tmp_path,
+        "idcs_first_release",
+        apply=True,
+        runner=runner,
+    )
+    assert result.returncode == 0, result.stderr
+    create_call = next(
+        call
+        for call in result.invocations
+        if "hosted-application" in call and "create" in call
+    )
+    assert create_call[create_call.index("--inbound-auth-config") + 1] == (
+        '{"inboundAuthConfigType":"IDCS_AUTH_CONFIG","idcsConfig":'
+        '{"domainUrl":"https://idcs-example.identity.oraclecloud.com:443",'
+        '"scope":"example-scope","audience":"example-audience"}}'
+    )
+
+
+def test_public_idcs_plan_reports_token_access_settings(tmp_path: Path) -> None:
+    """A Bash IDCS plan describes the public endpoint and manifest settings."""
+    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+    result = run_release(
+        tmp_path,
+        "idcs_first_release",
+        apply=False,
+        runner=runner,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Access: public endpoint, identity-domain token required" in result.stdout
+    assert (
+        "Identity domain URL: https://idcs-example.identity.oraclecloud.com:443"
+        in result.stdout
+    )
+    assert "Audience: example-audience" in result.stdout
+    assert "Scope: example-scope" in result.stdout
+    assert not mutating_commands(result)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "idcs_to_noauth_mismatch",
+        "noauth_to_idcs_mismatch",
+        "unknown_inbound_auth",
+    ],
+)
+def test_inbound_auth_mismatches_stop_bash_reuse_before_mutation(
+    tmp_path: Path, case: str
+) -> None:
+    """Reusing an application never changes a mismatched inbound configuration."""
+    runner = (SCRIPT, [shutil.which("bash") or "/bin/bash"])
+    result = run_release(
+        tmp_path,
+        case,
+        apply=True,
+        runner=runner,
+    )
+    assert result.returncode == 20
+    assert result.stderr.strip() == (
+        "The existing Hosted Application uses a different inbound authentication; "
+        "changing authentication is not supported."
+    )
+    assert not mutating_commands(result)
 
 
 def test_application_without_deployment_reuses_application(

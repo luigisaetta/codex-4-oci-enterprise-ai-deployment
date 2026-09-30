@@ -213,6 +213,245 @@ def test_get_returns_absolute_build_paths(tmp_path: Path) -> None:
     assert result.stdout.strip() == str(manifest_path.parent.resolve())
 
 
+IDCS_DOMAIN_URL = "https://idcs-example.identity.oraclecloud.com:443"
+IDCS_AUDIENCE = "example-audience"
+IDCS_SCOPE = "example-scope"
+
+
+def add_idcs_auth(manifest_path: Path, auth: str) -> None:
+    """Change a test manifest to use the public identity-domain profile.
+
+    Args:
+        manifest_path: Manifest file to update.
+        auth: YAML content for the ``deploy.auth`` field.
+    """
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8").replace(
+            "deploy: {application_name: hello-world, profile: public-noauth}",
+            "deploy:\n"
+            "  application_name: hello-world\n"
+            "  profile: public-idcs\n"
+            f"  auth: {auth}",
+        ),
+        encoding="utf-8",
+    )
+
+
+def manifest_command(
+    manifest_path: Path, *arguments: str
+) -> subprocess.CompletedProcess[str]:
+    """Run the manifest command-line interface for a temporary manifest.
+
+    Args:
+        manifest_path: Manifest file supplied to the command.
+        *arguments: Command and its additional arguments.
+
+    Returns:
+        Completed command result with captured text output.
+    """
+    script = Path(__file__).resolve().parents[1] / "scripts/agent_manifest.py"
+    return subprocess.run(
+        [sys.executable, str(script), *arguments, "--manifest", str(manifest_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_public_idcs_auth_is_valid_and_inbound_auth_is_compact_json(
+    tmp_path: Path,
+) -> None:
+    """A valid identity-domain profile supplies the expected OCI JSON exactly."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    add_idcs_auth(
+        manifest_path,
+        "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+        "audience: example-audience, scope: example-scope}",
+    )
+
+    assert load_manifest(str(manifest_path))["deploy"]["auth"] == {
+        "domain_url": IDCS_DOMAIN_URL,
+        "audience": IDCS_AUDIENCE,
+        "scope": IDCS_SCOPE,
+    }
+    result = manifest_command(manifest_path, "inbound-auth")
+    assert result.returncode == 0
+    assert result.stdout == (
+        '{"inboundAuthConfigType":"IDCS_AUTH_CONFIG","idcsConfig":'
+        '{"domainUrl":"https://idcs-example.identity.oraclecloud.com:443",'
+        '"scope":"example-scope","audience":"example-audience"}}\n'
+    )
+
+
+def test_public_noauth_inbound_auth_is_compact_json(tmp_path: Path) -> None:
+    """The existing public unauthenticated profile keeps its OCI JSON value."""
+    result = manifest_command(write_manifest(tmp_path / "agent"), "inbound-auth")
+    assert result.returncode == 0
+    assert result.stdout == '{"inboundAuthConfigType":"NO_AUTH_CONFIG"}\n'
+
+
+@pytest.mark.parametrize(
+    ("auth", "field"),
+    [
+        ("{audience: example-audience, scope: example-scope}", "domain_url"),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+            "scope: example-scope}",
+            "audience",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+            "audience: example-audience}",
+            "scope",
+        ),
+    ],
+)
+def test_public_idcs_missing_auth_fields_are_rejected(
+    auth: str, field: str, tmp_path: Path
+) -> None:
+    """Each required identity-domain field reports its own validation error."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    add_idcs_auth(manifest_path, auth)
+    result = manifest_command(manifest_path, "validate")
+    assert result.returncode == 64
+    assert field in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("replacement", "field"),
+    [
+        ("deploy: {application_name: hello-world, profile: public-idcs}", "auth"),
+        (
+            "deploy: {application_name: hello-world, profile: public-noauth, "
+            "auth: {domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+            "audience: example-audience, scope: example-scope}}",
+            "auth",
+        ),
+        ("deploy: {application_name: hello-world, profile: private}", "profile"),
+    ],
+)
+def test_invalid_deploy_profile_configuration_is_rejected(
+    replacement: str, field: str, tmp_path: Path
+) -> None:
+    """Missing, forbidden, and unknown profile configurations exit with usage errors."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8").replace(
+            "deploy: {application_name: hello-world, profile: public-noauth}",
+            replacement,
+        ),
+        encoding="utf-8",
+    )
+    result = manifest_command(manifest_path, "validate")
+    assert result.returncode == 64
+    assert field in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("auth", "field"),
+    [
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+            "audience: example-audience, scope: example-scope, extra: value}",
+            "auth",
+        ),
+        (
+            "{domain_url: http://idcs-example.identity.oraclecloud.com, "
+            "audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com/path, "
+            "audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: 'https://idcs-example.identity.oraclecloud.com?query=value', "
+            "audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: 'https://idcs-example.identity.oraclecloud.com#fragment', "
+            "audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: https://user@idcs-example.identity.oraclecloud.com, "
+            "audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com, "
+            "audience: example audience, scope: example-scope}",
+            "audience",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com, "
+            "audience: example-audience, scope: example scope}",
+            "scope",
+        ),
+        (
+            "{domain_url: '', audience: example-audience, scope: example-scope}",
+            "domain_url",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com, "
+            "audience: '', scope: example-scope}",
+            "audience",
+        ),
+        (
+            "{domain_url: https://idcs-example.identity.oraclecloud.com, "
+            "audience: example-audience, scope: ''}",
+            "scope",
+        ),
+    ],
+)
+def test_invalid_public_idcs_auth_is_rejected(
+    auth: str, field: str, tmp_path: Path
+) -> None:
+    """Invalid identity-domain authentication values name the rejected field."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    add_idcs_auth(manifest_path, auth)
+    result = manifest_command(manifest_path, "validate")
+    assert result.returncode == 64
+    assert field in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        ("deploy.auth.domain_url", IDCS_DOMAIN_URL),
+        ("deploy.auth.audience", IDCS_AUDIENCE),
+        ("deploy.auth.scope", IDCS_SCOPE),
+    ],
+)
+def test_get_returns_public_idcs_auth_fields(
+    field: str, expected: str, tmp_path: Path
+) -> None:
+    """The command-line accessor exposes validated identity-domain fields."""
+    manifest_path = write_manifest(tmp_path / "agent")
+    add_idcs_auth(
+        manifest_path,
+        "{domain_url: https://idcs-example.identity.oraclecloud.com:443, "
+        "audience: example-audience, scope: example-scope}",
+    )
+    result = manifest_command(manifest_path, "get", "--field", field)
+    assert result.returncode == 0
+    assert result.stdout == f"{expected}\n"
+
+
+def test_get_rejects_auth_field_without_auth_section(tmp_path: Path) -> None:
+    """Auth access explains why the unauthenticated profile has no such field."""
+    result = manifest_command(
+        write_manifest(tmp_path / "agent"),
+        "get",
+        "--field",
+        "deploy.auth.domain_url",
+    )
+    assert result.returncode == 64
+    assert "public-noauth profile has no auth section" in result.stderr
+
+
 @pytest.mark.parametrize("field", ["tag: 0.2.0", "unknown: value"])
 def test_unknown_or_release_configuration_is_rejected(
     field: str, tmp_path: Path

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-09-30
 License: MIT
 Description: Validate and expose the versioned agent deployment manifest.
 """
@@ -13,6 +13,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -238,6 +239,131 @@ def validate_runtime(value: Any) -> dict[str, Any]:
     return {"env": validated}
 
 
+def validate_auth_text(value: Any, location: str) -> str:
+    """Validate a non-empty authentication value without whitespace.
+
+    Args:
+        value: Authentication field value from the manifest.
+        location: Human-readable schema location.
+
+    Returns:
+        The validated value.
+
+    Raises:
+        ManifestError: If the value is empty, not text, or contains whitespace.
+    """
+    if not isinstance(value, str) or not value or any(char.isspace() for char in value):
+        raise ManifestError(
+            f"{location} must be a non-empty string without whitespace."
+        )
+    return value
+
+
+def validate_domain_url(value: Any) -> str:
+    """Validate the identity-domain URL accepted by OCI inbound authentication.
+
+    Args:
+        value: Domain URL from ``manifest.deploy.auth``.
+
+    Returns:
+        The validated URL.
+
+    Raises:
+        ManifestError: If the URL is not an HTTPS origin with an optional port.
+    """
+    location = "manifest.deploy.auth.domain_url"
+    if not isinstance(value, str) or not value:
+        raise ManifestError(f"{location} must be a non-empty HTTPS URL.")
+    try:
+        parsed = urlparse(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as error:
+        raise ManifestError(
+            f"{location} must be a valid HTTPS URL with an optional port."
+        ) from error
+    has_valid_origin = (
+        parsed.scheme == "https"
+        and hostname
+        and not any(char.isspace() for char in hostname)
+        and parsed.username is None
+        and parsed.password is None
+    )
+    has_unsupported_parts = any(
+        (
+            parsed.path not in {"", "/"},
+            bool(parsed.params),
+            bool(parsed.query),
+            bool(parsed.fragment),
+            port is not None and not 0 < port <= 65535,
+        )
+    )
+    if not has_valid_origin or has_unsupported_parts:
+        raise ManifestError(
+            f"{location} must be an HTTPS URL with a host, optional port, and no path, "
+            "query, fragment, or user info."
+        )
+    return value
+
+
+def validate_deploy_auth(value: Any) -> dict[str, str]:
+    """Validate identity-domain inbound authentication configuration.
+
+    Args:
+        value: ``manifest.deploy.auth`` object.
+
+    Returns:
+        The validated authentication object.
+
+    Raises:
+        ManifestError: If the authentication settings violate the manifest contract.
+    """
+    location = "manifest.deploy.auth"
+    auth = require_object(value, location)
+    fail_unknown_keys(auth, {"domain_url", "audience", "scope"}, location)
+    return {
+        "domain_url": validate_domain_url(auth.get("domain_url")),
+        "audience": validate_auth_text(auth.get("audience"), f"{location}.audience"),
+        "scope": validate_auth_text(auth.get("scope"), f"{location}.scope"),
+    }
+
+
+def validate_deploy(value: Any) -> dict[str, Any]:
+    """Validate deployment settings, including the selected public access profile.
+
+    Args:
+        value: ``manifest.deploy`` object.
+
+    Returns:
+        The validated deployment object.
+
+    Raises:
+        ManifestError: If deployment settings violate the manifest contract.
+    """
+    deploy = require_object(value, "manifest.deploy")
+    fail_unknown_keys(
+        deploy, {"application_name", "profile", "auth"}, "manifest.deploy"
+    )
+    if not isinstance(deploy.get("application_name"), str) or not NAME.fullmatch(
+        deploy["application_name"]
+    ):
+        raise ManifestError(
+            "manifest.deploy.application_name contains unsupported characters."
+        )
+    profile = deploy.get("profile")
+    if profile not in {"public-noauth", "public-idcs"}:
+        raise ManifestError(
+            "manifest.deploy.profile must be public-noauth or public-idcs."
+        )
+    if profile == "public-idcs":
+        if "auth" not in deploy:
+            raise ManifestError("manifest.deploy.auth is required for public-idcs.")
+        deploy["auth"] = validate_deploy_auth(deploy["auth"])
+    elif "auth" in deploy:
+        raise ManifestError("manifest.deploy.auth is not supported for public-noauth.")
+    return deploy
+
+
 def resolve_runtime_environment(
     manifest: dict[str, Any], local: bool
 ) -> tuple[list[dict[str, str]], list[str]]:
@@ -399,16 +525,7 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
         or "//" in repository
     ):
         raise ManifestError("manifest.publish.repository is invalid.")
-    deploy = require_object(manifest.get("deploy"), "manifest.deploy")
-    fail_unknown_keys(deploy, {"application_name", "profile"}, "manifest.deploy")
-    if not isinstance(deploy.get("application_name"), str) or not NAME.fullmatch(
-        deploy["application_name"]
-    ):
-        raise ManifestError(
-            "manifest.deploy.application_name contains unsupported characters."
-        )
-    if deploy.get("profile") != "public-noauth":
-        raise ManifestError("manifest.deploy.profile must be public-noauth.")
+    manifest["deploy"] = validate_deploy(manifest.get("deploy"))
     manifest["runtime"] = validate_runtime(manifest.get("runtime"))
     checks = manifest.get("verify")
     if not isinstance(checks, list):
@@ -429,9 +546,45 @@ def value_for_path(manifest: dict[str, Any], field: str) -> Any:
         "deploy.application_name": manifest["deploy"]["application_name"],
         "deploy.profile": manifest["deploy"]["profile"],
     }
+    if manifest["deploy"]["profile"] == "public-idcs":
+        auth = manifest["deploy"]["auth"]
+        values.update(
+            {
+                "deploy.auth.domain_url": auth["domain_url"],
+                "deploy.auth.audience": auth["audience"],
+                "deploy.auth.scope": auth["scope"],
+            }
+        )
+    elif field.startswith("deploy.auth."):
+        raise ManifestError(
+            f"{field} is unavailable because the public-noauth profile "
+            "has no auth section."
+        )
     if field not in values:
         raise ManifestError(f"Unsupported manifest field: {field}")
     return values[field]
+
+
+def inbound_auth_config(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Build OCI inbound-authentication JSON from a validated manifest.
+
+    Args:
+        manifest: Validated agent manifest.
+
+    Returns:
+        OCI inbound authentication configuration.
+    """
+    if manifest["deploy"]["profile"] == "public-noauth":
+        return {"inboundAuthConfigType": "NO_AUTH_CONFIG"}
+    auth = manifest["deploy"]["auth"]
+    return {
+        "inboundAuthConfigType": "IDCS_AUTH_CONFIG",
+        "idcsConfig": {
+            "domainUrl": auth["domain_url"],
+            "scope": auth["scope"],
+            "audience": auth["audience"],
+        },
+    }
 
 
 def main() -> int:
@@ -457,6 +610,8 @@ def main() -> int:
     )
     matches_parser = subparsers.add_parser("runtime-matches")
     matches_parser.add_argument("--manifest", required=True)
+    inbound_auth_parser = subparsers.add_parser("inbound-auth")
+    inbound_auth_parser.add_argument("--manifest", required=True)
     args = parser.parse_args()
     try:
         manifest = load_manifest(args.manifest)
@@ -476,6 +631,8 @@ def main() -> int:
         elif args.command == "runtime-matches":
             if not runtime_matches(manifest, json.load(sys.stdin)):
                 return 1
+        elif args.command == "inbound-auth":
+            print(json.dumps(inbound_auth_config(manifest), separators=(",", ":")))
         else:
             if not SEMVER.fullmatch(args.tag):
                 raise ManifestError("Tag must be semantic (MAJOR.MINOR.PATCH).")

@@ -100,7 +100,9 @@ needs permission to read that secret. The skills declare neither policy.
 
 ## Step 0: inspect the agent manifest
 
-Before creating a release, inspect the selected `agent.yaml`. It provides:
+Before creating a release, inspect the selected `agent.yaml`; the
+[agent manifest reference](agent-manifest-reference.md) describes every field.
+It provides:
 
 * `build`: build context and Dockerfile;
 * `publish.repository`: OCIR repository below the tenancy namespace;
@@ -342,6 +344,7 @@ between Bash options and PowerShell parameters is in the
 ## Related documents
 
 * [Quickstart](quickstart.md), the plain-language path for end users
+* [Agent manifest reference](agent-manifest-reference.md), every `agent.yaml` field
 * [Skill catalog](../skills/README.md), including the Bash/PowerShell rule
 * [Agent manifest configuration](../specs/006-agent-manifest-configuration.md)
 * [Windows PowerShell workflow support](../specs/007-windows-powershell-support.md)

@@ -73,6 +73,11 @@ At the end, Codex reports that the agent is healthy and ready. Keep the
 
 ## Protect your agent with a token
 
+An agent is unprotected with `deploy.profile: public-noauth` (anyone can call
+it) and protected with `deploy.profile: public-idcs` (callers need a JWT
+token). The [agent manifest reference](agent-manifest-reference.md) explains
+both, and every other field of `agent.yaml`.
+
 Ask the identity-domain administrator for the domain URL, primary audience,
 scope, client ID, and client secret, and confirm whether the confidential
 application is new or reused. Put only the three non-secret values in

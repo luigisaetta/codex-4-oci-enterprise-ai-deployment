@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-30: Add an agent manifest reference describing every `agent.yaml`
+  field, with complete examples for the `public-noauth` and `public-idcs`
+  access modes.
+
 * 2026-09-30: Add Spec 010 `public-idcs` inbound-authentication documentation
   for deployment, verification, and protected-agent calls; live acceptance
   remains pending confidential-application credentials.

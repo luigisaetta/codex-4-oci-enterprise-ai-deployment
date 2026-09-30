@@ -151,8 +151,13 @@ Each agent must have a versioned `agent.yaml` next to its code. It contains:
 Rules:
 
 * use `schema_version: 2`; build paths are relative to the manifest's folder;
+* set `deploy.profile` to `public-noauth` (anyone can call the agent) or
+  `public-idcs` (callers need a JWT token from your identity domain);
 * the version tag is never stored in the manifest: pass a new tag for every
   release.
+
+Every field, with its rules and complete examples for both access modes, is
+in the [agent manifest reference](docs/agent-manifest-reference.md).
 
 ## Optional settings
 

@@ -1,4 +1,5 @@
 # Schema version 2 resolves build paths from this manifest's directory.
+# Field reference: docs/agent-manifest-reference.md in the tool checkout.
 schema_version: 2
 name: {{AGENT_NAME}}
 build:

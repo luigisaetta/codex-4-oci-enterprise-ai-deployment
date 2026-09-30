@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-09-30: Add a plain-language Quickstart for publishing an agent, releasing
+  new versions, and rolling back, and document new versions and rollback in
+  the README.
+
 * 2026-09-30: Fix non-interactive Hosted Deployment artifact activation by
   passing `--force` only to the OCI update command.
 

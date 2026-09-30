@@ -292,6 +292,7 @@ between Bash options and PowerShell parameters is in the
 
 ## Related documents
 
+* [Quickstart](quickstart.md), the plain-language path for end users
 * [Skill catalog](../skills/README.md), including the Bash/PowerShell rule
 * [Agent manifest configuration](../specs/006-agent-manifest-configuration.md)
 * [Windows PowerShell workflow support](../specs/007-windows-powershell-support.md)

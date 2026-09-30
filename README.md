@@ -11,6 +11,9 @@ Codex skills and reproducible demos for deploying AI agents to **OCI Enterprise
 AI Hosted Applications**. Install the skills once, then use them from the
 repository of any agent.
 
+**New here?** The [Quickstart](docs/quickstart.md) shows how to publish an
+agent, release new versions, and roll back with plain-language requests.
+
 ## How an agent release works
 
 Four skills take one agent release from source code to a running Hosted
@@ -21,10 +24,28 @@ Application, in this order:
 3. **Deploy**: review a deployment plan, then deploy it after your approval.
 4. **Verify**: check the deployed release with `/health` and `/ready`.
 
-The deploy skill handles first releases, new versions, and rollbacks in the
-same Hosted Application.
+### New versions and rollback
 
-Every release needs:
+The deploy skill decides from the state in OCI what a release means:
+
+| You deploy tag X, and… | The skill… |
+| --- | --- |
+| the application does not exist yet | creates the application and its deployment (first release) |
+| X is already the active version | changes nothing |
+| X is a new version | adds X to the existing deployment and activates it |
+| X is an earlier version of this deployment | activates it again (rollback) |
+
+* The endpoint address never changes after the first release.
+* In the verified test, switching versions took about 10 seconds with no
+  observed interruption.
+* To roll back, deploy the previous tag.
+* Old versions stay in the application, up to 20; the skills never delete
+  them.
+
+Details: [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md#release-cases)
+and [Spec 009](specs/009-release-new-version.md).
+
+### What every release needs
 
 * an agent manifest (`agent.yaml`);
 * a semantic version tag, for example `0.4.0`;
@@ -32,8 +53,9 @@ Every release needs:
   the deployment.
 
 The skills ask for approval before every operation that changes OCI or calls
-a public endpoint. The [step-by-step guide](docs/using-oci-agent-skills.md)
-describes each step in detail.
+a public endpoint. The [Quickstart](docs/quickstart.md) is the shortest path;
+the [step-by-step guide](docs/using-oci-agent-skills.md) describes each step in
+detail.
 
 ## Skills
 
@@ -101,10 +123,10 @@ Alternatively, skip this step and open this repository in Codex: its
 ## Using the skills
 
 * Open the agent's repository in Codex.
-* Select a skill in the interface, call it by name, or describe the requested
-  release naturally. Push and deploy still ask for approval before each remote
-  change.
-* Give the manifest path and the tag in your request, for example:
+* Describe the release in plain language, for example "Release version 0.4.0
+  of this agent on OCI Hosted Applications". Codex runs build, push, deploy,
+  and verification in order, and asks for approval before each remote change.
+* You can also select a skill in the interface or call it by name, for example
   `$oci-agent-build ./agent.yaml tag: 0.4.0`.
 
 To create a new agent, see

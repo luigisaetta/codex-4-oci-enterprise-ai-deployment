@@ -156,3 +156,19 @@ def test_skills_include_target_platform_check() -> None:
         content = (directory / "SKILL.md").read_text(encoding="utf-8")
         assert "## Target platform check" in content
         assert "aidp-agent-deploy" in content
+
+
+def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:
+    """IDCS deployment guidance keeps examples sanitized and actionable."""
+    deploy = (SKILLS / "oci-agent-deploy" / "SKILL.md").read_text(encoding="utf-8")
+    verify = (SKILLS / "oci-agent-verify-deployment" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "public-idcs" in deploy
+    assert "public-idcs" in verify
+    assert "| 24 |" in verify
+    assert "| 25 |" in verify
+    for path in skill_content_files():
+        content = path.read_text(encoding="utf-8")
+        assert re.search(r"idcs-[0-9a-f]{8,}", content, re.IGNORECASE) is None
+        assert "hostedApplications/" not in content or "eu-" not in content

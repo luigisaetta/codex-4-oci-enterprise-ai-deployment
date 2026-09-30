@@ -9,4 +9,13 @@ publish:
 deploy:
   application_name: {{APPLICATION_NAME}}
   profile: public-noauth
+  # To require identity-domain tokens instead, use:
+  # profile: public-idcs
+  # auth:
+  #   domain_url: <identity-domain-url>
+  #   audience: <audience-of-the-confidential-application>
+  #   scope: <scope-of-the-confidential-application>
+# Never put a client ID, client secret, or access token in this file. Never type
+# a client secret or token into chat, print it, or store it. The operator exports
+# the client ID and secret only in the shell that runs verify.
 verify: []

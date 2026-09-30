@@ -6,7 +6,7 @@ description: Verify a published container image release for OCI Generative AI Ho
 # OCI Agent Verify Deployment
 
 Verify that a specific Hosted Application release is active and reachable.
-This skill performs OCI reads and unauthenticated GET requests only; it never
+This skill performs OCI reads and public GET requests only; it never
 creates, updates, deletes, restarts, or invokes agent business paths.
 
 ## Tool home and working directory
@@ -45,6 +45,16 @@ The tenancy file provides only tenancy-wide values including `OCI_REGION`. Do no
 add an auth token, password, private key, endpoint override, or other secret to
 it. The operator supplies the Hosted Application OCID, agent manifest, and
 expected semantic image tag explicitly.
+
+For `public-idcs`, require `OCI_AGENT_IDCS_CLIENT_ID` and
+`OCI_AGENT_IDCS_CLIENT_SECRET`; `OCI_AGENT_IDCS_TOKEN_SCOPE` is optional and
+overrides the manifest-derived scope. If credentials are missing, ask the
+operator to export them in their own shell; never ask for their values. The
+client secret and access token must never be typed into chat, printed, or
+stored. The operator exports the client ID and secret only in the shell that
+runs the verifier. Use only `<identity-domain-url>`,
+`<audience-of-the-confidential-application>`, and
+`<scope-of-the-confidential-application>` in examples.
 
 ## Shell selection
 
@@ -88,12 +98,14 @@ they mean. Never switch platform silently.
      --manifest /path/to/agent/agent.yaml --tag 0.2.0
    ```
 
-3. Only after the resource checks pass, the script polls the verified URL form
-   ending in `/actions/invoke/health` and `/actions/invoke/ready`. A 200 health
-   response with a non-200 readiness response means the container is running but
+3. Only after resource checks pass, the script polls authenticated health and
+   readiness for `public-idcs`, then checks unauthenticated `/health` (401 or
+   403 expected), then runs optional functional checks with the token. A 200
+   health response with non-200 readiness means the container is running but
    not ready; polling continues within the configured timeout.
 4. Report the application and deployment OCIDs, release tag, endpoint host, both
-   HTTP statuses, readiness seconds, and result. A pass is evidence for this
+   HTTP statuses, readiness seconds, `auth=`, and, for IDCS,
+   `unauthenticated_status=`, and result. A pass is evidence for this
    release's two probes only, not a production-security or general functional
    certification.
 
@@ -120,8 +132,10 @@ not print or resolve Vault values.
 | 20 | Hosted Application is not `ACTIVE`. |
 | 21 | The application does not have exactly one `ACTIVE` Hosted Deployment, or its deployment remains `UPDATING` when the time budget ends. |
 | 22 | The active artifact tag differs from the expected tag. |
-| 23 | The bounded probe ended without both endpoints returning HTTP 200. |
-| 64 | Invalid arguments, `OCI_REGION`, missing tenancy settings, manifest errors (including paths outside allowed roots), or invalid checks input. |
+| 23 | The bounded probe ended without both endpoints returning HTTP 200, or unauthenticated health returned an unexpected status. |
+| 24 | The identity domain did not provide an access token. |
+| 25 | An IDCS endpoint accepted an unauthenticated request. |
+| 64 | Invalid arguments, missing IDCS credentials, `OCI_REGION`, missing tenancy settings, manifest errors, or invalid checks input. |
 
 ## Limitations
 

@@ -27,6 +27,36 @@ Hosted Applications.
 This skill uses public `NO_AUTH_CONFIG` applications with Oracle-managed
 networking:
 
+## JWT inbound-authentication facts
+
+Facts A1–A9 and assumptions U1–U6 below are **to confirm during the live
+acceptance**.
+
+| # | Fact |
+| --- | --- |
+| A1 | Hosted Applications support identity-domain bearer tokens and OCI IAM request signing. |
+| A2 | `IDCS_AUTH_CONFIG` carries one domain URL, scope, and audience. |
+| A3 | The confidential application supplies matching primary audience and scope. |
+| A4 | Client credentials obtain a token from `/oauth2/v1/token`. |
+| A5 | OCI supports inbound-auth updates, but this workflow does not change authentication. |
+| A6 | CLI may report no-auth as `UNKNOWN_ENUM_VALUE`; null or absent IDCS config identifies it. |
+| A7 | Creation can accept IDCS settings that fail only during endpoint verification. |
+| A8 | Audience is the configured primary audience and need not be a URL. |
+| A9 | Public no-auth health endpoints can be called without a token. |
+
+| # | Assumption |
+| --- | --- |
+| U1 | Protected applications use the current inference endpoint host. |
+| U2 | Authenticated HTTP calls use `Authorization: Bearer <token>`. |
+| U3 | Health and readiness are protected like business paths. |
+| U4 | Requests without a token return 401 or 403. |
+| U5 | Scope defaults to audience followed by scope unless overridden by the operator. |
+| U6 | Client credentials use HTTP Basic authentication. |
+
+Client secrets and access tokens must never be typed into chat, printed, or
+stored. The operator exports the client ID and secret only in the shell that
+runs the verifier.
+
 ```json
 {"inboundAuthConfigType":"NO_AUTH_CONFIG"}
 ```

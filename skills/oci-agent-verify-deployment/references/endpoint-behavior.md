@@ -29,6 +29,17 @@ leading slash after `actions/invoke/` for that public `NO_AUTH_CONFIG`
 application. It does not establish the same behavior for private or
 authenticated applications.
 
+## Protected endpoints: assumptions to confirm during live acceptance
+
+For `public-idcs`, use the same endpoint form (U1) with
+`Authorization: Bearer <token>` (U2). Health and readiness use the header too
+(U3). After authenticated probes pass, the verifier calls `/health` without it
+and expects 401 or 403 (U4). Use only `<identity-domain-url>`,
+`<audience-of-the-confidential-application>`, and
+`<scope-of-the-confidential-application>` in examples. Never type a client
+secret or access token into chat, print it, or store it; the operator exports
+the client ID and secret only in the shell that runs the verifier.
+
 The complete verifier subsequently confirmed one `ACTIVE` deployment with
 active artifact tag `0.2.0` for that application. It reported HTTP 200 for both
 probes and zero seconds to readiness. Resource OCIDs are reported only at run

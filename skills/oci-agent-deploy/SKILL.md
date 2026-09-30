@@ -1,13 +1,13 @@
 ---
 name: oci-agent-deploy
-description: Plan or deploy a verified OCIR container image to OCI Generative AI Hosted Applications, not OCI AI Data Platform (AI DP) code-first agents, using managed networking and no inbound auth config.
+description: Plan or deploy a verified OCIR container image to OCI Generative AI Hosted Applications, not OCI AI Data Platform (AI DP) code-first agents, using managed networking and a public inbound-auth profile.
 ---
 
 # OCI Agent Deploy
 
 Deploy a verified, published `linux/amd64` agent image to OCI Generative AI
-Hosted Applications. This skill uses `NO_AUTH_CONFIG`, a public endpoint, and
-Oracle-managed networking. It does not build, push, alter IAM, or delete
+Hosted Applications. This skill uses a public endpoint and Oracle-managed
+networking. It does not build, push, alter IAM, or delete
 resources. It supplies container environment variables only from validated
 manifest `runtime.env` data.
 
@@ -74,6 +74,25 @@ they mean. Never switch platform silently.
 
 ## Workflow
 
+### Inbound authentication profiles
+
+`public-noauth` creates `NO_AUTH_CONFIG` and the plan states `Access: public
+unauthenticated endpoint.` `public-idcs` requires `deploy.auth.domain_url`,
+`deploy.auth.audience`, and `deploy.auth.scope`. The domain URL must be an
+HTTPS host URL with no path or query; audience and scope must be non-empty and
+contain no whitespace. Its plan states `Access: public endpoint,
+identity-domain token required` and reports identity domain URL, audience, and
+scope.
+
+Get these non-secret values from the identity-domain administrator; its
+confidential application may be new or reused. Use only
+`<identity-domain-url>`, `<audience-of-the-confidential-application>`, and
+`<scope-of-the-confidential-application>` in examples. Deploy validates their
+syntax but does not test them or call the identity domain. Never put a client
+ID, client secret, or access token in configuration. The client secret and
+access token must never be typed into chat, printed, or stored; the operator
+exports the client ID and secret only in the shell that runs the verifier.
+
 1. Require an agent manifest named in the current request and a semantic tag. If
    the manifest is absent, ask “Which agent manifest should I use?” before any
    Docker or OCI action. Never select a demo, scan for a manifest, or infer it
@@ -94,8 +113,7 @@ they mean. Never switch platform silently.
 3. Show the plan again before asking for authorization. The plan reports the
    resolved image URI, compartment, Hosted Application name, release case,
    current and target tags, artifact count, endpoint status, runtime-variable
-   source report, and planned action. State that the endpoint is public with
-   `NO_AUTH_CONFIG`.
+   source report, inbound-auth access lines, and planned action.
 4. Obtain one explicit authorization for the apply of the case shown in the
    plan. For a new version, that single authorization covers both adding and
    activating the artifact. Then run:
@@ -122,8 +140,10 @@ deployment.
 Stop with exit 20 and make no change if application or deployment state cannot
 be reused, the runtime environment differs, there is not exactly one applicable
 resource, the target artifact is `FAILED` or `UPDATING`, or adding it would
-exceed the 20-artifact limit. Report the observed state and ask the operator to
-check it; never suggest deletion.
+exceed the 20-artifact limit. Exit 20 also applies when an existing application
+uses different inbound authentication; changing authentication is not
+supported. Report the observed state and ask the operator to check it; never
+suggest deletion.
 
 Never delete or recreate an application or a deployment to release a new
 version. Manual cleanup of old artifacts is outside this skill: only inactive

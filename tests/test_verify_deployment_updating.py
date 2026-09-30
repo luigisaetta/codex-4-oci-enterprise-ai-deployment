@@ -102,7 +102,10 @@ else:
 
 
 def run_verifier(
-    tmp_path: Path, states: list[str], runner: tuple[Path, list[str]]
+    tmp_path: Path,
+    states: list[str],
+    runner: tuple[Path, list[str]],
+    timeout_seconds: int = 1,
 ) -> subprocess.CompletedProcess[str]:
     """Run one verifier scenario without OCI or network access.
 
@@ -110,6 +113,7 @@ def run_verifier(
         tmp_path: Temporary fixture directory.
         states: Ordered deployment states returned by fake OCI.
         runner: Verifier script and its interpreter command.
+        timeout_seconds: Shared verifier timeout budget.
 
     Returns:
         Captured verifier result with recorded OCI invocations.
@@ -129,7 +133,7 @@ def run_verifier(
         "--tag",
         "1.2.3",
         "--timeout-seconds",
-        "1",
+        str(timeout_seconds),
         "--poll-seconds",
         "1",
     ]
@@ -142,7 +146,7 @@ def run_verifier(
             "-Tag",
             "1.2.3",
             "-TimeoutSeconds",
-            "1",
+            str(timeout_seconds),
             "-PollSeconds",
             "1",
         ]
@@ -200,7 +204,9 @@ def test_updating_deployment_becomes_active_and_passes(
     tmp_path: Path, verifier_runner: tuple[Path, list[str]]
 ) -> None:
     """An updating deployment is rechecked before standard probes pass."""
-    result = run_verifier(tmp_path, ["UPDATING", "ACTIVE"], verifier_runner)
+    result = run_verifier(
+        tmp_path, ["UPDATING", "ACTIVE"], verifier_runner, timeout_seconds=10
+    )
     assert result.returncode == 0, result.stderr
     assert "result=PASS" in result.stdout
     assert_read_only(result)
@@ -220,7 +226,7 @@ def test_active_deployment_passes_without_waiting(
     tmp_path: Path, verifier_runner: tuple[Path, list[str]]
 ) -> None:
     """An already active deployment retains the verifier's existing pass behavior."""
-    result = run_verifier(tmp_path, ["ACTIVE"], verifier_runner)
+    result = run_verifier(tmp_path, ["ACTIVE"], verifier_runner, timeout_seconds=10)
     assert result.returncode == 0, result.stderr
     assert "result=PASS" in result.stdout
     assert_read_only(result)

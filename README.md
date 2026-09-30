@@ -41,7 +41,7 @@ describes each step in detail.
 | --- | --- | --- |
 | [oci-agent-build](skills/oci-agent-build/SKILL.md) | Build and locally verify an agent image. | Local Docker only. |
 | [oci-agent-push](skills/oci-agent-push/SKILL.md) | Publish a locally verified image to OCIR. | Creates a missing repository and pushes, each only with your approval. |
-| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan a first release, new version, or rollback in the same Hosted Application. | Creates or activates OCI artifacts only with your approval. |
+| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan a first release, new version, or rollback in the same Hosted Application. | Creates resources or activates artifacts only with your approval. |
 | [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Check a deployed release's OCI state, health, and readiness. | Read-only OCI calls and approved public GET requests. |
 
 Every skill can be selected from a natural request. Push and deploy still ask

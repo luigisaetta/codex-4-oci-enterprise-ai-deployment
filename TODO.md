@@ -15,13 +15,12 @@ follow the numbers unless a dependency says otherwise.
 | 1 | [Fix inconsistencies](#1-fix-inconsistencies) | — | Low | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
 | 3 | [Versioned release and compatibility check](#3-versioned-release-and-compatibility-check) | 1, 2 | Low | Now |
-| 4 | [Document IAM policies](#4-document-iam-policies) | — | Low-medium | Now |
-| 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | 4 | Low | Live session |
+| 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
 | 6 | [Live acceptance of `public-idcs`](#6-live-acceptance-of-public-idcs) | identity-domain credentials (external) | Low | Live session |
-| 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 4, 5 | Medium | Short term |
+| 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 5 | Medium | Short term |
 | 8 | [Skill `oci-agent-new` to scaffold an agent](#8-skill-oci-agent-new-to-scaffold-an-agent) | 7, 9 (agent API) | Medium | Short term |
 | 9 | [Test UI for agents](#9-test-ui-for-agents) | 7 | Medium | Short term |
-| 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 4, 5, 7 | Medium | Short term |
+| 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 5, 7 | Medium | Short term |
 | 11 | [Diagnostics for a failed deployment](#11-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
 | 12 | [Configuration drift and update: scaling and runtime environment](#12-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
 | 13 | [Artifact pruning and application teardown](#13-artifact-pruning-and-application-teardown) | — | Low-medium | Medium term |
@@ -30,8 +29,7 @@ follow the numbers unless a dependency says otherwise.
 
 Phases:
 
-1. **Now**: no live access needed. Cheap fixes that add credibility, plus the
-   IAM documentation that items 5, 7, and 10 rely on.
+1. **Now**: no live access needed. Cheap fixes that add credibility.
 2. **Live session**: one session in eu-frankfurt-1, with explicit
    authorization. Items 5 and 6 each need a new application, because runtime
    variables and authentication are set only at creation. Keep them as two
@@ -46,9 +44,9 @@ Phases:
 5. **Later**: depends on what the service supports.
 
 IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
-the scaffold (8), and the pre-flight check (10) all need correct policies. That
-is why the documentation (4) comes first and the automated check (10) comes
-only after live results.
+the scaffold (8), and the pre-flight check (10) all need correct policies,
+described in [IAM policies](docs/iam-policies.md). Items 5 and 7 confirm its
+statements live; the automated check (10) comes only after those results.
 
 ## 1. Fix inconsistencies
 
@@ -86,21 +84,6 @@ verification is local:
 * Document a manual smoke test (release and rollback on `hello-world`) to run
   before each tag, to detect service regressions. No scheduled runs.
 
-## 4. Document IAM policies
-
-IAM is out of scope for automation and is the likely first cause of failure.
-Write `docs/iam-policies.md` with the dynamic group and the minimal policies
-for:
-
-* OCIR image pull by the Hosted Application;
-* Vault secret read by the application runtime (needed by item 5);
-* Generative AI calls with resource principal (needed by item 7).
-
-Before writing the policies, verify in the documentation which
-`resource.type` identifies the Hosted Application runtime in a dynamic-group
-matching rule. Mark every statement not yet confirmed live as an assumption,
-and confirm it in items 5 and 7.
-
 ## 5. Live check of runtime environment variables
 
 Manifest `runtime.env` entries are implemented (Spec 006): literal `value`,
@@ -126,8 +109,9 @@ To do:
   only whether it is present, never its value;
 * live check, after a first release, that the endpoint returns the expected
   values;
-* record whether the deployment or the Vault read fails without the IAM policy
-  of item 4;
+* record whether the deployment or the Vault read fails without the Vault
+  policy of [IAM policies](docs/iam-policies.md), and update the status of its
+  Vault statements;
 * record the results in Spec 006, and delete the test application when no
   longer needed.
 
@@ -170,7 +154,8 @@ profile locally. It extends the design of `hello_world`, which already has
 * First verify, with the test application of item 5, that the container
   receives the resource-principal environment; treat it as an assumption
   until then.
-* Verify the demo remotely, not only locally.
+* Verify the demo remotely, not only locally, and update the status of the
+  Generative AI statements in [IAM policies](docs/iam-policies.md).
 * This demo becomes the single template for item 8.
 
 ## 8. Skill `oci-agent-new` to scaffold an agent
@@ -258,8 +243,8 @@ best-effort and advisory:
 
 * findings are warnings in the plan, never a reason to stop the deploy;
 * when policies cannot be read, it reports "unable to check", not a failure;
-* it checks only the patterns documented in item 4 and confirmed live in items
-  5 and 7.
+* it checks only the patterns documented in
+  [IAM policies](docs/iam-policies.md) and confirmed live in items 5 and 7.
 
 ## 11. Diagnostics for a failed deployment
 
@@ -346,4 +331,4 @@ Only public endpoints with Oracle-managed networking are supported, which
 blocks many enterprise uses. Verify what the service supports (VCN, subnet,
 private endpoint), then write a specification and add a `private` manifest
 profile. At minimum, document clearly what is unsupported and the workaround;
-this documentation-only step can be done earlier, with item 4.
+this documentation-only step can be done earlier.

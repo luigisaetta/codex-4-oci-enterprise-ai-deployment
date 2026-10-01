@@ -14,18 +14,27 @@ import re
 import sys
 from pathlib import Path
 
-if __package__:
-    from . import agent_manifest, tool_config
-else:
-    # Direct script execution puts scripts/ on sys.path.
-    import agent_manifest  # pylint: disable=import-error
-    import tool_config  # pylint: disable=import-error
+EXIT_INVALID_INPUT = 64
+
+try:
+    if __package__:
+        from . import agent_manifest, tool_config
+    else:
+        # Direct script execution puts scripts/ on sys.path.
+        import agent_manifest  # pylint: disable=import-error
+        import tool_config  # pylint: disable=import-error
+except ImportError:
+    print(
+        "Python with PyYAML is required. Activate the Conda environment "
+        "codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.",
+        file=sys.stderr,
+    )
+    raise SystemExit(EXIT_INVALID_INPUT) from None
 
 TOOL_HOME = Path(__file__).resolve().parent.parent
 ASSETS = TOOL_HOME / "skills" / "oci-agent-build" / "assets"
 EXIT_CONFLICT = 30
 EXIT_CONFIGURATION = 31
-EXIT_INVALID_INPUT = 64
 GITIGNORE_ENTRIES = (
     "__pycache__/",
     "*.py[cod]",

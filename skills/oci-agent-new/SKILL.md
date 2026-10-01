@@ -40,7 +40,11 @@ The Bash examples use:
 AGENT_PYTHON="${OCI_AGENT_PYTHON:-python}"
 ```
 
-Do not fall back to global Python. In PowerShell invoke the same `.py` helper
+When the selected interpreter lacks PyYAML, the helper exits 64 with:
+"Python with PyYAML is required. Activate the Conda environment
+codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON."
+Activate that environment or set `OCI_AGENT_PYTHON`, then retry.
+In PowerShell invoke the same `.py` helper
 with the selected interpreter and the same `--option` names; no script twin
 is needed. Tenancy settings come from `OCI_AGENT_ENV_FILE`, default
 `$TOOL_HOME/.env`; the helper reads it. Never source, print, or edit that file.
@@ -79,8 +83,8 @@ the agent behavior, endpoint, or model identifier.
 | Value | Rule | Default |
 | --- | --- | --- |
 | Agent name | `name` and `deploy.application_name`; `^[A-Za-z0-9][A-Za-z0-9._-]*$`. | None: ask. |
-| Package folder | Lowercase, non-keyword Python identifier in snake_case, respecting C8. | Agent name in snake_case; ask for an explicit package if invalid. |
-| OCIR repository | `publish.repository`; `^[a-z0-9][a-z0-9._/-]*$`, without `//`. | `agents/<agent-name>` (lowercase). |
+| Package folder | Lowercase, non-keyword Python identifier in snake_case, respecting C8. | Helper derives snake_case from the agent name; ask for an explicit package if invalid. |
+| OCIR repository | `publish.repository`; `^[a-z0-9][a-z0-9._/-]*$`, without `//`. | Helper supplies `agents/<agent-name>` (lowercase). |
 | Business endpoint | `POST` path, request and response fields and types. | None: ask for whatever is missing. |
 | Agent behavior | What the endpoint computes, in plain language. | None: ask. |
 | Functional check | One request body and expected status; expected JSON only for deterministic results. | Derive from behavior and endpoint; show for confirmation. |
@@ -102,21 +106,35 @@ and C8 still apply. For OCI service calls, include
 2. Read the prompt and optional specification file.
 3. Report requests outside the first iteration and obtain the decision above.
 4. Collect the input table's values; ask for missing values together. Set
-   `AGENT_NAME`, `PACKAGE`, and `REPOSITORY` to the selected values for the
-   commands below. Resolve prerequisite issues before writing.
+   `AGENT_NAME` from the inputs. Do not compute the default package or
+   repository; the helper supplies them. Initialize the Bash option array:
+
+   ```bash
+   PLAN_OPTIONS=()
+   ```
+
+   Append `--package` and its value only if the developer supplied a package
+   explicitly; likewise append `--repository` and its explicit value. Leave
+   the array empty when neither was supplied. Resolve prerequisite issues
+   before writing.
 5. Plan from the workspace:
 
    ```bash
    "$AGENT_PYTHON" "$TOOL_HOME/scripts/new_agent.py" plan \
-     --name "$AGENT_NAME" --package "$PACKAGE" --repository "$REPOSITORY" --target .
+     --name "$AGENT_NAME" "${PLAN_OPTIONS[@]}"
    ```
 
    Show `Target:`, `Name:`, `Package:`, `Repository:`, every `Create:`/`Keep:`
    line, and the proposed functional check. Preserve any
    `Missing .gitignore entries:` report for the closing message; it is advisory.
    On exit 30, list `Conflict:` entries and stop. Never delete or rename the
-   developer's files. Wait for the developer's confirmation before rendering.
-6. Render with the confirmed values:
+   developer's files. If plan exits 64 because the derived package is invalid,
+   ask the developer for an explicit `--package`, add it to the options, and
+   run plan again. After a successful plan, take `PACKAGE` and `REPOSITORY`
+   exactly from its `Package:` and `Repository:` lines. Use these values for
+   render, package file paths, syntax checks, and the closing message. Wait
+   for the developer's confirmation before rendering.
+6. Render with the confirmed values printed by plan:
 
    ```bash
    "$AGENT_PYTHON" "$TOOL_HOME/scripts/new_agent.py" render \
@@ -135,10 +153,22 @@ and C8 still apply. For OCI service calls, include
    `<package>/agent.py` within C1–C8; `__init__.py` contains only the module
    header. Recheck their absence before writing. After render, edit only files
    created in this session; never modify a kept `.gitignore` or other existing
-   file. Every generated Python file starts with the
-   [AGENTS.md module header](../../AGENTS.md#code-script-and-notebook-conventions):
-   author from the inputs or a developer placeholder, actual modification
-   date, MIT license, and a brief responsibility description.
+   file. Every generated Python file starts with this header:
+
+   ```python
+   """
+   Author: <author>
+   Date last modified: YYYY-MM-DD
+   License: MIT
+   Description: <one-line responsibility of this file>.
+   """
+   ```
+
+   Use the actual modification date and file responsibility. `<author>` comes
+   from the inputs; otherwise leave it as a placeholder for the developer.
+   Never take an author name from the tool repository. Apply no other tool
+   repository convention to the agent repository: do not add `specs/`,
+   `CHANGELOG`, `AGENTS.md`, or a Conda environment in the agent.
 9. Check syntax with the same interpreter; stop on failure:
 
    ```bash
@@ -185,7 +215,7 @@ and C8 still apply. For OCI service calls, include
 | 0 | Check passed; continue. Keep missing `.gitignore` entries for the closing message. |
 | 30 | File conflict; list conflicts and stop without deleting, renaming, or overwriting developer files. |
 | 31 | Tenancy file missing, unreadable, incomplete, or containing effective placeholders; continue authoring and report required corrections before push/deploy. |
-| 64 | Invalid arguments, target, names, manifest, templates, or file operation; report the error, correct inputs, and stop until resolved. |
+| 64 | Missing PyYAML or helper import: activate the project Conda environment or set `OCI_AGENT_PYTHON`. Otherwise invalid arguments, target, names, manifest, templates, or file operation: report and correct the input; ask for an explicit `--package` if its derived name is invalid. Stop until resolved. |
 
 ## Closing message
 
@@ -195,7 +225,8 @@ List these four items in order:
    first iteration, if any; state that those additions are outside its tests
    and acceptance criteria.
 2. **Review `agent.yaml`**: access profile, any needed runtime variables not
-   specified, and whether the functional check matches the expected behavior.
+   specified (link to the [manifest reference](../../docs/agent-manifest-reference.md)),
+   and whether the functional check matches the expected behavior.
    Recommend keeping `public-noauth` for the first release and its tests.
    Switching later to identity-domain token protection (`public-idcs`) requires
    a new application name because the access mode is fixed at creation.

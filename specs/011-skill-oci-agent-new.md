@@ -461,3 +461,37 @@ deviation was identified. These are static and offline results: actual skill
 discovery after installation, real-session authoring from a prompt/specification,
 and end-to-end build execution remain pending. No generated agent, Docker,
 OCI, or network operation was run.
+
+### 2026-10-01 — Step 2 review fixes
+
+Updated `skills/oci-agent-new/SKILL.md`, `scripts/new_agent.py`, and
+`tests/test_new_agent.py`, plus this record. The skill now includes its own
+module-header template, obtains the author only from inputs or leaves a
+placeholder, and explicitly applies no other tool-repository convention to
+the agent repository. Plan receives only the name and explicitly supplied
+package/repository options; render and later steps reuse the exact values
+printed by the helper. Invalid derived packages require developer input and
+a new plan. Closing guidance links runtime-variable review to the manifest
+reference.
+
+The helper catches only `ImportError` during manifest/configuration imports,
+exits 64 without a traceback, and prints the exact Python/PyYAML prerequisite
+message from `scripts/lib/tool_env.sh`. Offline subprocess tests block the
+`yaml` import through a temporary `PYTHONPATH` entry for both direct-script
+and module invocation. `tests/test_skills.py` required no changes.
+
+Checks used the same project Conda environment and local runtime recorded
+above:
+
+* `black --check .`: passed; 26 files unchanged.
+* `pylint scripts tests`: passed, 10.00/10, using a writable `PYLINTHOME`.
+* `pytest -q -rs`: passed; 243 passed, 49 skipped, one existing Starlette/AnyIO
+  deprecation warning. All skips report `pwsh is unavailable.`
+* `pytest -q tests/test_new_agent.py tests/test_skills.py`: 87 passed.
+* Skill Creator `quick_validate.py skills/oci-agent-new`: passed.
+* `git diff --check`: passed.
+
+No new ambiguity or scope deviation was identified. Verification remains
+offline/static; real-session authoring and end-to-end build execution remain
+pending. No installation, generated agent, Docker, OCI, or network operation
+was performed.

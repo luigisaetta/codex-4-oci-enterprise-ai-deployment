@@ -5,6 +5,7 @@ License: MIT
 Description: Offline tests for agent planning, rendering, and safe configuration checks.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -509,3 +510,33 @@ def test_check_env_empty_or_unreadable_file(tmp_path: Path, content: bytes) -> N
 def test_invalid_arguments_exit_64(tmp_path: Path, arguments: list[str]) -> None:
     """Argparse failures share the manifest invalid-input exit code."""
     assert run_helper(*arguments, cwd=tmp_path).returncode == 64
+
+
+@pytest.mark.parametrize("invocation", ["script", "module"])
+def test_missing_pyyaml_reports_actionable_error_without_traceback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, invocation: str
+) -> None:
+    """Both import routes report unavailable PyYAML without a traceback."""
+    blocked = tmp_path / "blocked-imports"
+    blocked.mkdir()
+    (blocked / "yaml.py").write_text(
+        'raise ImportError("simulated unavailable yaml")\n', encoding="utf-8"
+    )
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(blocked), str(TOOL_HOME)]))
+    entrypoint = (
+        [str(SCRIPT)] if invocation == "script" else ["-m", "scripts.new_agent"]
+    )
+    result = subprocess.run(
+        [sys.executable, *entrypoint, "check-env"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 64
+    assert result.stderr.strip() == (
+        "Python with PyYAML is required. Activate the Conda environment "
+        "codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON."
+    )
+    assert not result.stdout
+    assert "Traceback" not in result.stdout + result.stderr

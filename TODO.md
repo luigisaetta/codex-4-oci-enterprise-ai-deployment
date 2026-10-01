@@ -86,3 +86,31 @@ To do:
   `--scaling-config`, decide whether the deploy updates it after explicit
   authorization, or stops as it does for the runtime environment;
 * tests with the fake `oci` for both script families, and documentation.
+
+## Improvement roadmap
+
+Proposed improvements from a project review (2026-10-01). The project is
+dedicated to developers who work with Codex; every item keeps Codex skills as
+the primary interface. Items overlapping the sections above reference them.
+
+| # | Action | Limitation addressed | What to do and why | Effort | When |
+| --- | --- | --- | --- | --- | --- |
+| R1 | **Realistic demo: an agent that calls OCI Generative AI with resource principal** | The project helps ship an agent, not write one. | Add a demo (for example `demos/genai_chat/`): a LangGraph agent that calls an OCI Generative AI model from inside the container with resource principal, falling back to an API-key profile locally. This is the first thing an OCI developer needs, and it is missing today. Verify it remotely, not only locally. | Medium | Short term (after R2) |
+| R2 | **Document IAM policies and add a pre-flight check** | IAM is out of scope and is the likely first cause of failure. | Write `docs/iam-policies.md` with the dynamic group and minimal policies for OCIR image pull, Vault secret read, and Generative AI calls. Add a read-only `scripts/check_iam_prereqs.sh` (and PowerShell twin) whose findings appear in the deploy plan. It never creates policies, so the current design holds, but it avoids discovering the failure after a long deployment. | Medium | Now |
+| R3 | **New Codex skill `oci-agent-new` to scaffold an agent** | No support for developers starting from scratch. | A skill that, from a request such as "create a new OCI agent", prepares the repository: `agent.yaml` (schema 2), `Dockerfile`, `/health` and `/ready`, the Generative AI access code from R1, and functional checks. Today only a guide section exists. The Codex workflow then covers the whole path: create, build, push, deploy, verify. | Medium | Short term (after R1) |
+| R4 | **Live acceptance of `public-idcs`** (section 2) | Authentication is tested only offline; assumptions U1–U6 are open. | Run the planned test in eu-frankfurt-1, confirm or correct U1–U6, and record the results in Spec 010. Until then, the only verified profile is `public-noauth`, which is not a production security posture. | Low | Now |
+| R5 | **Multiple environments (dev / staging / prod)** | One `.env` per checkout; no notion of environment. | Introduce `--env <name>` reading `envs/<name>.env`, or an `environments:` section in the manifest. Skills ask for the target environment together with the manifest, and promoting the same tag from staging to production becomes an explicit request to Codex. | Medium | Medium term |
+| R6 | **Update runtime environment and scaling on existing applications** (sections 1 and 3) | Applications are effectively immutable after creation. | Implement `deploy.scaling` and a "Configuration update" release case using `hosted-application update`, with the differences shown in the plan and explicit authorization. Today changing a variable requires recreating the application manually, which contradicts the "never delete" approach. | Medium-high | Medium term |
+| R7 | **Private endpoint and custom networking** | Only public endpoints with Oracle-managed networking; a blocker for enterprise use. | Verify what the service supports (VCN, subnet, private endpoint), write a specification, and add a `private` manifest profile. At minimum, document clearly what is unsupported and the workaround. | High | Later (first confirm service capabilities) |
+| R8 | **Artifact pruning and application teardown** | No cleanup; the 20-artifact limit is handled manually. | A skill or `prune` option (`--keep N`, inactive artifacts only, plan/apply) and a `teardown` with double confirmation for test environments. Today the lifecycle creates resources but never closes them. | Low-medium | Medium term |
+| R9 | **Versioned tool release and compatibility check** | Maturity, single author, risk of service drift. | Publish a tagged release (`v0.1.0`) and declare the tested OCI CLI and SDK versions. Warn at startup when the CLI version differs, and run a periodic release-and-rollback test on `hello-world` to detect service regressions early. | Low | Now |
+| R10 | **Fix inconsistencies and verify PowerShell parity** | Small inconsistencies; 49 tests skipped locally. | In the demo manifest, replace the compartment name in `GENAI_COMPARTMENT_ID` with an OCID placeholder and the personal name in the functional check with a generic one. Align `AGENTS.md`, which refers to a `src/` folder that does not exist. Run the PowerShell tests on a machine with `pwsh`: parity is declared but not verified on the primary workstation. | Low | Now |
+
+Suggested order:
+
+1. **Now:** R10, R9, R4, R2. Low cost, immediate credibility, and they remove
+   the first real obstacle (IAM).
+2. **Short term:** R1, then R3. The main value step: the Codex workflow covers
+   the whole path, from an empty repository to an agent that uses Generative AI.
+3. **Medium term:** R5, R6, R8. Needed for continuous use across environments.
+4. **Later:** R7, which depends on service capabilities.

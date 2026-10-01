@@ -428,3 +428,36 @@ above, with no OCI or network operations:
 No new implementation ambiguities or scope deviations were identified. Remote
 and end-to-end skill verification remain pending; this entry records offline
 helper behavior only.
+
+### 2026-10-01 — Step 2 local checks
+
+Added `skills/oci-agent-new/SKILL.md` and `agents/openai.yaml`, updated
+`tests/test_skills.py`, and added this record. The skill documents the twelve
+authoring steps, input collection and confirmation, C1–C8, the reviewed helper
+commands and exit codes, kept `.gitignore` reports, and the closing message.
+Metadata uses `OCI Agent New` and enables implicit invocation. The platform
+section check remains universal; only the four lifecycle skills require the
+existing routing assertion. No helper, README, guide, or changelog was changed.
+
+Checks used the same local runtime and project Conda environment recorded
+above (`conda run -n codex-4-oci-enterprise-ai-deployment`):
+
+* `black --check .`: passed; 26 files unchanged.
+* `pylint scripts tests`: passed, 10.00/10. A writable `PYLINTHOME` was set
+  because the default cache path is not writable in the sandbox.
+* `pytest -q -rs`: passed; 241 passed, 49 skipped, one existing Starlette/AnyIO
+  deprecation warning. All 49 skips report `pwsh is unavailable.`
+* Skill Creator `quick_validate.py skills/oci-agent-new`: passed. Static review
+  and the repository tests checked metadata, helper commands, referenced
+  prerequisites and files, Markdown links, required sections, and status.
+  An additional local check confirmed section order and invocation metadata.
+* `scripts/install_skills.sh --dry-run`: exit 0, reports
+  `would create: oci-agent-new`; the four existing lifecycle links are
+  unchanged. No installation or link mutation was performed.
+* `git diff --check`: passed.
+
+No new disagreement between Spec 011 and `new_agent.py`, ambiguity, or scope
+deviation was identified. These are static and offline results: actual skill
+discovery after installation, real-session authoring from a prompt/specification,
+and end-to-end build execution remain pending. No generated agent, Docker,
+OCI, or network operation was run.

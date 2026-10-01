@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-10-01
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -151,11 +151,31 @@ def test_deploy_skill_documents_release_cases_and_no_delete_rule() -> None:
 
 
 def test_skills_include_target_platform_check() -> None:
-    """Every lifecycle skill distinguishes Hosted Applications from AI DP."""
+    """Every skill checks its platform; lifecycle skills retain their routing."""
+    lifecycle_skills = {
+        "oci-agent-build",
+        "oci-agent-push",
+        "oci-agent-deploy",
+        "oci-agent-verify-deployment",
+    }
     for directory in skill_directories():
         content = (directory / "SKILL.md").read_text(encoding="utf-8")
         assert "## Target platform check" in content
-        assert "aidp-agent-deploy" in content
+        if directory.name in lifecycle_skills:
+            assert "aidp-agent-deploy" in content
+
+
+def test_new_skill_documents_helper_and_first_iteration() -> None:
+    """The authoring skill exposes the reviewed helper contract and its status."""
+    content = (SKILLS / "oci-agent-new" / "SKILL.md").read_text(encoding="utf-8")
+    for command in ("plan", "render", "check-manifest", "check-env"):
+        assert f'"$TOOL_HOME/scripts/new_agent.py" {command}' in content
+    for code in (30, 31, 64):
+        assert f"| {code} |" in content
+    for section in ("## Prerequisites", "## Closing message"):
+        assert section in content
+    assert "work in progress" in content.lower()
+    assert "../../specs/011-skill-oci-agent-new.md" in MARKDOWN_LINK.findall(content)
 
 
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:

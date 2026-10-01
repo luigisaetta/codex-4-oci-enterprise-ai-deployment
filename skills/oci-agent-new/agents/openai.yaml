@@ -1,0 +1,5 @@
+interface:
+  display_name: "OCI Agent New"
+  short_description: "Author a new Hosted Application agent repository"
+policy:
+  allow_implicit_invocation: true

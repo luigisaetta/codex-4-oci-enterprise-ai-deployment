@@ -194,7 +194,7 @@ accepted). Existing codes are unchanged.
 * `oci-agent-verify-deployment`: the required operator credentials, the
   optional token scope, the negative check, exit codes 24 and 25, and the rule
   that the secret and the token are never shown or typed into the chat.
-* `references/`: the facts A1–A9 and the assumptions U1–U5, updated after the
+* `references/`: the facts A1–A9 and the assumptions U1–U6, updated after the
   live acceptance.
 * Guide: "Protect an agent with identity-domain tokens" (which values to ask
   the identity-domain administrator for, whether the confidential application
@@ -236,7 +236,7 @@ without `pwsh`, plus static checks.
    credentials: a new application (for example `text-stats-idcs`) released
    with `public-idcs`; the verifier passes, including the negative check and
    the functional checks.
-3. U1–U5 confirmed or corrected from the live test and recorded here.
+3. U1–U6 confirmed or corrected from the live test and recorded here.
 4. A request with a token for another audience or scope is rejected
    (recorded status).
 5. No secret or token appears in any output, file, or command line during

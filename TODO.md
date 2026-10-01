@@ -12,9 +12,8 @@ follow the numbers unless a dependency says otherwise.
 
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
-| 1 | [Fix inconsistencies](#1-fix-inconsistencies) | — | Low | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
-| 3 | [Versioned release and compatibility check](#3-versioned-release-and-compatibility-check) | 1, 2 | Low | Now |
+| 3 | [Versioned release and compatibility check](#3-versioned-release-and-compatibility-check) | 2 | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
 | 6 | [Live acceptance of `public-idcs`](#6-live-acceptance-of-public-idcs) | identity-domain credentials (external) | Low | Live session |
 | 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 5 | Medium | Short term |
@@ -29,7 +28,7 @@ follow the numbers unless a dependency says otherwise.
 
 Phases:
 
-1. **Now**: no live access needed. Cheap fixes that add credibility.
+1. **Now**: no live access needed. Cheap steps that add credibility.
 2. **Live session**: one session in eu-frankfurt-1, with explicit
    authorization. Items 5 and 6 each need a new application, because runtime
    variables and authentication are set only at creation. Keep them as two
@@ -48,20 +47,6 @@ the scaffold (8), and the pre-flight check (10) all need correct policies,
 described in [IAM policies](docs/iam-policies.md). Items 5 and 7 confirm its
 statements live; the automated check (10) comes only after those results.
 
-## 1. Fix inconsistencies
-
-* In `demos/hello_world/agent.yaml`, replace the compartment name in
-  `GENAI_COMPARTMENT_ID` with an OCID placeholder, and the personal name in the
-  functional check with a generic one. Update the copies of the example in
-  Spec 006 and `docs/agent-manifest-reference.md`.
-* Align `AGENTS.md` with the repository: it refers to a `src/` folder that does
-  not exist, and says that reusable logic goes there, while it lives in
-  `scripts/*.py`.
-* Spec 010 still refers to "U1–U5" in the skills section and in acceptance
-  criterion 3; the assumptions are now U1–U6.
-* Confirm that the 49 tests skipped locally are all PowerShell tests, and
-  record the result.
-
 ## 2. Verify PowerShell parity
 
 Parity between `scripts/*.sh` and `scripts/*.ps1` is declared but has never
@@ -76,7 +61,7 @@ verification is local:
 
 ## 3. Versioned release and compatibility check
 
-* Publish a tagged release (`v0.1.0`) after items 1 and 2, with an honest
+* Publish a tagged release (`v0.1.0`) after item 2, with an honest
   statement of what is verified locally and remotely.
 * Declare the tested OCI CLI and SDK versions (today: SDK 2.187.0, CLI 3.94.0).
 * Warn at startup when the installed OCI CLI version differs from the tested

@@ -135,6 +135,15 @@ a parameter; registry login is an interactive `docker login` or
 
 ## Verification record
 
+### 2026-10-01, macOS, skipped tests
+
+* `pytest -q -rs` in the project Conda environment reports 164 passed and 49
+  skipped. All 49 skips have the reason `pwsh is unavailable`:
+  `test_deploy_release_cases.py` 38, `test_powershell_tool_env.py` 5,
+  `test_verify_deployment_updating.py` 3, `test_verify_deployment_idcs.py` 3,
+  `test_install_skills.py` 1. No test is skipped for another reason, so
+  installing PowerShell 7 on macOS would run all of them.
+
 ### 2026-09-23, macOS, static
 
 * Criterion 1 passes: `pytest tests` reports 32 passed in the project Conda

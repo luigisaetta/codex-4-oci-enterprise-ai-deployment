@@ -68,11 +68,11 @@ Description: Brief description of this file's responsibilities.
 
 * Use accurate Google-style docstrings for public functions and classes, including relevant arguments, return values, and exceptions.
 * Keep configuration, OCI service interactions, agent logic, and command-line entry points separate where practical.
-* Put reusable logic in `src/`. Demos should reuse shared modules rather than import implementation code from other demos.
+* Put reusable Python logic in importable modules under `scripts/` (for example `agent_manifest.py` and `tool_config.py`), and shared shell and PowerShell helpers in `scripts/lib/`. Demos should reuse shared modules rather than import implementation code from other demos.
 * Provide actionable errors and meaningful exit codes. Validate required inputs before starting remote changes.
 * Shell scripts must document their purpose, prerequisites, inputs, side effects, and usage. Quote variables, handle failures explicitly, and state the supported shell.
 * Keep notebooks focused, restartable from a clean kernel, and free of credentials or sensitive outputs. Move reusable logic into Python modules.
-* Prefer `skills/` for Codex skills, `demos/` for runnable examples, `specs/` for specifications, `src/` for reusable code, `scripts/` for setup automation, `tests/` for tests, and `docs/` for guides and verification reports. Create directories only when needed.
+* Prefer `skills/` for Codex skills, `demos/` for runnable examples, `specs/` for specifications, `scripts/` for lifecycle automation and its reusable modules, `tests/` for tests, and `docs/` for guides and verification reports. Create directories only when needed.
 
 ## Skills and demos
 

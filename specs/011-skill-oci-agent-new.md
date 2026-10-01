@@ -65,6 +65,43 @@ These are decisions of this project, documented for developers in the guide.
 | C7 | `requirements.txt` lists runtime dependencies only, with version ranges, starting from the ranges used by `demos/hello_world/requirements.txt`. |
 | C8 | The package folder name must not be excluded by `.dockerignore` (for example it cannot be `tests`, `scripts`, `docs`, `specs`, or `skills`). |
 
+## Prerequisites
+
+Before starting the skill, the developer needs:
+
+1. **A prepared workstation**, as for the other skills: the tool home in its
+   place, the Conda environment `codex-4-oci-enterprise-ai-deployment`, the
+   skills installed with `scripts/install_skills.sh`, and a Codex session
+   started after the installation. The skill runs `new_agent.py` from the tool
+   home with the Conda environment's Python.
+2. **A folder dedicated to the agent, opened in Codex as the workspace**, in
+   a new session. It must exist before the skill starts: Codex cannot change
+   its workspace during a session, and its sandbox usually allows writes only
+   inside the workspace.
+3. The folder:
+   * is empty, or at least contains none of the files to generate;
+   * is neither the tool home nor inside it (for example not a subfolder of
+     `demos/`), otherwise the agent would belong to the tool's Git repository;
+   * should be a Git repository (`git init`). This is recommended, not
+     required: without Git, the allowed build roots default to the manifest's
+     folder.
+4. **The optional specification file inside the agent folder**, so that it is
+   versioned with the code and readable without extra permissions. It is not
+   copied into the image: `.dockerignore` excludes `**/*.md`.
+
+Not needed: Docker (needed by the next step, the build), OCI credentials,
+network access, and a complete tenancy file (its check does not block the
+authoring).
+
+Typical preparation:
+
+```bash
+mkdir ~/Progetti/my-agent
+git -C ~/Progetti/my-agent init
+```
+
+Then open `~/Progetti/my-agent` in a new Codex session and describe the agent.
+
 ## Inputs
 
 ### Prompt (required)
@@ -113,8 +150,10 @@ closing message also points to [IAM policies](../docs/iam-policies.md).
 ## Target folder
 
 The current Codex workspace, which must be the root of the agent's
-repository and never the tool home.
+repository (see Prerequisites).
 
+* If the folder is the tool home or inside it, `plan` rejects it (exit 64)
+  and the skill stops.
 * If the folder is not inside a Git repository, the skill says so and asks
   whether to continue: without Git, the allowed build roots default to the
   manifest's folder (see `OCI_AGENT_ALLOWED_ROOTS` in the README).
@@ -164,7 +203,7 @@ PowerShell twin is needed.
 
 | Subcommand | Behavior | Writes |
 | --- | --- | --- |
-| `plan` | Validates the agent name, package folder, and repository; lists the files to create; reports existing files as conflicts (exit 30). | Nothing. |
+| `plan` | Validates the target folder (not the tool home or inside it), the agent name, package folder, and repository; lists the files to create; reports existing files as conflicts (exit 30). | Nothing. |
 | `render` | Renders `agent.yaml`, `Dockerfile`, `.dockerignore`, and `.gitignore` into the target folder from the templates. `agent.yaml` has `verify: []` and no `runtime` section. Refuses to overwrite (exit 30). | Those four files. |
 | `check-manifest` | Validates the manifest with `agent_manifest.py` and requires at least one `verify` check (exit 64 otherwise). | Nothing. |
 | `check-env` | Runs the tenancy file check above (exit 0 when complete, 31 otherwise). | Nothing. |
@@ -222,12 +261,13 @@ The message lists, in this order:
 
 * `skills/oci-agent-new/SKILL.md` and `agents/openai.yaml`, following the
   structure of the other skills, including the sections "Tool home and
-  working directory" and "Target platform check".
+  working directory", "Prerequisites", and "Target platform check".
 * `skills/README.md` and the README skills table: a row for the skill with
   the status "Work in progress (first iteration)".
 * `docs/using-oci-agent-skills.md`: the section "Creating a new agent
   repository" points to the skill, and lists the constraints C1–C8.
-* `docs/quickstart.md`: the "No agent yet?" request uses the skill.
+* `docs/quickstart.md`: the "No agent yet?" part shows the preparation of
+  the folder and a request that uses the skill.
 * `CHANGELOG.md`.
 
 ## Tests (offline)
@@ -241,6 +281,7 @@ The message lists, in this order:
   * `check-manifest` rejects the rendered manifest while `verify` is empty,
     and accepts it after one check is added;
   * invalid agent name, repository, or package folder (including C8) exit 64;
+  * a target folder equal to the tool home, or inside it, exits 64;
   * `check-env` reports a missing key and a placeholder value by name, and
     its output contains no value from the file.
 * `tests/test_skills.py`: the new skill satisfies the existing structural

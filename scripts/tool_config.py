@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-10-01
 License: MIT
 Description: Read the non-secret tenancy configuration for OCI agent scripts.
 """
@@ -66,6 +66,29 @@ def read_configuration(path: Path) -> dict[str, str]:
         if key in ALLOWED_KEYS:
             values[key] = unquote(value.strip())
     return values
+
+
+def configuration_issues(file_values: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Identify incomplete effective tenancy settings without exposing values.
+
+    Non-empty environment values take precedence over file values, matching
+    the lifecycle scripts. Empty effective values are treated as missing.
+
+    Args:
+        file_values: Allowed settings returned by read_configuration.
+
+    Returns:
+        Sorted missing key names and sorted placeholder key names.
+    """
+    missing: list[str] = []
+    placeholders: list[str] = []
+    for key in sorted(ALLOWED_KEYS):
+        value = os.environ.get(key) or file_values.get(key, "")
+        if not value:
+            missing.append(key)
+        elif value.startswith("replace-with-"):
+            placeholders.append(key)
+    return missing, placeholders
 
 
 def emit_environment(keys: list[str]) -> int:

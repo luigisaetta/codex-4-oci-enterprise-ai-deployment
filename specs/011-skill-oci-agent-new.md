@@ -326,4 +326,52 @@ created, so no cleanup is needed beyond deleting the sample repository.
 
 ## Verification record
 
-Pending.
+### 2026-10-01 — Step 1 local checks
+
+Implemented only `scripts/new_agent.py`, the read-only
+`tool_config.configuration_issues` function, and `tests/test_new_agent.py`.
+The helper reads the build assets in place and performs no network calls or
+remote operations. The skill and end-to-end authoring criteria remain pending.
+
+Environment: macOS (Darwin), arm64, Conda environment
+`codex-4-oci-enterprise-ai-deployment`, Python 3.11.0; Black 26.5.1,
+Pylint 4.0.8, pytest 9.1.1, PyYAML 6.0.2, OCI SDK 2.187.0, OCI CLI
+3.94.0. OCI SDK/CLI were not invoked. No target runtime execution or remote
+compatibility is claimed.
+
+Commands used `conda run -n codex-4-oci-enterprise-ai-deployment`:
+
+* `black --check .`: passed; 26 files unchanged.
+* `pylint scripts tests`: passed, 10.00/10. The initial run reported import,
+  line-length, and duplicate-code findings, which were corrected. Its default
+  cache path was also sandbox-restricted; the successful run set
+  `PYLINTHOME=/private/tmp/oci-agent-new-pylint` without changing lint rules.
+* `pytest -q`: passed; 224 passed, 49 skipped, one existing Starlette/AnyIO
+  deprecation warning. Existing tests have skips for unavailable PowerShell,
+  platform-dependent shell checks, and already-covered script twins.
+* Focused `pytest -q tests/test_new_agent.py`: 60 passed. All new tests are
+  offline, use temporary directories, select a temporary tenancy file, and
+  clear the four tenancy environment keys before each test.
+
+Coverage includes all eight planned files, conflict prevention for both
+commands, rendering only the four fixed files, manifest-loader and CLI
+validation, required functional checks, invalid arguments and names,
+template-derived C8 exclusions, resolved symlink targets, missing/placeholder
+tenancy keys, environment precedence, empty values, invalid UTF-8, and
+configuration output without values. No generated agent artifacts were added
+to the repository.
+
+Interpretations of unspecified details (no scope deviations):
+
+* Snake-case conversion splits CamelCase/acronym boundaries, replaces runs
+  of dots, underscores, or hyphens with an underscore, and lowercases the
+  result. Invalid derived identifiers (for example a name starting with a
+  digit) require an explicit valid `--package`; no prefix is invented.
+* The tenancy check requires the selected file to exist even when all keys
+  are exported, following this specification's explicit file-existence
+  requirement. Non-empty environment settings override file settings as in
+  the existing scripts; placeholder detection checks those effective values.
+* Manifest substitutions are quoted YAML strings so valid names such as
+  `true` or `123` remain strings. The rendered manifest retains `verify: []`
+  and omits `runtime`, as required for the helper rather than the completed
+  agent.

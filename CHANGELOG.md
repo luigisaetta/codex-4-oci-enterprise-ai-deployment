@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-01: Add an IAM policies guide listing the operator and runtime
+  (dynamic-group) permissions for the skills, with the verification status of
+  each statement, and link it from the Quickstart.
+
 * 2026-09-30: Add an agent manifest reference describing every `agent.yaml`
   field, with complete examples for the `public-noauth` and `public-idcs`
   access modes.

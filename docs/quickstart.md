@@ -17,6 +17,11 @@ Someone must have prepared your workstation once, following the
 * the tenancy file (`.env`) is configured;
 * the skills are installed with `scripts/install_skills.sh`.
 
+A tenancy administrator must also have set up the IAM policies once: your
+group needs permission to publish images and create Hosted Applications, and
+the applications need permission to pull the image. See
+[IAM policies](iam-policies.md).
+
 To check, open Codex and type `$`: the list must include `oci-agent-build`,
 `oci-agent-push`, `oci-agent-deploy`, and `oci-agent-verify-deployment`. If
 they are missing, start a new Codex session; if they are still missing, ask
@@ -152,5 +157,6 @@ ones can be removed, from the Console.
 | Codex asks "Which agent manifest should I use?" | Answer `./agent.yaml`, or the path of your agent's manifest. |
 | Codex talks about "AI Data Platform" or "AI DP" | Say "OCI Hosted Applications" explicitly in your request; those are different skills. |
 | The registry refuses the push, or asks to log in | Your Docker login expired: run the `docker login` command that Codex shows. |
+| An OCI command fails with `NotAuthorizedOrNotFound` | A policy is missing: send the message and [IAM policies](iam-policies.md) to your administrator. |
 | The deployment stops with a message about the application or deployment state | Nothing was changed. Wait a few minutes and try again; if it persists, send the message to your administrator. |
 | The check says "not ready" | The agent may still be starting: wait a minute and ask Codex to verify again. |

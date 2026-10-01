@@ -26,7 +26,15 @@ ASSETS = TOOL_HOME / "skills" / "oci-agent-build" / "assets"
 EXIT_CONFLICT = 30
 EXIT_CONFIGURATION = 31
 EXIT_INVALID_INPUT = 64
-GITIGNORE = "__pycache__/\n*.py[cod]\n.pytest_cache/\n.venv/\n.env\n.env.*\n"
+GITIGNORE_ENTRIES = (
+    "__pycache__/",
+    "*.py[cod]",
+    ".pytest_cache/",
+    ".venv/",
+    ".env",
+    ".env.*",
+)
+GITIGNORE = "\n".join(GITIGNORE_ENTRIES) + "\n"
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -67,6 +75,12 @@ def _validate_inputs(args: argparse.Namespace) -> tuple[Path, str, str, list[str
         or keyword.iskeyword(package)
         or package != package.lower()
     ):
+        if args.package is None:
+            raise ValueError(
+                "The package name derived from --name is invalid; "
+                "pass --package explicitly with a lowercase, non-keyword "
+                "Python identifier."
+            )
         raise ValueError(
             "Invalid --package; use a lowercase, non-keyword Python identifier."
         )
@@ -101,10 +115,29 @@ def _validate_inputs(args: argparse.Namespace) -> tuple[Path, str, str, list[str
     return target, package, repository, files
 
 
+def _keep_gitignore(path: Path) -> bool:
+    return not path.is_symlink() and path.is_file()
+
+
+def _missing_gitignore_entries(path: Path) -> list[str]:
+    present = {
+        line.strip().removesuffix("/")
+        for line in path.read_text(
+            encoding="utf-8", errors="surrogateescape"
+        ).splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    return [
+        entry for entry in GITIGNORE_ENTRIES if entry.removesuffix("/") not in present
+    ]
+
+
 def _conflicts(target: Path, files: list[str]) -> list[str]:
     conflicts = []
     for filename in files:
         path = target / filename
+        if filename == ".gitignore" and _keep_gitignore(path):
+            continue
         if path.exists() or path.is_symlink():
             conflicts.append(filename)
         elif path.parent != target and (
@@ -115,7 +148,23 @@ def _conflicts(target: Path, files: list[str]) -> list[str]:
     return conflicts
 
 
-def _render(target: Path, name: str, package: str, repository: str) -> None:
+def _report_files(target: Path, files: list[str], conflicts: list[str]) -> bool:
+    keep_gitignore = _keep_gitignore(target / ".gitignore")
+    for filename in files:
+        label = "Conflict" if filename in conflicts else "Create"
+        if filename == ".gitignore" and keep_gitignore:
+            label = "Keep"
+        print(f"{label}: {filename}")
+    if keep_gitignore:
+        missing = _missing_gitignore_entries(target / ".gitignore")
+        if missing:
+            print(f"Missing .gitignore entries: {', '.join(missing)}")
+    return keep_gitignore
+
+
+def _render(
+    target: Path, name: str, package: str, repository: str, keep_gitignore: bool
+) -> None:
     replacements = {
         "AGENT_NAME": json.dumps(name),
         "APPLICATION_NAME": json.dumps(name),
@@ -135,15 +184,34 @@ def _render(target: Path, name: str, package: str, repository: str) -> None:
             for key, value in replacements.items():
                 content = content.replace("{{" + key + "}}", value)
         contents[filename] = content
-    contents[".gitignore"] = GITIGNORE
+    if not keep_gitignore:
+        contents[".gitignore"] = GITIGNORE
     if any("{{" in content for content in contents.values()):
         raise ValueError(
             "Unresolved template placeholder; review the tool home templates."
         )
-    for filename, content in contents.items():
-        with (target / filename).open("x", encoding="utf-8", newline="\n") as output:
-            output.write(content)
-    agent_manifest.load_manifest(str(target / "agent.yaml"))
+    _write_and_validate(target, contents)
+
+
+def _write_and_validate(target: Path, contents: dict[str, str]) -> None:
+    created: list[Path] = []
+    try:
+        for filename, content in contents.items():
+            path = target / filename
+            with path.open("x", encoding="utf-8", newline="\n") as output:
+                # Track ownership immediately, including files whose write fails.
+                created.append(path)
+                output.write(content)
+        agent_manifest.load_manifest(str(target / "agent.yaml"))
+    except Exception:
+        for path in reversed(created):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as error:
+                print(
+                    f"Cleanup error: file remains at {path}: {error}", file=sys.stderr
+                )
+        raise
 
 
 def _check_env() -> int:
@@ -205,13 +273,11 @@ def main() -> int:
             f"Package: {package}\nRepository: {repository}"
         )
         conflicts = _conflicts(target, files)
-        for filename in files:
-            label = "Conflict" if filename in conflicts else "Create"
-            print(f"{label}: {filename}")
+        keep_gitignore = _report_files(target, files, conflicts)
         if conflicts:
             return EXIT_CONFLICT
         if args.command == "render":
-            _render(target, args.name, package, repository)
+            _render(target, args.name, package, repository, keep_gitignore)
     except FileExistsError:
         print(
             "Agent conflict: a target file appeared; no file was overwritten.",

@@ -89,7 +89,7 @@ def test_plan_lists_files_and_writes_nothing(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("command", ["plan", "render"])
-@pytest.mark.parametrize("filename", FILES)
+@pytest.mark.parametrize("filename", [name for name in FILES if name != ".gitignore"])
 def test_conflicts_leave_every_file_unchanged(
     tmp_path: Path, command: str, filename: str
 ) -> None:
@@ -102,6 +102,192 @@ def test_conflicts_leave_every_file_unchanged(
     assert f"Conflict: {filename}" in result.stdout
     assert conflict.read_text(encoding="utf-8") == "original content\n"
     assert [path for path in tmp_path.rglob("*") if path.is_file()] == [conflict]
+
+
+@pytest.mark.parametrize("command", ["plan", "render"])
+def test_existing_gitignore_reports_exact_missing_entries(
+    tmp_path: Path, command: str
+) -> None:
+    """Missing entries are advisory and existing bytes, including CRLF, survive."""
+    path = tmp_path / ".gitignore"
+    original = (
+        b"# Existing rules\r\n __pycache__ \r\n*.py[cod]/\r\n"
+        b".pytest_cache\r\n.venv/\r\n# .env\r\n.env*\r\n"
+    )
+    path.write_bytes(original)
+    result = run_helper(command, "--name", "SampleAgent", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "Keep: .gitignore" in result.stdout.splitlines()
+    assert "Create: .gitignore" not in result.stdout
+    assert [
+        line for line in result.stdout.splitlines() if line.startswith("Missing")
+    ] == ["Missing .gitignore entries: .env, .env.*"]
+    assert path.read_bytes() == original
+    expected = FILES[:4] if command == "render" else [".gitignore"]
+    assert sorted(item.name for item in tmp_path.iterdir()) == sorted(expected)
+
+
+@pytest.mark.parametrize("command", ["plan", "render"])
+def test_existing_gitignore_with_all_entries(tmp_path: Path, command: str) -> None:
+    """Whitespace, comments, and optional trailing slashes count as exact entries."""
+    path = tmp_path / ".gitignore"
+    original = (
+        b"# Comment\n __pycache__ \n *.py[cod]/ \n# Another comment\n"
+        b" .pytest_cache \n .venv \n .env/ \n .env.*/ \n"
+    )
+    path.write_bytes(original)
+    result = run_helper(command, "--name", "SampleAgent", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "Keep: .gitignore" in result.stdout.splitlines()
+    assert "Missing .gitignore entries:" not in result.stdout
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("command", ["plan", "render"])
+@pytest.mark.parametrize("kind", ["directory", "symlink", "dangling-symlink"])
+def test_gitignore_non_regular_entries_conflict(
+    tmp_path: Path, command: str, kind: str
+) -> None:
+    """Directories and symlinks never receive the regular-file exception."""
+    path = tmp_path / ".gitignore"
+    if kind == "directory":
+        path.mkdir()
+    else:
+        destination = tmp_path / "existing.ignore"
+        if kind == "symlink":
+            destination.write_bytes(b"keep destination\n")
+        path.symlink_to(destination)
+    before = sorted(tmp_path.iterdir())
+    result = run_helper(command, "--name", "SampleAgent", cwd=tmp_path)
+    assert result.returncode == 30
+    assert "Conflict: .gitignore" in result.stdout.splitlines()
+    assert sorted(tmp_path.iterdir()) == before
+    if kind == "directory":
+        assert path.is_dir()
+    else:
+        assert path.is_symlink()
+        if kind == "symlink":
+            assert path.read_bytes() == b"keep destination\n"
+
+
+@pytest.mark.parametrize("keep_gitignore", [False, True])
+def test_failed_final_validation_removes_only_created_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, keep_gitignore: bool
+) -> None:
+    """Invalid allowed roots roll back new files and preserve the kept ignore file."""
+    original = b"# keep these bytes\r\n.env\r\n"
+    if keep_gitignore:
+        (tmp_path / ".gitignore").write_bytes(original)
+    monkeypatch.setenv("OCI_AGENT_ALLOWED_ROOTS", str(tmp_path / "absent-root"))
+    result = run_helper("render", "--name", "SampleAgent", cwd=tmp_path)
+    assert result.returncode == 64
+    assert (
+        "OCI_AGENT_ALLOWED_ROOTS must contain absolute existing directories"
+        in result.stderr
+    )
+    expected = [tmp_path / ".gitignore"] if keep_gitignore else []
+    assert list(tmp_path.iterdir()) == expected
+    if keep_gitignore:
+        assert (tmp_path / ".gitignore").read_bytes() == original
+
+
+@pytest.mark.parametrize("failure", ["open", "write", "conflict"])
+def test_failed_writing_rolls_back_owned_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: str
+) -> None:
+    """Open/write failures clean partial output; late conflicts remain untouched."""
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_bytes(b"# original\r\n")
+    original_open = Path.open
+
+    def failing_open(path, *args, **kwargs):
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if path == tmp_path / "Dockerfile" and mode == "x":
+            if failure == "open":
+                raise OSError("simulated open failure")
+            if failure == "conflict":
+                with original_open(path, "w", encoding="utf-8") as existing:
+                    existing.write("late existing file\n")
+                raise FileExistsError("simulated conflict")
+            # The helper closes the returned handle in its own context manager.
+            # pylint: disable-next=consider-using-with
+            output = original_open(path, *args, **kwargs)
+            original_write = output.write
+
+            def failing_write(content):
+                original_write(content[:5])
+                raise OSError("simulated write failure")
+
+            monkeypatch.setattr(output, "write", failing_write)
+            return output
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [str(SCRIPT), "render", "--name", "SampleAgent", "--target", str(tmp_path)],
+    )
+    assert new_agent.main() == (30 if failure == "conflict" else 64)
+    expected = [".gitignore", "Dockerfile"] if failure == "conflict" else [".gitignore"]
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(expected)
+    assert gitignore.read_bytes() == b"# original\r\n"
+    if failure == "conflict":
+        assert (tmp_path / "Dockerfile").read_text(
+            encoding="utf-8"
+        ) == "late existing file\n"
+
+
+def test_cleanup_failure_reports_remaining_file_and_original_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A failed removal does not suppress validation failure or stop other cleanup."""
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_bytes(b"# original\n")
+    manifest = tmp_path / "agent.yaml"
+    original_unlink = Path.unlink
+
+    def failing_unlink(path, *args, **kwargs):
+        if path == manifest:
+            raise OSError("simulated removal failure")
+        return original_unlink(path, *args, **kwargs)
+
+    def failing_validation(_path):
+        raise ValueError("original validation failure")
+
+    monkeypatch.setattr(Path, "unlink", failing_unlink)
+    monkeypatch.setattr(new_agent.agent_manifest, "load_manifest", failing_validation)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [str(SCRIPT), "render", "--name", "SampleAgent", "--target", str(tmp_path)],
+    )
+    assert new_agent.main() == 64
+    errors = capsys.readouterr().err
+    assert f"file remains at {manifest}" in errors
+    assert "simulated removal failure" in errors
+    assert "original validation failure" in errors
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        ".gitignore",
+        "agent.yaml",
+    ]
+    assert gitignore.read_bytes() == b"# original\n"
+
+
+@pytest.mark.parametrize("command", ["plan", "render"])
+def test_invalid_derived_package_suggests_explicit_package(
+    tmp_path: Path, command: str
+) -> None:
+    """A numeric name is valid for the manifest but needs an explicit package."""
+    result = run_helper(command, "--name", "123", cwd=tmp_path)
+    assert result.returncode == 64
+    assert "package name derived from --name is invalid" in result.stderr
+    assert "pass --package explicitly" in result.stderr
+    assert not list(tmp_path.iterdir())
+    result = run_helper(command, "--name", "123", "--package", "123", cwd=tmp_path)
+    assert result.returncode == 64
+    assert "Invalid --package;" in result.stderr
+    assert "derived" not in result.stderr
 
 
 @pytest.mark.parametrize("name", ["SampleAgent", "true", "123"])

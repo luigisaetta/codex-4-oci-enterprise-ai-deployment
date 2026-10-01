@@ -159,6 +159,10 @@ repository (see Prerequisites).
   manifest's folder (see `OCI_AGENT_ALLOWED_ROOTS` in the README).
 * If any file to be created already exists, the skill stops before writing
   anything and lists the conflicts. It never overwrites a file.
+* Exception: an existing `.gitignore` (common in repositories created on a
+  Git hosting service) is not a conflict. It is kept unchanged and checked
+  for the required entries; the missing ones are listed in the closing
+  message, and the developer adds them.
 
 ## Generated files
 
@@ -167,7 +171,7 @@ repository (see Prerequisites).
 | `agent.yaml` | `skills/oci-agent-build/assets/agent.yaml.template` | `schema_version: 2`, `context: .`, `profile: public-noauth`, the values above, and one `verify` check. |
 | `Dockerfile` | `skills/oci-agent-build/assets/Dockerfile.template` | `{{REQUIREMENTS_PATH}}` = `requirements.txt`, `{{PACKAGE_DIR}}` = the package folder, `{{APP_MODULE}}` = `<package>.app:app`. |
 | `.dockerignore` | `skills/oci-agent-build/assets/dockerignore.template` | Copied unchanged. |
-| `.gitignore` | Fixed content from the helper | At least `__pycache__/`, `*.py[cod]`, `.pytest_cache/`, `.venv/`, `.env`, `.env.*`. |
+| `.gitignore` | Fixed content from the helper, only when the file does not exist | The required entries: `__pycache__/`, `*.py[cod]`, `.pytest_cache/`, `.venv/`, `.env`, `.env.*`. An existing file is kept and checked (see Target folder). |
 | `requirements.txt` | Written by Codex within C7 | `fastapi`, `pydantic`, `uvicorn`, and only the packages the agent needs. |
 | `<package>/__init__.py` | Written by Codex | Module header only. |
 | `<package>/app.py` | Written by Codex within C1–C5 | FastAPI app, probes, the business endpoint, Pydantic models. |
@@ -203,10 +207,16 @@ PowerShell twin is needed.
 
 | Subcommand | Behavior | Writes |
 | --- | --- | --- |
-| `plan` | Validates the target folder (not the tool home or inside it), the agent name, package folder, and repository; lists the files to create; reports existing files as conflicts (exit 30). | Nothing. |
-| `render` | Renders `agent.yaml`, `Dockerfile`, `.dockerignore`, and `.gitignore` into the target folder from the templates. `agent.yaml` has `verify: []` and no `runtime` section. Refuses to overwrite (exit 30). | Those four files. |
+| `plan` | Validates the target folder (not the tool home or inside it), the agent name, package folder, and repository; lists the files to create; reports existing files as conflicts (exit 30), except an existing `.gitignore`, reported as kept, with its missing required entries. | Nothing. |
+| `render` | Same checks as `plan`. Renders `agent.yaml`, `Dockerfile`, `.dockerignore`, and, when absent, `.gitignore` into the target folder from the templates. `agent.yaml` has `verify: []` and no `runtime` section. Refuses to overwrite (exit 30). If writing or the final manifest validation fails, it removes only the files created by that run. | Those files. |
 | `check-manifest` | Validates the manifest with `agent_manifest.py` and requires at least one `verify` check (exit 64 otherwise). | Nothing. |
 | `check-env` | Runs the tenancy file check above (exit 0 when complete, 31 otherwise). | Nothing. |
+
+An entry of an existing `.gitignore` counts as present when a non-comment
+line, with surrounding whitespace removed, equals it; `name` and `name/` are
+treated as equal. The helper does not evaluate other Git ignore patterns that
+might cover an entry: it reports the entry as missing, and the developer
+decides.
 
 Invalid arguments exit 64, consistent with the other scripts. Exit codes 30
 and 31 are not used by any other script. After `render`, Codex adds the
@@ -254,7 +264,8 @@ The message lists, in this order:
      specified; see the
      [agent manifest reference](../docs/agent-manifest-reference.md);
    * whether the functional check matches the expected behavior.
-3. The result of the tenancy file check, with the missing keys if any.
+3. The result of the tenancy file check, with the missing keys if any, and
+   the required entries missing from an existing `.gitignore`, if any.
 4. The next step, for example: "Build version 0.1.0 of this agent".
 
 ## Documentation
@@ -274,8 +285,12 @@ The message lists, in this order:
 
 * `tests/test_new_agent.py`:
   * `plan` lists the expected files and writes nothing;
-  * `plan` and `render` stop with exit 30 when a target file exists, and
-    leave it unchanged;
+  * `plan` and `render` stop with exit 30 when a target file other than
+    `.gitignore` exists, and leave it unchanged;
+  * with an existing `.gitignore`, `plan` and `render` succeed, leave it
+    byte-for-byte unchanged, and report its missing required entries;
+  * when the final validation of `render` fails, no file created by that run
+    remains, and files that existed before are untouched;
   * `render` produces a manifest that `agent_manifest.py validate` accepts,
     and a Dockerfile with no remaining `{{` placeholder;
   * `check-manifest` rejects the rendered manifest while `verify` is empty,
@@ -344,11 +359,12 @@ Commands used `conda run -n codex-4-oci-enterprise-ai-deployment`:
 * `black --check .`: passed; 26 files unchanged.
 * `pylint scripts tests`: passed, 10.00/10. The initial run reported import,
   line-length, and duplicate-code findings, which were corrected. Its default
-  cache path was also sandbox-restricted; the successful run set
-  `PYLINTHOME=/private/tmp/oci-agent-new-pylint` without changing lint rules.
+  cache path was not writable in the sandbox; the successful run set a
+  writable `PYLINTHOME` without changing lint rules.
 * `pytest -q`: passed; 224 passed, 49 skipped, one existing Starlette/AnyIO
-  deprecation warning. Existing tests have skips for unavailable PowerShell,
-  platform-dependent shell checks, and already-covered script twins.
+  deprecation warning. All 49 skips have the reason `pwsh is unavailable`,
+  as recorded in [Spec 007](007-windows-powershell-support.md) on 2026-10-01
+  and confirmed by the review-fixes run of `pytest -q -rs` below.
 * Focused `pytest -q tests/test_new_agent.py`: 60 passed. All new tests are
   offline, use temporary directories, select a temporary tenancy file, and
   clear the four tenancy environment keys before each test.
@@ -375,3 +391,40 @@ Interpretations of unspecified details (no scope deviations):
   `true` or `123` remain strings. The rendered manifest retains `verify: []`
   and omits `runtime`, as required for the helper rather than the completed
   agent.
+
+### 2026-10-01 — Step 1 review fixes
+
+Updated only `scripts/new_agent.py`, `tests/test_new_agent.py`, and this
+verification record, preserving the preceding user edits to the specification.
+Existing regular-file `.gitignore` files are kept byte-for-byte unchanged and
+reported as `Keep`; missing exact entries are advisory. One required-entry
+list supplies both the rendered content and the check. Directories and
+symlinks remain conflicts. Failed writes and final validation remove only
+files successfully opened exclusively by that run, including partial writes.
+Removal failures identify remaining files while preserving the original error.
+Invalid derived package names now explicitly recommend `--package`.
+
+Checks ran in the same project Conda environment and local runtime recorded
+above, with no OCI or network operations:
+
+* `black --check .`: passed; 26 files unchanged.
+* `pylint scripts tests`: passed, 10.00/10. A writable `PYLINTHOME` was set
+  because the default cache path was not writable in the sandbox.
+* `pytest -q -rs`: passed; 240 passed, 49 skipped, one existing
+  Starlette/AnyIO deprecation warning. Every skip has the actual reason
+  `pwsh is unavailable.` The observed breakdown is 37 in
+  `test_deploy_release_cases.py`, five in `test_powershell_tool_env.py`,
+  three each in `test_verify_deployment_idcs.py` and
+  `test_verify_deployment_updating.py`, and one in `test_install_skills.py`.
+  Spec 007 agrees on the total and reason but lists 38 deployment-case skips;
+  its breakdown differs from this observed run and was not edited.
+* Focused `pytest -q tests/test_new_agent.py`: 76 passed. Coverage added for
+  kept ignore files with missing or complete entries, optional trailing
+  slashes, comments and whitespace, directory and symlink conflicts, final
+  validation rollback with and without a kept ignore file, open/write
+  failures, late conflicts, cleanup failures, and explicit-package guidance.
+* `git diff --check`: passed.
+
+No new implementation ambiguities or scope deviations were identified. Remote
+and end-to-end skill verification remain pending; this entry records offline
+helper behavior only.

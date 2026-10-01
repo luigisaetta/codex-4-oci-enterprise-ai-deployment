@@ -19,31 +19,35 @@ follow the numbers unless a dependency says otherwise.
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | 4 | Low | Live session |
 | 6 | [Live acceptance of `public-idcs`](#6-live-acceptance-of-public-idcs) | identity-domain credentials (external) | Low | Live session |
 | 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 4, 5 | Medium | Short term |
-| 8 | [Skill `oci-agent-new` to scaffold an agent](#8-skill-oci-agent-new-to-scaffold-an-agent) | 7 | Medium | Short term |
-| 9 | [IAM pre-flight check (advisory)](#9-iam-pre-flight-check-advisory) | 4, 5, 7 | Medium | Short term |
-| 10 | [Diagnostics for a failed deployment](#10-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
-| 11 | [Configuration drift and update: scaling and runtime environment](#11-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
-| 12 | [Artifact pruning and application teardown](#12-artifact-pruning-and-application-teardown) | — | Low-medium | Medium term |
-| 13 | [Multiple environments](#13-multiple-environments) | 11 | Medium | Medium term |
-| 14 | [Private endpoint and custom networking](#14-private-endpoint-and-custom-networking) | service capabilities | High | Later |
+| 8 | [Skill `oci-agent-new` to scaffold an agent](#8-skill-oci-agent-new-to-scaffold-an-agent) | 7, 9 (agent API) | Medium | Short term |
+| 9 | [Test UI for agents](#9-test-ui-for-agents) | 7 | Medium | Short term |
+| 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 4, 5, 7 | Medium | Short term |
+| 11 | [Diagnostics for a failed deployment](#11-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
+| 12 | [Configuration drift and update: scaling and runtime environment](#12-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
+| 13 | [Artifact pruning and application teardown](#13-artifact-pruning-and-application-teardown) | — | Low-medium | Medium term |
+| 14 | [Multiple environments](#14-multiple-environments) | 12 | Medium | Medium term |
+| 15 | [Private endpoint and custom networking](#15-private-endpoint-and-custom-networking) | service capabilities | High | Later |
 
 Phases:
 
 1. **Now**: no live access needed. Cheap fixes that add credibility, plus the
-   IAM documentation that items 5, 7, and 9 rely on.
+   IAM documentation that items 5, 7, and 10 rely on.
 2. **Live session**: one session in eu-frankfurt-1, with explicit
    authorization. Items 5 and 6 each need a new application, because runtime
    variables and authentication are set only at creation. Keep them as two
    separate applications so that a failure is easy to attribute.
 3. **Short term**: the main value step. The Codex workflow covers the whole
-   path, from an empty repository to an agent that uses Generative AI.
+   path, from the developer's requirements to an agent that uses Generative
+   AI, with a local UI to try it.
+   Write the specifications of items 8 and 9 together: the standard agent API
+   belongs to both.
 4. **Medium term**: needed for continuous use across versions and
    environments.
 5. **Later**: depends on what the service supports.
 
 IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
-the scaffold (8), and the pre-flight check (9) all need correct policies. That
-is why the documentation (4) comes first and the automated check (9) comes
+the scaffold (8), and the pre-flight check (10) all need correct policies. That
+is why the documentation (4) comes first and the automated check (10) comes
 only after live results.
 
 ## 1. Fix inconsistencies
@@ -127,7 +131,7 @@ To do:
 * record the results in Spec 006, and delete the test application when no
   longer needed.
 
-The known limit (variables are set only at creation) is handled by item 11.
+The known limit (variables are set only at creation) is handled by item 12.
 
 ## 6. Live acceptance of `public-idcs`
 
@@ -172,15 +176,77 @@ profile locally. It extends the design of `hello_world`, which already has
 ## 8. Skill `oci-agent-new` to scaffold an agent
 
 Today only a guide section supports developers starting from scratch. A skill
-that, from a request such as "create a new OCI agent", prepares the
-repository: `agent.yaml` (schema 2), `Dockerfile`, `/health` and `/ready`, the
-Generative AI access code of item 7, and functional checks. The Codex workflow
-then covers the whole path: create, build, push, deploy, verify.
+that prepares a new agent repository from the developer's requirements. The
+Codex workflow then covers the whole path: create, build, push, deploy,
+verify.
 
-Generate the files from one maintained and tested template (the demo of item
-7), never from a second copy, so that the scaffold and the demo cannot drift.
+Input: a plain-language request, optionally backed by a requirements file
+with fixed sections (for example `agent-requirements.md`, from a template the
+skill provides): purpose, input and output of the agent API, tools, model,
+access profile, runtime variables, functional checks, and whether a test UI
+(item 9) is wanted. The skill asks only for the missing required values.
 
-## 9. IAM pre-flight check (advisory)
+Output: `agent.yaml` (schema 2), `Dockerfile`, the agent code with `/health`
+and `/ready`, the Generative AI access code of item 7, functional checks, and,
+on request, the test UI of item 9.
+
+Rules:
+
+* generate the files from one maintained and tested template (the demo of
+  item 7), never from a second copy, so that the scaffold and the demo cannot
+  drift;
+* the generated agent implements the standard agent API of item 9, so that
+  the test UI works without changes;
+* show the list of files before writing, and never overwrite an existing file;
+* never invent a model identifier: ask for it, or take it from the service;
+* acceptance: a freshly generated agent passes the build skill's local
+  verification and its functional checks without manual edits.
+
+## 9. Test UI for agents
+
+A UI that lets a developer try an agent interactively, locally against the
+container and remotely against the deployed endpoint. Codex develops it
+within constraints fixed in the documentation (for example
+`docs/test-ui-guidelines.md`), so that every generated UI is safe and
+predictable.
+
+Constraints to document and enforce:
+
+* **A test tool, not a product.** It runs only on the developer's machine,
+  bound to `127.0.0.1`. It is never part of the agent image and is never
+  deployed to the Hosted Application.
+* **Separate dependencies**, for example `ui/requirements.txt`, never in the
+  agent's `requirements.txt` or `Dockerfile`.
+* **One stack, server-side Python** (to choose in the specification, for
+  example Streamlit). The browser never receives a token or a secret.
+* **HTTP only.** The UI calls the agent through its public API, as the
+  functional checks do, and never imports agent code: it tests what is
+  actually deployed.
+* **Standard agent API.** A minimal contract defined in the specification (for
+  example a chat-style `POST` with a message and a session identifier), which
+  agents created by item 8 implement. Agents with a different API declare it
+  in the manifest, or need a custom UI.
+* **Explicit target.** The developer chooses the local container or the
+  deployed endpoint; the UI shows which one is active. Calls to a deployed
+  endpoint follow the project rule: Codex asks for approval before starting
+  the UI against it.
+* **Authentication.** For `public-idcs`, the UI obtains the token through
+  `scripts/idcs_token.py`, with the client credentials exported only in the
+  shell that starts it. It never shows, logs, or stores the token or the
+  secret, and has no input field for them.
+* **What it shows**: request, response, HTTP status, and latency, plus the
+  `/health` and `/ready` state of the target.
+* **No persistence and no telemetry** by default: conversations are not saved.
+* **Project conventions**: English, module header, Black and Pylint, offline
+  tests with a mocked HTTP layer, and Bash and PowerShell launchers in parity
+  if a launcher script is added.
+
+Decide in the specification whether the UI is one generic tool in the tool
+home or a copy generated into each agent repository. The generic tool avoids
+drift; a generated copy can be customized per agent. Either way, the
+constraints above apply.
+
+## 10. IAM pre-flight check (advisory)
 
 A read-only `scripts/check_iam_prereqs.sh` (and PowerShell twin) whose
 findings appear in the deploy plan. It never creates policies.
@@ -195,7 +261,7 @@ best-effort and advisory:
 * it checks only the patterns documented in item 4 and confirmed live in items
   5 and 7.
 
-## 10. Diagnostics for a failed deployment
+## 11. Diagnostics for a failed deployment
 
 After IAM, the next obstacle is a deployment whose `/ready` never answers.
 Document, in the verify skill and the guide, how to find the cause: work
@@ -203,7 +269,7 @@ request state and errors, and the application or container logs if the
 service exposes them. Verify in the documentation what the service offers
 before relying on it; add a read-only helper only if it simplifies the steps.
 
-## 11. Configuration drift and update: scaling and runtime environment
+## 12. Configuration drift and update: scaling and runtime environment
 
 One decision for one problem: what the deploy does when the configuration of
 an existing application differs from the manifest. Today variables are set
@@ -248,7 +314,7 @@ Step B, configuration update:
   authorization;
 * live verification, recorded in the specification.
 
-## 12. Artifact pruning and application teardown
+## 13. Artifact pruning and application teardown
 
 The lifecycle creates resources but never removes them, and the 20-artifact
 limit is handled manually.
@@ -262,7 +328,7 @@ limit is handled manually.
   apply.
 * A `teardown` for test environments, with double confirmation.
 
-## 13. Multiple environments
+## 14. Multiple environments
 
 One `.env` per checkout; no notion of environment. Introduce `--env <name>`
 reading `envs/<name>.env`, or an `environments:` section in the manifest.
@@ -274,7 +340,7 @@ The specification must decide how `deploy.application_name` maps to each
 environment (one compartment per environment, or a name suffix), so that two
 environments can never resolve to the same application.
 
-## 14. Private endpoint and custom networking
+## 15. Private endpoint and custom networking
 
 Only public endpoints with Oracle-managed networking are supported, which
 blocks many enterprise uses. Verify what the service supports (VCN, subnet,

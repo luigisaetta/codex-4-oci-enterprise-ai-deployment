@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY {{REQUIREMENTS_PATH}} ./requirements.txt
-RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
+RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
 
 RUN groupadd --gid 10001 agent \
     && useradd --uid 10001 --gid agent --no-create-home --home-dir /tmp agent

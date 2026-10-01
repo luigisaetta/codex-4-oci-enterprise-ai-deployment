@@ -128,7 +128,7 @@ if [ "$tee_status" -ne 0 ]; then
 fi
 if [ "$build_status" -ne 0 ]; then
     if grep -E 'No matching distribution found|Could not find a version that satisfies' "$log_file" >&2; then
-        printf '%s\n' 'A compatible manylinux x86_64 wheel may be unavailable, or the version may not exist. A remote amd64 builder or build tools would require a separately approved source-build policy; --only-binary remains mandatory here. No fallback was attempted.' >&2
+        printf '%s\n' 'A required package or version may not exist for linux/amd64 and Python 3.11. Check the package line above and the version range in requirements.txt. No fallback was attempted.' >&2
         exit 5
     fi
     printf 'Docker build failed (exit %s).\n' "$build_status" >&2; exit 6

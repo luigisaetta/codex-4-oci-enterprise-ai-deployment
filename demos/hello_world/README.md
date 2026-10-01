@@ -80,7 +80,7 @@ The result is a local `hello-world:0.1.0` image for `linux/amd64`, followed by
 architecture and HTTP verification on port 8080. Verification runs with a
 read-only filesystem and writable `/tmp`. OCI deployment is outside this workflow.
 
-The image uses Python 3.11, binary wheels only, and a non-root user. Its command
+The image uses Python 3.11, prefers binary wheels, and runs as a non-root user. Its command
 starts Uvicorn on `0.0.0.0:8080`. Dependency versions are resolved from the existing
 demo requirements at build time. Builds download the base image and Python packages;
 no registry push or OCI deployment is performed.

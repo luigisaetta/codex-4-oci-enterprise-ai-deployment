@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-01: Remove the binary-only `pip` constraint from the Dockerfile
+  template and the `hello_world` image: `pip install --prefer-binary` still
+  prefers wheels but also installs pure-Python source distributions.
+
 * 2026-10-01: Add an IAM policies guide listing the operator and runtime
   (dynamic-group) permissions for the skills, with the verification status of
   each statement, and link it from the Quickstart.

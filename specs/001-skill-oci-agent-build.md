@@ -154,8 +154,8 @@ Behavior:
 - On success print image name, tag, image ID, and size.
 - On failure, if the build log contains pip's "No matching distribution found" or
   "Could not find a version that satisfies", print the offending package line and a hint:
-  the package has no `manylinux x86_64` wheel; use a remote amd64 builder or a base image
-  with build tools. Exit 5. Any other build failure exits 6.
+  the package or version may not exist for `linux/amd64` and Python 3.11. Exit 5. Any
+  other build failure exits 6.
 
 Never modify the Dockerfile. Never fall back to another platform.
 
@@ -198,8 +198,9 @@ placeholders filled in, plus nothing else. Both must:
 - set `PYTHONDONTWRITEBYTECODE=1` and `PYTHONUNBUFFERED=1`, so a read-only filesystem
   does not trigger bytecode write attempts;
 - copy the root `requirements.txt` and run
-  `pip install --no-cache-dir --only-binary=:all: -r requirements.txt`, so that no
-  package is compiled from source under emulation;
+  `pip install --no-cache-dir --prefer-binary -r requirements.txt`, so that binary
+  wheels are preferred and pure-Python source distributions still install (see
+  Decisions, 2026-10-01);
 - copy only the `{{PACKAGE_DIR}}` package into `/app`, set `WORKDIR /app`, so that
   `demos` is importable;
 - create and switch to a non-root user;
@@ -227,9 +228,8 @@ required inputs (build context, Dockerfile path, image name, semantic version ta
 the user if the tag is missing, never invent one), workflow (run build script, then verify
 script, in that order), how to interpret the documented exit codes, expected outputs,
 limitations, and a link to `references/container-requirements.md`. Use `hello_world` as
-the worked example. Keep it under roughly 120 lines. Instruct Codex never to remove the
-`--only-binary` constraint or change the platform to work around a failure; it must
-report the failure instead.
+the worked example. Keep it under roughly 120 lines. Instruct Codex never to change the
+platform to work around a failure; it must report the failure instead.
 
 `agents/openai.yaml`: `interface.display_name: "OCI Agent Build"`, a short description,
 `policy.allow_implicit_invocation: true`.
@@ -414,16 +414,22 @@ zstandard==0.25.0
   expiration is a build failure (6). A cleanup failure must not report success (12).
 - User-approved clarification (2026-09-22): phrase the missing-wheel explanation
   as a possible cause, because pip's messages may instead indicate unavailable
-  versions. Keep `--only-binary` mandatory. Remote builders/build tools cannot
-  compile source under this policy; any source-build policy needs a separate decision.
+  versions. The binary-only part of this clarification is superseded by the
+  2026-10-01 decision below.
 - A local `--load` image may not have a repository digest. Report it as unavailable
   rather than relabeling the image configuration ID as a registry manifest digest.
 - The preflight native/emulated label is inferred from the current daemon's
   architecture, not proof of the architecture of an optional remote builder host.
 
-- Pip is restricted to binary wheels by design. A missing x86_64 wheel is reported
-  without a fallback. The user-approved clarification above supersedes the earlier
-  suggestion that a remote builder alone would fix a source-only dependency.
+- User-approved decision (2026-10-01): the binary-only constraint
+  (`--only-binary=:all:`) is removed. It came from a different target platform and is
+  not a requirement of Hosted Applications. Pip now runs with `--prefer-binary`:
+  wheels are preferred, so pip does not pick a newer source-only version over an older
+  wheel, and pure-Python source distributions install normally. The base image still
+  has no compiler: a package that needs compilation fails the build with exit 6, and
+  the skill reports it. Adding build tools (for example a multi-stage Dockerfile) needs
+  a separate decision. Verification rows recorded before this date used the
+  binary-only Dockerfile.
 - The image is tagged with a local name only. The OCIR repository path will be added in
   planned Spec 002, where tagging and pushing are defined together.
 - The root `requirements.txt` uses version ranges. The image therefore resolves versions

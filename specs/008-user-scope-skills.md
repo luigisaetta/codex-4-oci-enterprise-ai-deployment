@@ -181,7 +181,7 @@ The other fields are unchanged. The allowed root is this checkout, found through
 
 * `skills/oci-agent-build/assets/Dockerfile.template` assumes a build context
   that is the **agent's own folder or repository**, with its own
-  `requirements.txt`. The binary-only `pip` policy and the non-root user are
+  `requirements.txt`. The `pip --prefer-binary` install (Spec 001, 2026-10-01) and the non-root user are
   unchanged.
 * `assets/dockerignore.template` excludes `.env`, `.git`, caches, virtual
   environments, and tests.

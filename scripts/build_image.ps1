@@ -80,7 +80,7 @@ if ($buildOutput) { Write-Output $buildOutput.TrimEnd() }
 Write-Output "Build time: $([int]((Get-Date) - $started).TotalSeconds) seconds"
 if ($process.ExitCode -ne 0) {
   if ($buildOutput -match 'No matching distribution found|Could not find a version that satisfies') {
-    Fail 5 'A compatible manylinux x86_64 wheel may be unavailable, or the version may not exist. A remote amd64 builder or build tools would require a separately approved source-build policy; --only-binary remains mandatory here. No fallback was attempted.'
+    Fail 5 'A required package or version may not exist for linux/amd64 and Python 3.11. Check the package line above and the version range in requirements.txt. No fallback was attempted.'
   }
   Fail 6 "$engine build failed (exit $($process.ExitCode))."
 }

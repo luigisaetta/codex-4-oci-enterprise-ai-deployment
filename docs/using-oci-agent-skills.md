@@ -85,7 +85,7 @@ Its `.gitignore` must exclude `__pycache__/`, `.pytest_cache/`, and `.env`.
 | File | Source | What to fill in |
 | --- | --- | --- |
 | `Dockerfile` | `skills/oci-agent-build/assets/Dockerfile.template` | `{{REQUIREMENTS_PATH}}` = `requirements.txt`; `{{PACKAGE_DIR}}` = the folder with the agent's Python package; `{{APP_MODULE}}` = `<module>:<app>`, for example `my_agent.app:app`. |
-| `requirements.txt` | Written by hand; there is no template. | The agent's runtime dependencies only, with version ranges that have `linux/amd64` wheels. |
+| `requirements.txt` | Written by hand; there is no template. | The agent's runtime dependencies only. Prefer packages with `linux/amd64` wheels: the base image has no compiler, so a package that must be compiled fails the build. |
 | `.dockerignore` | `skills/oci-agent-build/assets/dockerignore.template` | Nothing; copy it as is. |
 | `agent.yaml` | `skills/oci-agent-build/assets/agent.yaml.template` | `{{AGENT_NAME}}`, `{{OCIR_REPOSITORY}}`, `{{APPLICATION_NAME}}`, and any `verify` checks. |
 

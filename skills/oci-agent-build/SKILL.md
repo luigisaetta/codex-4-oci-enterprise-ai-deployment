@@ -135,9 +135,11 @@ print container logs. The verifier removes its container; the image stays local.
 
 ## Limitations
 
-Never remove `--only-binary` or change the platform to work around a failure.
-Report the failure. Missing-wheel messages may also indicate unavailable versions;
-a remote builder cannot compile source under this binary-only policy.
+Never change the platform to work around a failure. Report the failure.
+Pip prefers binary wheels but may build a package from source. The base image
+has no compiler, so a package that needs compilation fails the build (exit 6);
+report it and suggest a version or an alternative package with a
+`linux/amd64` wheel.
 The preflight mode is inferred from the current daemon architecture; a remote
 builder can use a different host, so do not treat that inference as remote evidence.
 If `uname` is demonstrably absent, verification warns and skips that check.

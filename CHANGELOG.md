@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-02: Rewrite the README around the five skills, with Mermaid
+  diagrams of the workflow and the release lifecycle, example requests, and a
+  documentation map; title it "Codex Skills for OCI Enterprise AI Deployment"
+  and update the overview image accordingly.
+
 * 2026-10-02: Give Hosted Application health, readiness, and optional functional
   HTTP requests an independent 60-second default timeout; keep polling at five
   seconds by default in Bash and PowerShell.

@@ -24,6 +24,36 @@ Hosted Applications.
 * F9: An application can have at most 20 artifacts. Only inactive artifacts can
   be deleted.
 
+## Reliable wait facts
+
+The following Spec 012 facts were verified on **2026-10-02**. They describe
+the CLI and read-only OCI evidence; live acceptance of the new wait and
+replacement flows remains pending. See [Spec 012](../../../specs/012-reliable-deploy-wait.md).
+
+* F1: CLI 3.94.0 creation with `--wait-for-state` prints the work request,
+  rather than the created resource.
+* F2: If the create response lacks `opc-work-request-id`, that CLI wait path
+  prints a warning on stdout before resource JSON and returns without waiting.
+* F3: The SDK waiter for `SUCCEEDED` does not return on a `FAILED` work
+  request; it continues until its timeout.
+* F4: A creation failed after about 14 minutes with a capacity error 500 and
+  advice to try again later; observed successful creations took 1–2 minutes.
+* F5: The observed successful deployment work request held one Hosted
+  Deployment OCID.
+* F6: Application and deployment states include `CREATING`, `ACTIVE`,
+  `UPDATING`, `INACTIVE`, `NEEDS_ATTENTION`, `FAILED`, `DELETING`, and `DELETED`.
+* F7: Without the CLI waiter, create returns JSON with `data` and, when
+  available, the displayed `opc-work-request-id` header.
+* F8: Deployment delete accepts `--hosted-deployment-id` and `--force` and
+  runs as a `DELETE_HOSTED_DEPLOYMENT` work request.
+* F9: `work-request list` requires `--compartment-id`; use `--resource-id`,
+  `--status FAILED`, and `--all`. `work-request-error list` accepts
+  `--work-request-id` and `--all`. Both return `data.items`; errors contain
+  code and message.
+* F10: A failed CLI request prints `ServiceError:` then JSON with integer
+  `status`, `code`, and `message`. Read status from that JSON. A 404 can also
+  mean insufficient permission because its code is `NotAuthorizedOrNotFound`.
+
 This skill uses public `NO_AUTH_CONFIG` applications with Oracle-managed
 networking:
 

@@ -131,6 +131,10 @@ in OCIR, do not build or push.
 published and tested, instead of rebuilding it from the current code. The
 switch takes about 10 seconds, and the endpoint stays the same.
 
+A request to deploy authorizes only deployment. Creating an OCIR repository or
+pushing an image needs its own request and explicit authorization through the
+push skill.
+
 ## 5. Check that it works
 
 To check the agent at any time:
@@ -145,10 +149,11 @@ its health, readiness, and functional checks.
 
 ## Cleaning up
 
-The skills never delete anything. When you no longer need an agent online,
-remove its Hosted Application from the OCI Console, or ask an administrator.
-Old versions stay stored inside the application (up to 20); only inactive
-ones can be removed, from the Console.
+The deploy skill deletes only a `FAILED` deployment, after you request a new
+deploy of that failed release and approve its replacement plan. When you no
+longer need an agent online, remove its Hosted Application from the OCI
+Console, or ask an administrator. Old versions stay stored inside the
+application (up to 20); only inactive ones can be removed, from the Console.
 
 ## If something goes wrong
 
@@ -157,6 +162,12 @@ ones can be removed, from the Console.
 | Codex asks "Which agent manifest should I use?" | Answer `./agent.yaml`, or the path of your agent's manifest. |
 | Codex talks about "AI Data Platform" or "AI DP" | Say "OCI Hosted Applications" explicitly in your request; those are different skills. |
 | The registry refuses the push, or asks to log in | Your Docker login expired: run the `docker login` command that Codex shows. |
-| An OCI command fails with `NotAuthorizedOrNotFound` | A policy is missing: send the message and [IAM policies](iam-policies.md) to your administrator. |
-| The deployment stops with a message about the application or deployment state | Nothing was changed. Wait a few minutes and try again; if it persists, send the message to your administrator. |
+| An OCI command fails with `NotAuthorizedOrNotFound` | The resource may be missing or permission may be missing; send the message and [IAM policies](iam-policies.md) to your administrator. |
+| `Creation in progress` | The deployment already exists; approve its plan to resume waiting without another create. |
+| `Application creation in progress` | Approve its plan to wait for the application, check its configuration, and create the first deployment when ready. |
+| Exit 26, with an OCID, state, and elapsed time | OCI is still working. Nothing else was changed or deleted after the request. Ask Codex to run deploy again to resume waiting; do not delete or recreate. |
+| `Failed deployment` with an OCI error | Read the reported code and message. The deploy stops without another mutation. You may ask for a new deploy of that failed release. |
+| `Replace failed deployment` | After requesting a new deploy, review and approve the replacement plan. The script deletes only the `FAILED` deployment, waits for deletion, then creates and waits for its replacement. |
+| A node-pool capacity error during creation | This is a known transient failure. Try again later, then ask for a new deploy. If the deployment is `FAILED`, replacement requires your request and approval of its plan. |
+| The deployment stops with another application or deployment state | Read the reported state. If it persists, send the message to your administrator. |
 | The check says "not ready" | The agent may still be starting: wait a minute and ask Codex to verify again. |

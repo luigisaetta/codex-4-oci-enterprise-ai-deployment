@@ -188,18 +188,29 @@ resolve_mutation_id() {
   printf '%s' "$resolved"
 }
 
+# Keep a mutation's JSON stdout separate from its diagnostic stderr.
+invoke_mutation() {
+  local error_file status
+  error_file="$(mktemp)" || return 1
+  mutation_output="$("$@" 2>"$error_file")" && status=0 || status=$?
+  mutation_error="$(cat "$error_file")"
+  rm -f "$error_file"
+  return "$status"
+}
+
 create_hosted_application() {
-  local application_output application_error
+  local application_output
   printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' "$profile"
-  application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
+  if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
     hosted-application create --display-name "$application_name" \
     --compartment-id "$compartment_id" --inbound-auth-config "$inbound_auth_json" \
     --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
 '"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
-    --environment-variables "$environment_variables_json" 2>&1)" || {
-      report_service_error 'Hosted Application create' "$application_output"
-      exit 1
-    }
+    --environment-variables "$environment_variables_json"; then
+    report_service_error 'Hosted Application create' "$mutation_error"
+    exit 1
+  fi
+  application_output="$mutation_output"
   application_id="$(resolve_mutation_id 'Hosted Application' "$application_output")"
   application_work_request_id="$(parse_mutation_work_request "$application_output")"
   printf 'Created Hosted Application: %s\n' "$application_id"
@@ -214,14 +225,15 @@ create_first_release() {
     printf 'Reusing ACTIVE Hosted Application: %s\n' "$application_id"
   fi
   printf '%s\n' 'Creating Hosted Deployment from the selected OCIR artifact.'
-  deployment_output="$(oci --region "$OCI_REGION" --output json generative-ai \
+  if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
     hosted-deployment create-hosted-deployment-single-docker-artifact \
     --hosted-application-id "$application_id" \
     --active-artifact-container-uri "$container_uri" --active-artifact-tag "$tag" \
-    --compartment-id "$compartment_id" 2>&1)" || {
-      report_service_error 'Hosted Deployment create' "$deployment_output"
-      exit 1
-    }
+    --compartment-id "$compartment_id"; then
+    report_service_error 'Hosted Deployment create' "$mutation_error"
+    exit 1
+  fi
+  deployment_output="$mutation_output"
   deployment_id="$(resolve_mutation_id 'Hosted Deployment' "$deployment_output")"
   deployment_work_request_id="$(parse_mutation_work_request "$deployment_output")"
   printf 'Created Hosted Deployment: %s\n' "$deployment_id"
@@ -476,10 +488,12 @@ case "$release_case" in
     exit "$EXIT_EXISTING_RESOURCE"
     ;;
   'Replace failed deployment')
-    delete_output="$(oci --region "$OCI_REGION" --output json generative-ai hosted-deployment delete \
-      --hosted-deployment-id "$deployment_id" --force 2>&1)" || {
-        report_service_error 'Hosted Deployment delete' "$delete_output"; exit 1;
-      }
+    if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
+      hosted-deployment delete --hosted-deployment-id "$deployment_id" --force; then
+      report_service_error 'Hosted Deployment delete' "$mutation_error"
+      exit 1
+    fi
+    delete_output="$mutation_output"
     deleted_id="$(parse_mutation_id "$delete_output")"
     deletion_work_request_id="$(parse_mutation_work_request "$delete_output")"
     if [[ -z "$deleted_id" ]]; then

@@ -244,6 +244,8 @@ elif "hosted-deployment" in arguments and "delete" in arguments:
     data = {} if scenario.get("delete_no_id") else {
         "id": "ocid1.generativeaihosteddeployment.test"
     }
+    if scenario.get("delete_stderr_warning"):
+        print("Warning: deletion accepted asynchronously", file=sys.stderr)
     output({"data": data})
 elif "work-request-error" in arguments and "list" in arguments:
     if "--all" not in arguments:
@@ -380,6 +382,11 @@ def scenario_for(case: str) -> dict[str, object]:
         "replacement": {
             "deployment_state": "FAILED",
             "deletion_states": ["DELETING", "DELETED"],
+        },
+        "replacement_delete_stderr": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING", "DELETED"],
+            "delete_stderr_warning": True,
         },
         "replacement_404": {
             "deployment_state": "FAILED",

@@ -3,6 +3,10 @@
 Status: implemented (Bash; PowerShell unexecuted); live acceptance pending.
 Date: 2026-09-30.
 
+For creation waits, failed-deployment replacement, and the narrowed deletion
+rule, see [Spec 012](012-reliable-deploy-wait.md). Its explicit `FAILED`
+deployment replacement exception supersedes the no-deletion rule below.
+
 ## Problem
 
 The deploy skill can only perform the **first** release of an agent:

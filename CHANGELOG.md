@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* 2026-10-02: Add bounded, resumable Hosted Application and deployment waits,
+  with progress, OCI error reporting, and exit 26 while OCI remains in progress.
+
+* 2026-10-02: Allow an explicitly requested, plan-approved replacement of a
+  `FAILED` Hosted Deployment; keep its deletion and new creation ordered, and
+  document the recovery path in the deploy skill and guides.
+
 * 2026-10-01: Remove the binary-only `pip` constraint from the Dockerfile
   template and the `hello_world` image: `pip install --prefer-binary` still
   prefers wheels but also installs pure-Python source distributions.

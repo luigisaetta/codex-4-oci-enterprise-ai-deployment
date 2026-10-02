@@ -1,7 +1,8 @@
 # Repository skills
 
-The deploy skill handles first releases, new versions, and rollbacks in the
-same Hosted Application.
+The deploy skill handles first releases, new versions, rollbacks, waits for
+creations in progress, and explicitly requested replacement of a `FAILED`
+deployment in the same Hosted Application.
 
 The `public-idcs` profile creates a public endpoint that requires an OCI IAM
 identity-domain bearer token. Its manifest contains only the domain URL,
@@ -12,7 +13,7 @@ in the operator's shell.
 | --- | --- | --- |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
-| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image for a first release, new version, or rollback in the same OCI Generative AI Hosted Application. | Implemented in Bash; PowerShell execution and live release acceptance pending; see [Spec 009](../specs/009-release-new-version.md). |
+| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Implemented in Bash; PowerShell execution and live reliable-wait acceptance pending; see [Spec 012](../specs/012-reliable-deploy-wait.md). |
 | [oci-agent-verify-deployment](oci-agent-verify-deployment/SKILL.md) | Verify an active Hosted Application release with OCI state checks and health/readiness probes. | Implemented; static and live Frankfurt verification passed for `hello-world:0.2.0`; see [Spec 005](../specs/005-skill-oci-agent-verify-deployment.md). |
 
 ## Choosing Bash or PowerShell
@@ -30,7 +31,8 @@ The `SKILL.md` files show Bash examples only; translate them with this rule:
 | --- | --- |
 | `$TOOL_HOME/scripts/build_image.sh --manifest PATH --tag TAG` | `& "$TOOL_HOME\scripts\build_image.ps1" -Manifest PATH -Tag TAG` |
 | `$TOOL_HOME/scripts/install_skills.sh [--dry-run] [--uninstall] [--target DIR]` | `& "$TOOL_HOME\scripts\install_skills.ps1" [-DryRun] [-Uninstall] [-Target DIR]` |
-| `--timeout-seconds 120` | `-TimeoutSeconds 120` |
+| `--timeout-seconds SECONDS` | `-TimeoutSeconds SECONDS` |
+| `--replace-failed` | `-ReplaceFailed` |
 | `--apply`, `--push`, `--create`, `--functional`, `--no-cache` | `-Apply`, `-Push`, `-Create`, `-Functional`, `-NoCache` |
 | `--application-id OCID` | `-ApplicationId OCID` |
 | `OCIR_REGISTRY="$("$TOOL_HOME/scripts/resolve_ocir_registry.sh")"` | `$OCIR_REGISTRY = & "$TOOL_HOME\scripts\resolve_ocir_registry.ps1"` |
@@ -38,6 +40,8 @@ The `SKILL.md` files show Bash examples only; translate them with this rule:
 
 The decision follows the shell, not the operating system: a WSL2 session on
 Windows uses the Bash scripts. Never mix the two families within one release.
+The deploy timeout defaults to 1800 seconds. Replacement is accepted only for
+a `FAILED` deployment after the user requests it and approves the plan.
 The only PowerShell-only parameter is `-ContainerEngine Auto|Docker|Podman`
 (default `Auto`, which requires exactly one usable engine). Exit-code tables in
 the skills apply to both families. `tests/test_script_parity.py` keeps the

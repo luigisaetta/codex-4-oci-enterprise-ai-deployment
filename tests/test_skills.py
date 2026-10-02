@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-01
+Date last modified: 2026-10-02
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -135,19 +135,25 @@ def test_mutating_skills_require_explicit_authorization() -> None:
 
 
 def test_deploy_skill_documents_release_cases_and_no_delete_rule() -> None:
-    """The deploy skill names script cases and prohibits release-time deletion."""
+    """The deploy skill names script cases and limits deletion to failed replacement."""
     content = (SKILLS / "oci-agent-deploy" / "SKILL.md").read_text(encoding="utf-8")
     for case in (
         "First release",
         "Already released",
         "New version",
         "Return to a previous version",
+        "Creation in progress",
+        "Application creation in progress",
+        "Failed deployment",
+        "Replace failed deployment",
     ):
         assert case in content
     assert (
-        "Never delete or recreate an application or a deployment to release a new"
-        in content
+        "Never delete or recreate an application or a deployment, "
+        "except a deployment in" in content
     )
+    assert "| 26 |" in content
+    assert "--replace-failed" in content
 
 
 def test_skills_include_target_platform_check() -> None:

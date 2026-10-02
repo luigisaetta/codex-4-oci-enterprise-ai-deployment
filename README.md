@@ -28,22 +28,32 @@ Application, in this order:
 
 The deploy skill decides from the state in OCI what a release means:
 
-| You deploy tag X, and… | The skill… |
+| Script release case | The skill… |
 | --- | --- |
-| the application does not exist yet | creates the application and its deployment (first release) |
-| X is already the active version | changes nothing |
-| X is a new version | adds X to the existing deployment and activates it |
-| X is an earlier version of this deployment | activates it again (rollback) |
+| `First release` | creates the application if absent, then its first deployment |
+| `Already released` | changes nothing because the target tag is active |
+| `New version` | adds the new tag to the existing deployment and activates it |
+| `Return to a previous version` | activates an inactive tag again (rollback) |
+| `Creation in progress` | resumes waiting for a `CREATING` deployment; creates nothing |
+| `Application creation in progress` | waits for the application, checks its configuration, then creates and waits for the first deployment |
+| `Failed deployment` | reports the OCI error and stops; replacement is an option you may request |
+| `Replace failed deployment` | after your request and approval of the replacement plan, deletes only the `FAILED` deployment, waits for deletion, then creates a new deployment |
 
 * The endpoint address never changes after the first release.
 * In the verified test, switching versions took about 10 seconds with no
   observed interruption.
 * To roll back, deploy the previous tag.
-* Old versions stay in the application, up to 20; the skills never delete
-  them.
+* Old artifacts stay in the application, up to 20; the deploy skill does not
+  remove them.
+* A wait timeout exits 26: OCI is still working. The script reports the OCID,
+  state, and elapsed time; nothing else was changed or deleted after the
+  request. Run deploy again to resume waiting, without deleting or recreating.
+* A capacity error during creation is a known transient failure. Try again
+  later, then request a new deploy. Replacement of a `FAILED` deployment
+  requires your request and approval of the plan.
 
 Details: [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md#release-cases)
-and [Spec 009](specs/009-release-new-version.md).
+and [Spec 012](specs/012-reliable-deploy-wait.md).
 
 ### What every release needs
 
@@ -68,7 +78,7 @@ the verifier and are never stored in project configuration.
 | --- | --- | --- |
 | [oci-agent-build](skills/oci-agent-build/SKILL.md) | Build and locally verify an agent image. | Local Docker only. |
 | [oci-agent-push](skills/oci-agent-push/SKILL.md) | Publish a locally verified image to OCIR. | Creates a missing repository and pushes, each only with your approval. |
-| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan a first release, new version, or rollback in the same Hosted Application. | Creates resources or activates artifacts only with your approval. |
+| [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plan a release, resume a creation, or replace a failed deployment on request. | Creates resources, activates artifacts, or replaces only a `FAILED` deployment after plan approval. |
 | [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Check a deployed release's OCI state, health, and readiness. | Read-only OCI calls and approved public GET requests. |
 
 Every skill can be selected from a natural request. Push and deploy still ask

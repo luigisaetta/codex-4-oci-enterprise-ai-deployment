@@ -59,13 +59,19 @@ function Invoke-Oci {
 # Capture a rejected mutating request and print only selected, redacted ServiceError fields.
 function Invoke-OciMutation {
     param([string]$Kind, [string[]]$Arguments)
-    $output = & oci @Arguments 2>&1
-    $text = ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
-    if ($LASTEXITCODE -ne 0) {
-        Write-HostedServiceError -Kind $Kind -OutputText $text
+    $errorPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & oci @Arguments 2> $errorPath
+        $exitCode = $LASTEXITCODE
+        $errorText = [System.IO.File]::ReadAllText($errorPath)
+    } finally {
+        Remove-Item -LiteralPath $errorPath -Force -ErrorAction SilentlyContinue
+    }
+    if ($exitCode -ne 0) {
+        Write-HostedServiceError -Kind $Kind -OutputText $errorText
         exit 1
     }
-    return $text
+    return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
 }
 
 # Stop when a required setting is absent.

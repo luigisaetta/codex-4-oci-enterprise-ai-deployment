@@ -170,7 +170,7 @@ Rules:
 ## Skills and documentation
 
 * `oci-agent-deploy/SKILL.md`:
-  * the three new cases and exit code 26;
+  * the four new cases and exit code 26;
   * on exit 26, tell the user that OCI is still working and offer to run the
     deploy again to resume waiting; never delete or recreate;
   * on "Failed deployment", report the OCI error and stop; offer the
@@ -181,7 +181,7 @@ Rules:
   * the "never delete" rule becomes: never delete or recreate an
     application or a deployment, **except** a deployment in state `FAILED`,
     replaced on the user's explicit request through `--replace-failed`.
-* `references/hosted-application.md`: facts F1–F9 in short form.
+* `references/hosted-application.md`: facts F1–F10 in short form.
 * README (release table), guide, skill catalog: the new cases, the
   replacement, and the capacity error of F4 as a known transient failure
   ("try again later").
@@ -278,3 +278,10 @@ Bash and PowerShell, with the same report lines and exit codes.
 * A resumed `CREATING` application now follows the updated release case: wait for `ACTIVE`, read the application again, check inbound authentication and runtime environment, then create and wait for its deployment. This supersedes the earlier Step 1 interpretation above. An application ending `FAILED` or failing either check does not cause a deployment create.
 * Local checks in the named Conda environment: `black --check .` passed; `pylint scripts tests` passed (10.00/10); `pytest -q -rs` passed (325 passed, 129 skipped, one Starlette deprecation warning). After the full run, PowerShell `data.items` parsing was tightened to reject non-array shapes; focused PowerShell static and script-parity checks passed (24 passed). Bash syntax and `git diff --check` passed. No live OCI command was run. PowerShell is implemented but remains unexecuted because `pwsh` is unavailable here; remote acceptance remains pending.
 * The updated specification does not define a `CREATING` application that already has a non-deleted deployment. The scripts stop for review with exit 20 to avoid a duplicate create. F10 also says a 404 can mean missing permissions; as specified, a structured 404 after deletion counts as completion, so that distinction remains unresolved without live evidence.
+
+### Step 2 local checks — 2026-10-02
+
+* Updated the deploy skill, its Hosted Application reference, the skill catalog, README, operator guide, Quickstart, Spec 009 pointer, and changelog for all eight script release-case names, exit 26, explicit failed-deployment replacement, and separate push authorization. The reference summarizes Spec 012 F1–F10. Corrected the older three-case/F1–F9 wording in this specification's documentation checklist to match the updated release-case table and Step 2 request.
+* Bash and PowerShell mutation helpers now keep stderr separate from stdout JSON. The fake OCI delete can emit a successful stderr warning; the Bash replacement test confirms the JSON ID is parsed directly, without a read-only fallback lookup. The PowerShell twin uses the same separation but could not be executed on this workstation because `pwsh` is unavailable.
+* In the named Conda environment, `black --check .` passed; `pylint scripts tests` passed (10.00/10, with `PYLINTHOME` directed to `/private/tmp` because the default macOS cache path is sandbox-blocked); `pytest -q -rs` passed (327 passed, 131 skipped for unavailable `pwsh`, one unrelated Starlette deprecation warning). All 57 relative Markdown links in the edited Markdown files resolved. Bash syntax and `git diff --check` passed. No live OCI command was run; remote acceptance remains pending.
+* The existing F10 ambiguity remains: a structured 404 during deletion can mean either deleted or unauthorized. The scripts treat it as completed deletion under Spec 012; no offline test can establish which happened remotely.

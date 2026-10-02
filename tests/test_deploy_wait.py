@@ -151,6 +151,36 @@ def test_replace_failed_deletes_then_creates(
     )
 
 
+def test_replacement_delete_stderr_does_not_corrupt_json(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """Successful delete diagnostics stay outside the parsed JSON response."""
+    result = run_release(
+        tmp_path,
+        "replacement_delete_stderr",
+        True,
+        release_runner,
+        extra_options=deploy_options(release_runner, "--replace-failed"),
+    )
+    assert result.returncode == 0, result.stderr
+    assert mutating_commands(result) == [
+        "delete",
+        "create-hosted-deployment-single-docker-artifact",
+    ]
+    delete_index = next(
+        i for i, call in enumerate(result.invocations) if "delete" in call
+    )
+    create_index = next(
+        i
+        for i, call in enumerate(result.invocations)
+        if "create-hosted-deployment-single-docker-artifact" in call
+    )
+    assert not any(
+        "list-hosted-deployments" in call
+        for call in result.invocations[delete_index + 1 : create_index]
+    )
+
+
 @pytest.mark.parametrize("case", ["already_released", "creation_in_progress"])
 def test_replace_failed_rejected_for_other_states(
     tmp_path: Path, case: str, release_runner: tuple[Path, list[str]]
@@ -238,6 +268,7 @@ def test_invalid_timeout_stops_before_oci(
         "five_429",
         "failed_deployment",
         "replacement",
+        "replacement_delete_stderr",
         "replacement_404",
         "deletion_failed",
         "deletion_timeout",

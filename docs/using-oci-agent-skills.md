@@ -189,6 +189,10 @@ Application.
 
 ## Step 3: plan and deploy the Hosted Application release
 
+A deploy request authorizes only deployment. Creating an OCIR repository or
+pushing an image requires a separate explicit request and authorization through
+`oci-agent-push`.
+
 Invoke **`oci-agent-deploy`** with the same manifest and tag:
 
 ```text
@@ -207,12 +211,27 @@ release:
 * any existing same-named application or deployment state.
 
 If the plan is correct, explicitly authorize apply when the skill asks. The
-deploy skill handles four cases: first release creates the application and its
-deployment; an already active tag makes no change; a new tag is added and
-activated; and an inactive previous tag is activated as a rollback. See
-[oci-agent-deploy](../skills/oci-agent-deploy/SKILL.md#release-cases) for the
+deploy skill handles `First release`, `Already released`, `New version`, and
+`Return to a previous version` (rollback). It also reports
+`Creation in progress` for a deployment that needs more waiting and
+`Application creation in progress` for an application whose first deployment
+will be created after it becomes `ACTIVE` and passes configuration checks.
+`Failed deployment` reports the OCI error and stops. Only after you request
+a new deploy of that failed release and approve its replacement plan does
+`Replace failed deployment` delete the `FAILED` deployment and create a new
+one. See [oci-agent-deploy](../skills/oci-agent-deploy/SKILL.md#release-cases) for the
 full release rules. OCI creation is asynchronous: `CREATING` is a normal
 intermediate state, not proof of failure.
+
+The deploy wait timeout is 1800 seconds by default; use `--timeout-seconds`
+(`-TimeoutSeconds` in PowerShell) to set it. Exit 26 means OCI is still
+working: the script reports the OCID, state, and elapsed time, and did not
+change or delete anything else after the request. Ask to run deploy again to
+resume waiting. Do not delete or recreate because of a timeout. If creation
+fails with a node-pool capacity error, try again later, then request a new
+deploy. Replacement requires `--replace-failed` (`-ReplaceFailed` in
+PowerShell), an existing `FAILED` deployment, your request, and your approval
+of the plan.
 
 Expected outcome: application and deployment OCIDs. Retain the application OCID
 for the next step. Do not infer that a deployment is ready merely because the
@@ -316,9 +335,9 @@ For a new release of one selected agent, the conversation follows this shape:
 ```
 
 Never reuse a release tag for a different image. If any step fails, report the
-observed state and correct the specific issue before deciding whether to retry;
-do not delete OCI resources or overwrite a deployment as an automatic recovery
-action.
+observed state and correct the specific issue before deciding whether to retry.
+Never delete or recreate an application or a deployment, except a `FAILED`
+deployment on the user's explicit replacement request and approval of its plan.
 
 ## Windows workstations
 

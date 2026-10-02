@@ -66,7 +66,8 @@ it, and support a controlled recovery.
 | F6 | Hosted deployment and application lifecycle states: `CREATING`, `ACTIVE`, `UPDATING`, `INACTIVE`, `NEEDS_ATTENTION`, `FAILED`, `DELETING`, `DELETED`. | SDK models `HostedDeployment`, `HostedApplication`. |
 | F7 | Without `--wait-for-state`, the CLI prints pure JSON with `data` and, when present, `opc-work-request-id` (a displayed header). | `oci_cli/cli_util.py`, `DISPLAY_HEADERS`. |
 | F8 | `hosted-deployment delete --hosted-deployment-id … --force` exists; deletion runs as a work request (`DELETE_HOSTED_DEPLOYMENT` observed). | CLI help; work requests of 2026-10-01. |
-| F9 | `work-request list` accepts `--resource-id` and `--status`; `work-request-error list --work-request-id` returns code and message. | CLI help; observed output. |
+| F9 | `work-request list` requires `--compartment-id` and accepts `--resource-id`, `--status`, and `--all`; without `--all` the CLI warns that the list may be incomplete. `work-request-error list --work-request-id` returns code and message. Both print `{"data": {"items": [...]}}`. | CLI help; observed output (read-only, 2026-10-02). |
+| F10 | A failed OCI CLI request prints `ServiceError:` followed by a JSON object with `status` (integer), `code`, `message`, `opc-request-id`, `request_endpoint` (with OCIDs), and `timestamp`. A status must be read from that JSON, never searched as a substring of the whole text. A 404 has code `NotAuthorizedOrNotFound`, which also covers missing permissions. | Read-only `hosted-deployment get` on a non-existent OCID, 2026-10-02. |
 
 ### Assumptions, to confirm during implementation
 
@@ -97,6 +98,11 @@ creation, and the deletion in the replacement case.
    * `DELETED` or 404 after a deletion → deletion complete;
    * `CREATING`, `UPDATING`, `DELETING` → keep waiting;
    * any other state → stop with the state reported, exit 1.
+
+   The work request errors are read with `work-request list
+   --compartment-id … --resource-id … --status FAILED --all`, then
+   `work-request-error list --work-request-id … --all`, both parsed as
+   `data.items` (F9).
 3. **Timeout** set with `--timeout-seconds`, default **1800**. When it
    expires and the resource is still in progress, the script prints the
    resource OCID, its state, and the elapsed time, says that nothing was
@@ -105,7 +111,14 @@ creation, and the deletion in the replacement case.
 4. **Transient errors.** A failed `get` (for example HTTP 404 within the
    first minute after creation, 429, or 5xx) is retried, up to five
    consecutive failures, then the script stops with the last error, exit 1.
-5. **Progress.** One line per poll: resource kind, state, elapsed time. The
+   The HTTP status is the `status` field of the CLI `ServiceError` JSON
+   (F10). A failure without a readable status is not transient, and is never
+   treated as a completed deletion.
+5. **Failed requests.** When a create or delete request itself is rejected,
+   the script prints the `status`, `code`, and `message` of the
+   `ServiceError`, with runtime variable values masked, and exits 1. It never
+   prints the raw CLI output.
+6. **Progress.** One line per poll: resource kind, state, elapsed time. The
    line never contains secrets or runtime variable values.
 
 ### Release cases
@@ -115,7 +128,8 @@ deploy with "must be ACTIVE":
 
 | Case | Condition | Plan shows | `--apply` does |
 | --- | --- | --- | --- |
-| Creation in progress | Application or deployment `CREATING` | The resource, its state, how long since creation | Resumes the wait; no mutation |
+| Creation in progress | Deployment `CREATING` | The deployment, its state, how long since creation | Resumes the wait; no mutation |
+| Application creation in progress | Application `CREATING` (a first release that was interrupted) | The application, its state, how long since creation; then the deployment that will be created with the target tag | Waits for the application to become `ACTIVE`, runs the existing application checks, then creates the deployment and waits for `ACTIVE` |
 | Failed deployment | Deployment `FAILED`, without `--replace-failed` | The deployment OCID, the failure code and message, and how to request a replacement | Nothing; exit 20 |
 | Replace failed deployment | Deployment `FAILED`, with `--replace-failed` | The deployment to delete (OCID, failure reason), then the deployment to create (target tag); the endpoint is unchanged | Deletes the `FAILED` deployment, waits until it is gone, creates the new deployment, waits for `ACTIVE` |
 
@@ -134,6 +148,13 @@ Rules:
   runtime environment) still run before any mutation.
 * A failure during a first release leaves the application `ACTIVE` with a
   `FAILED` deployment; the next deploy request reports "Failed deployment".
+* "Application creation in progress" completes the first release that was
+  already requested: one explicit authorization covers the wait and the
+  deployment creation shown in the plan. If the application ends `FAILED`,
+  or its checks (profile, runtime environment) fail once it is `ACTIVE`, the
+  script stops without creating the deployment.
+* The timeout applies to each wait separately (application, deletion,
+  deployment).
 
 ### Exit codes
 
@@ -186,6 +207,15 @@ The fake `oci` gains scenarios that match the real CLI:
   command issued, the wait resumes;
 * `get` failing transiently (404 once, then 200): the wait continues; five
   consecutive failures: exit 1;
+* a `get` error whose text contains "404" or "5xx" only inside an OCID or
+  request id, with another real status (for example 401): not transient,
+  and never a completed deletion;
+* a rejected create or delete request: `status`, `code`, and `message`
+  printed, exit 1;
+* work request errors with the real shapes of F9; the fake `oci` rejects
+  `work-request list` without `--compartment-id`;
+* application `CREATING` on rerun: wait, checks, then deployment creation,
+  in this order; application ending `FAILED`: no deployment creation;
 * deployment `FAILED` without `--replace-failed`: exit 20, no mutation;
 * `--replace-failed` with `FAILED`: delete, wait for `DELETED`/404, create,
   wait for `ACTIVE`, in this order;

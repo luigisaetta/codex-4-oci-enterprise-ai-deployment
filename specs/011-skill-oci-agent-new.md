@@ -339,6 +339,22 @@ created, so no cleanup is needed beyond deleting the sample repository.
 * Whether the skill should offer to run the build at the end, or only suggest
   it as now.
 
+## Iteration 2: specification draft (experimental)
+
+Added 2026-10-02, kept minimal on purpose to learn how it is used.
+
+When no specification file is given, the skill copies
+`skills/oci-agent-new/assets/agent-spec.template.md` to `agent-spec.md` in the
+agent folder, fills in only what the first prompt states, and lists the rest
+under "Open questions". It writes the draft in the language of the
+developer's request and keeps the template's section titles in English. It
+stops for the developer's review: the developer
+edits the file by hand or asks for changes in the chat, and until approval the
+skill changes only `agent-spec.md`. After explicit approval it re-reads the
+file and uses it as the specification file input. The rest of the
+workflow is unchanged. No script, exit code, or test changes; edge cases are
+deliberately not handled yet.
+
 ## Verification record
 
 ### 2026-10-01 — Step 1 local checks

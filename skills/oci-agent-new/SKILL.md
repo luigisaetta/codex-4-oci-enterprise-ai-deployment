@@ -90,6 +90,19 @@ the agent behavior, endpoint, or model identifier.
 | Functional check | One request body and expected status; expected JSON only for deterministic results. | Derive from behavior and endpoint; show for confirmation. |
 | Runtime variables | Only those named in inputs; source `value`, `from_env`, or `vault_secret_id`. | None. |
 
+## Specification draft
+
+When the developer gives no specification file, copy
+[the specification template](assets/agent-spec.template.md) to `agent-spec.md`
+in the workspace, replace `{{AGENT_NAME}}`, and fill in only what the prompt
+states. List everything else under "Open questions"; never invent behavior.
+Draft the specification in the language of the developer's request; keep the
+section titles of the template in English.
+Stop and ask the developer to review the file. The developer may edit it by
+hand or ask for changes in the chat; until approval, change only
+`agent-spec.md` and generate no other file. After explicit approval, read
+`agent-spec.md` again and use it as the specification file.
+
 ## Requests outside the first iteration
 
 For GET business endpoints, multiple endpoints, streaming, file uploads, OCI
@@ -103,7 +116,9 @@ and C8 still apply. For OCI service calls, include
 ## Workflow
 
 1. Perform the target platform check.
-2. Read the prompt and optional specification file.
+2. Read the prompt and optional specification file. Without a specification
+   file, first write the specification draft below and continue only after
+   the developer approves it.
 3. Report requests outside the first iteration and obtain the decision above.
 4. Collect the input table's values; ask for missing values together. Set
    `AGENT_NAME` from the inputs. Do not compute the default package or

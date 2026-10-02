@@ -1,5 +1,5 @@
 interface:
   display_name: "OCI Agent New"
-  short_description: "Author a new Hosted Application agent repository"
+  short_description: "Draft the spec and create a new Hosted Application agent"
 policy:
   allow_implicit_invocation: true

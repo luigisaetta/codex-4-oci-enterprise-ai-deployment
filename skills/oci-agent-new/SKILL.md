@@ -1,6 +1,6 @@
 ---
 name: oci-agent-new
-description: Author a new agent repository for OCI Generative AI Hosted Applications from a prompt and an optional Markdown specification file. Runs no build, push, deploy, Docker, or OCI command. First iteration (work in progress).
+description: Create a new AI agent for OCI Generative AI Hosted Applications (Hosted Deployments). Use when asked to design, specify, or create a new OCI agent, including a request for a first draft of its specification. Drafts agent-spec.md from a short request, then, after approval, writes agent.yaml, Dockerfile, and a FastAPI agent. Runs no build, push, deploy, Docker, or OCI command.
 ---
 
 # OCI Agent New

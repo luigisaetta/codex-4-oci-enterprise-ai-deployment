@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-02
+
+First tagged release. See the [release notes](docs/releases/v0.5.0.md).
+
 * 2026-10-02: Rewrite the README around the five skills, with Mermaid
   diagrams of the workflow and the release lifecycle, example requests, and a
   documentation map; title it "Codex Skills for OCI Enterprise AI Deployment"
@@ -18,6 +22,13 @@
   `FAILED` Hosted Deployment; keep its deletion and new creation ordered, and
   document the recovery path in the deploy skill and guides.
 
+* 2026-10-01: Add the `oci-agent-new` skill and its offline helper
+  `scripts/new_agent.py`: from a prompt and an optional specification file,
+  create the files the lifecycle skills need (`agent.yaml`, `Dockerfile`,
+  `.dockerignore`, `.gitignore`, `requirements.txt`, and a FastAPI agent
+  package), check the tenancy file without printing values, and never
+  overwrite existing files.
+
 * 2026-10-01: Remove the binary-only `pip` constraint from the Dockerfile
   template and the `hello_world` image: `pip install --prefer-binary` still
   prefers wheels but also installs pure-Python source distributions.
@@ -31,8 +42,7 @@
   access modes.
 
 * 2026-09-30: Add Spec 010 `public-idcs` inbound-authentication documentation
-  for deployment, verification, and protected-agent calls; live acceptance
-  remains pending confidential-application credentials.
+  for deployment, verification, and protected-agent calls.
 
 * 2026-09-30: Add a plain-language Quickstart for publishing an agent, releasing
   new versions, and rolling back, and document new versions and rollback in

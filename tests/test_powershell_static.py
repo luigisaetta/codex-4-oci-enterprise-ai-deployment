@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-10-02
 License: MIT
 Description: Statically enforce safe PowerShell interpreter and config handling.
 """
@@ -53,14 +53,22 @@ def test_powershell_scripts_import_modules_for_exported_function_calls() -> None
 
 
 def test_deploy_hosted_application_release_safety() -> None:
-    """The deployer supports every release case without deleting resources."""
+    """Only the explicit failed-deployment case can delete a deployment."""
     content = (SCRIPTS / "deploy_hosted_application.ps1").read_text(encoding="utf-8")
-    assert re.search(r"\bdelete\b", content, re.IGNORECASE) is None
+    replacement = content.split("'Replace failed deployment' {", 1)[1].split(
+        "'Already released' {", 1
+    )[0]
+    assert "'delete', '--hosted-deployment-id', $deploymentId, '--force'" in replacement
+    assert content.count("'delete'") == 1
+    assert "'hosted-application', 'delete'" not in content
     for case in (
         "First release",
         "Already released",
         "New version",
         "Return to a previous version",
+        "Creation in progress",
+        "Failed deployment",
+        "Replace failed deployment",
     ):
         assert case in content
     assert "add-artifact-create-single-docker-artifact-details" in content

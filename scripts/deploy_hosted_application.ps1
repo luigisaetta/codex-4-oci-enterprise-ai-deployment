@@ -3,8 +3,14 @@
 Plans or, with -Apply, releases a manifest-defined OCI Generative AI Hosted Application image.
 
 .DESCRIPTION
-Without -Apply it performs OCI reads only. With -Apply it creates missing resources, or adds and
-activates artifacts in place. It never deletes or replaces resources.
+Prerequisites: PowerShell 7.4+, OCI CLI authentication, and Python with PyYAML.
+Inputs: -Manifest PATH -Tag MAJOR.MINOR.PATCH; -TimeoutSeconds defaults to 1800.
+-ReplaceFailed selects only a FAILED deployment; -Apply authorizes mutations.
+Without -Apply it performs OCI reads only. With -Apply it creates missing resources, adds and
+activates artifacts in place, or explicitly replaces a FAILED deployment.
+OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
+Usage: deploy_hosted_application.ps1 [-Plan|-Apply] -Manifest PATH -Tag TAG
+  [-TimeoutSeconds SECONDS] [-ReplaceFailed].
 #>
 [CmdletBinding()]
 param(
@@ -12,6 +18,8 @@ param(
     [string]$Tag,
     [switch]$Plan,
     [switch]$Apply,
+    [string]$TimeoutSeconds = "1800",
+    [switch]$ReplaceFailed,
     [switch]$Help
 )
 
@@ -21,7 +29,8 @@ $exitInvalidInput = 64
 $exitExistingResource = 20
 $waitSeconds = 1200
 $artifactLimit = 20
-$usage = "Usage: $PSCommandPath [-Plan|-Apply] -Manifest PATH -Tag MAJOR.MINOR.PATCH"
+$pollInterval = if ($env:OCI_DEPLOY_POLL_INTERVAL) { $env:OCI_DEPLOY_POLL_INTERVAL } else { "30" }
+$usage = "Usage: $PSCommandPath [-Plan|-Apply] -Manifest PATH -Tag MAJOR.MINOR.PATCH [-TimeoutSeconds SECONDS] [-ReplaceFailed]"
 
 # Print command-line usage.
 function Show-Usage {
@@ -40,9 +49,9 @@ function Fail {
 function Invoke-Oci {
     param([string[]]$Arguments)
 
-    $output = & oci @Arguments
+    $output = & oci @Arguments 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Fail 1 "OCI CLI command failed (exit $LASTEXITCODE): oci $($Arguments -join ' ')"
+        Fail 1 "OCI CLI command failed (exit $LASTEXITCODE). Check the OCI operation before retrying."
     }
     return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
 }
@@ -57,41 +66,6 @@ function Require-EnvironmentVariable {
     }
 }
 
-# Extract exactly one OCID with the requested prefix from OCI JSON output.
-function Get-SingleOcid {
-    param([string]$Json, [string]$Prefix)
-
-    $matches = [System.Collections.Generic.HashSet[string]]::new()
-    function Find-OcidValues {
-        param($Value)
-
-        if ($null -eq $Value) {
-            return
-        }
-        if ($Value -is [string]) {
-            if ($Value.StartsWith($Prefix)) {
-                [void]$matches.Add($Value)
-            }
-            return
-        }
-        if ($Value -is [System.Collections.IEnumerable]) {
-            foreach ($item in $Value) {
-                Find-OcidValues $item
-            }
-            return
-        }
-        foreach ($property in $Value.PSObject.Properties) {
-            Find-OcidValues $property.Value
-        }
-    }
-
-    Find-OcidValues ($Json | ConvertFrom-Json)
-    if ($matches.Count -ne 1) {
-        Fail 1 "Expected exactly one matching OCID; found $($matches.Count)."
-    }
-    return ($matches | Select-Object -First 1)
-}
-
 # Read lifecycle and artifact information from the selected deployment.
 function Read-DeploymentDetails {
     $deploymentJson = Invoke-Oci @(
@@ -100,6 +74,7 @@ function Read-DeploymentDetails {
     )
     $deploymentData = ($deploymentJson | ConvertFrom-Json).data
     $script:deploymentState = $deploymentData.'lifecycle-state'
+    $script:deploymentAge = Get-ResourceAge $deploymentData
     $script:activeTag = if ($deploymentData.'active-artifact') {
         $deploymentData.'active-artifact'.tag
     } else {
@@ -116,6 +91,15 @@ function Read-DeploymentDetails {
 }
 
 # Print the release case and the OCI state that selected it.
+function Get-ResourceAge {
+    param($Data)
+    try {
+        if (-not $Data.'time-created') { return 'unknown' }
+        $created = [DateTimeOffset]::Parse([string]$Data.'time-created')
+        return "$([Math]::Max(0, [int]([DateTimeOffset]::UtcNow - $created).TotalSeconds))s"
+    } catch { return 'unknown' }
+}
+
 function Write-Plan {
     $applicationAction = if ($applicationId) { 'reuse' } else { 'create' }
     $mode = if ($Apply) { 'apply' } else { 'plan' }
@@ -132,6 +116,18 @@ function Write-Plan {
         Write-Output 'Access: public unauthenticated endpoint.'
     }
     Write-Output "Release case: $releaseCase"
+    if ($releaseCase -eq 'Creation in progress') {
+        Write-Output "${resourceKind}: $resourceId (CREATING; age $resourceAge)."
+    } elseif ($releaseCase -in @('Failed deployment', 'Replace failed deployment')) {
+        Write-Output "Failed Hosted Deployment: $deploymentId"
+        foreach ($line in $failureReason) { Write-Output $line }
+        if ($releaseCase -eq 'Failed deployment') {
+            Write-Output 'Request replacement with --replace-failed (Bash) or -ReplaceFailed (PowerShell).'
+        } else {
+            Write-Output "Delete FAILED Hosted Deployment: $deploymentId"
+            Write-Output "Create Hosted Deployment with tag: $Tag"
+        }
+    }
     Write-Output "Current active tag: $activeTag"
     Write-Output "Target tag: $Tag"
     Write-Output "Artifacts: $artifactCount/$artifactLimit"
@@ -169,7 +165,19 @@ function Activate-Artifact {
     }
 }
 
-# Create the missing Hosted Application and report its identifier.
+function Resolve-MutationId {
+    param([string]$Kind, [string]$Response)
+    $id = Get-MutationId -Response $Response
+    if (-not $id) {
+        $id = Find-MutatedResource -Kind $Kind -Region $region -CompartmentId $compartmentId `
+            -ApplicationName $applicationName -ApplicationId $applicationId
+        if (-not $id) {
+            Fail 1 "$Kind create/delete response had no data.id and lookup found no unique resource. Check OCI before retrying."
+        }
+    }
+    return $id
+}
+
 function New-HostedApplication {
     Write-Output "Creating Hosted Application with $deployProfile and Oracle-managed networking."
     $applicationOutput = Invoke-Oci @(
@@ -177,14 +185,16 @@ function New-HostedApplication {
         '--display-name', $applicationName, '--compartment-id', $compartmentId, '--inbound-auth-config',
         $inboundAuthJson, '--networking-config',
         '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":' +
-        '{"networkMode":"MANAGED"}}', '--environment-variables', $environmentJson, '--wait-for-state',
-        'SUCCEEDED', '--max-wait-seconds', $waitSeconds
+        '{"networkMode":"MANAGED"}}', '--environment-variables', $environmentJson
     )
-    $script:applicationId = Get-SingleOcid $applicationOutput 'ocid1.generativeaihostedapplication.'
+    $script:applicationId = Resolve-MutationId 'Hosted Application' $applicationOutput
+    $script:applicationWorkRequestId = Get-MutationWorkRequestId -Response $applicationOutput
     Write-Output "Created Hosted Application: $applicationId"
+    $result = Wait-HostedResource -Kind 'Hosted Application' -ResourceId $applicationId `
+        -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+    if ($result -ne 0) { exit $result }
 }
 
-# Create the first deployment after creating or reusing its Hosted Application.
 function New-FirstRelease {
     if (-not $applicationId) {
         New-HostedApplication
@@ -196,11 +206,14 @@ function New-FirstRelease {
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment',
         'create-hosted-deployment-single-docker-artifact', '--hosted-application-id', $applicationId,
         '--active-artifact-container-uri', $containerUri, '--active-artifact-tag', $Tag,
-        '--compartment-id', $compartmentId, '--wait-for-state', 'SUCCEEDED', '--max-wait-seconds',
-        $waitSeconds
+        '--compartment-id', $compartmentId
     )
-    $script:deploymentId = Get-SingleOcid $deploymentOutput 'ocid1.generativeaihosteddeployment.'
+    $script:deploymentId = Resolve-MutationId 'Hosted Deployment' $deploymentOutput
+    $script:deploymentWorkRequestId = Get-MutationWorkRequestId -Response $deploymentOutput
     Write-Output "Created Hosted Deployment: $deploymentId"
+    $result = Wait-HostedResource -Kind 'Hosted Deployment' -ResourceId $deploymentId `
+        -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+    if ($result -ne 0) { exit $result }
 }
 
 if ($Help) {
@@ -209,6 +222,10 @@ if ($Help) {
 }
 if ($PSVersionTable.PSVersion -lt [version]'7.4') {
     Fail $exitInvalidInput "PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion)."
+}
+if ($TimeoutSeconds -notmatch '^[0-9]+$' -or $TimeoutSeconds -match '^0+$' -or `
+    $pollInterval -notmatch '^[0-9]+$' -or $pollInterval -match '^0+$') {
+    Fail $exitInvalidInput 'Timeout and polling interval must be positive integers.'
 }
 if ($Plan -and $Apply) {
     Fail $exitInvalidInput 'Choose -Plan or -Apply, not both.'
@@ -226,6 +243,7 @@ if ($Tag -notmatch $versionPattern) {
 $scriptDir = Split-Path -Parent $PSCommandPath
 Import-Module (Join-Path $scriptDir 'lib/AgentManifest.psm1') -Force
 Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
+Import-Module (Join-Path $scriptDir 'lib/DeployWait.psm1') -Force
 if (-not (Resolve-AgentPython)) {
     Fail 1 (
         'Python with PyYAML is required. Activate the Conda environment ' +
@@ -267,6 +285,7 @@ if ($deployProfile -eq 'public-idcs') {
 }
 $environmentJson = Get-ManifestRuntimeEnvironment -Manifest $Manifest -Format oci-json
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$env:OCI_DEPLOY_RUNTIME_JSON = $environmentJson
 $environmentReport = Get-ManifestRuntimeEnvironment -Manifest $Manifest -Format report
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $registry = (& (Join-Path $scriptDir 'resolve_ocir_registry.ps1') | Out-String).Trim()
@@ -312,19 +331,24 @@ if ($applicationCount -eq '1') {
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'get',
         '--hosted-application-id', $applicationId
     )
-    $applicationState = ($applicationJson | ConvertFrom-Json).data.'lifecycle-state'
-    if ($applicationState -ne 'ACTIVE') {
+    $applicationData = ($applicationJson | ConvertFrom-Json).data
+    $applicationState = $applicationData.'lifecycle-state'
+    $applicationAge = Get-ResourceAge $applicationData
+    if ($ReplaceFailed -and $applicationState -ne 'ACTIVE') {
+        Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
+    }
+    if ($applicationState -notin @('ACTIVE', 'CREATING')) {
         Fail $exitExistingResource "Existing Hosted Application must be ACTIVE to reuse; observed: $applicationState."
     }
-    $applicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
-        inbound-auth-matches --manifest $Manifest | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    if ($applicationState -eq 'ACTIVE') { $applicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+        inbound-auth-matches --manifest $Manifest | Out-Null }
+    if ($applicationState -eq 'ACTIVE' -and $LASTEXITCODE -ne 0) {
         Fail $exitExistingResource (
             'The existing Hosted Application uses a different inbound authentication; ' +
             'changing authentication is not supported.'
         )
     }
-    if (-not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $applicationJson)) {
+    if ($applicationState -eq 'ACTIVE' -and -not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $applicationJson)) {
         Fail $exitExistingResource 'Existing Hosted Application runtime environment differs from the manifest.'
     }
     $deploymentListArgs = @(
@@ -343,30 +367,51 @@ if ($applicationCount -eq '1') {
             '--query', "($nonDeletedQuery)[0].id", '--raw-output'
         ))
         Read-DeploymentDetails
-        if ($deploymentState -ne 'ACTIVE') {
+        if ($ReplaceFailed -and $deploymentState -ne 'FAILED') {
+            Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
+        }
+        if ($deploymentState -notin @('ACTIVE', 'CREATING', 'FAILED')) {
             $message = "Hosted Deployment must be ACTIVE; observed: $deploymentState. "
             Fail $exitExistingResource ($message + 'Check it and retry.')
         }
-        if ($targetStatus -eq 'FAILED' -or $targetStatus -eq 'UPDATING') {
+        if ($deploymentState -eq 'CREATING') {
+            $releaseCase = 'Creation in progress'
+        } elseif ($deploymentState -eq 'FAILED') {
+            $releaseCase = if ($ReplaceFailed) { 'Replace failed deployment' } else { 'Failed deployment' }
+            $failureReason = @(Get-HostedWorkRequestErrors -Region $region -ResourceId $deploymentId)
+        } elseif ($targetStatus -eq 'FAILED' -or $targetStatus -eq 'UPDATING') {
             $message = "Target artifact tag $Tag is $targetStatus. Check it and retry; "
             Fail $exitExistingResource ($message + 'no changes were made.')
         }
-        if ($activeTag -eq $Tag) {
+        if ($deploymentState -eq 'ACTIVE' -and $activeTag -eq $Tag) {
             $releaseCase = 'Already released'
-        } elseif (-not $targetStatus) {
+        } elseif ($deploymentState -eq 'ACTIVE' -and -not $targetStatus) {
             if ($artifactCount -ge $artifactLimit) {
                 $message = "Adding tag $Tag exceeds the artifact limit of $artifactLimit; "
                 Fail $exitExistingResource ($message + 'no changes were made.')
             }
             $releaseCase = 'New version'
-        } elseif ($targetStatus -eq 'INACTIVE') {
+        } elseif ($deploymentState -eq 'ACTIVE' -and $targetStatus -eq 'INACTIVE') {
             $releaseCase = 'Return to a previous version'
-        } else {
+        } elseif ($deploymentState -eq 'ACTIVE') {
             Fail $exitExistingResource "Target artifact tag $Tag has unsupported status: $targetStatus."
         }
     }
 }
 
+if ($ReplaceFailed -and $releaseCase -ne 'Replace failed deployment') {
+    Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
+}
+if ($applicationState -eq 'CREATING') {
+    $releaseCase = 'Creation in progress'
+    $resourceKind = 'Hosted Application'
+    $resourceId = $applicationId
+    $resourceAge = $applicationAge
+} elseif ($releaseCase -eq 'Creation in progress') {
+    $resourceKind = 'Hosted Deployment'
+    $resourceId = $deploymentId
+    $resourceAge = $deploymentAge
+}
 Write-Plan
 if (-not $Apply) {
     Write-Output 'Plan complete. Re-run with -Apply only after explicit authorization.'
@@ -374,6 +419,32 @@ if (-not $Apply) {
 }
 
 switch ($releaseCase) {
+    'Creation in progress' {
+        $result = Wait-HostedResource -Kind $resourceKind -ResourceId $resourceId `
+            -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+        if ($result -ne 0) { exit $result }
+    }
+    'Failed deployment' { exit $exitExistingResource }
+    'Replace failed deployment' {
+        $deleteOutput = Invoke-Oci @(
+            '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment',
+            'delete', '--hosted-deployment-id', $deploymentId, '--force'
+        )
+        $deletedId = Get-MutationId -Response $deleteOutput
+        $deletionWorkRequestId = Get-MutationWorkRequestId -Response $deleteOutput
+        if (-not $deletedId) {
+            $deletedId = Find-MutatedResource -Kind 'Hosted Deployment' -Region $region `
+                -CompartmentId $compartmentId -ApplicationName $applicationName `
+                -ApplicationId $applicationId
+        }
+        if ($deletedId -and $deletedId -ne $deploymentId) {
+            Fail 1 'Delete response identifies a different deployment.'
+        }
+        $result = Wait-HostedResource -Kind 'Hosted Deployment' -ResourceId $deploymentId `
+            -Operation delete -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+        if ($result -ne 0) { exit $result }
+        New-FirstRelease
+    }
     'Already released' {
         Write-Output "Tag $Tag is already active; no changes were made."
     }

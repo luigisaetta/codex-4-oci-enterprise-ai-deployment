@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-30
+Date last modified: 2026-10-02
 License: MIT
 Description: Exercise Hosted Application release cases with a scenario-driven OCI CLI.
 """
@@ -83,6 +83,10 @@ arguments = sys.argv[1:]
 with open(os.environ["OCI_RELEASE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps(arguments) + "\\n")
 
+def save():
+    with open(os.environ["OCI_RELEASE_SCENARIO"], "w", encoding="utf-8") as file:
+        json.dump(scenario, file)
+
 def output(value):
     if isinstance(value, (dict, list)):
         print(json.dumps(value))
@@ -97,16 +101,36 @@ elif "iam" in arguments and "compartment" in arguments:
 elif "list-hosted-applications" in arguments:
     query = arguments[arguments.index("--query") + 1]
     application_id = "ocid1.generativeaihostedapplication.test"
-    output(str(scenario["application_count"]) if "length(" in query else application_id)
+    if "length(" in query:
+        created = scenario.get("created_application")
+        if scenario.get("lookup_missing"):
+            created = False
+        count = (
+            1
+            if created
+            else scenario["application_count"]
+        )
+        output(str(count))
+    else:
+        selected = (
+            "ocid1.generativeaihostedapplication.created"
+            if scenario.get("created_application") else application_id
+        )
+        output(selected)
 elif "hosted-application" in arguments and "get" in arguments:
     query = arguments[arguments.index("--query") + 1] if "--query" in arguments else ""
     if "--raw-output" in arguments:
         output("ACTIVE" if "lifecycle-state" in query else "ocid1.compartment.test")
     else:
+        gets = scenario.setdefault("application_get_count", 0)
+        scenario["application_get_count"] = gets + 1
+        save()
+        states = scenario.get("application_states", ["ACTIVE"])
         output(
             {
                 "data": {
-                    "lifecycle-state": "ACTIVE",
+                    "lifecycle-state": states[min(gets, len(states) - 1)],
+                    "time-created": "2026-10-02T00:00:00Z",
                     "environment-variables": scenario["runtime"],
                     "inbound-auth-config": scenario["inbound_auth"],
                 }
@@ -115,28 +139,90 @@ elif "hosted-application" in arguments and "get" in arguments:
 elif "list-hosted-deployments" in arguments:
     query = arguments[arguments.index("--query") + 1]
     deployment_id = "ocid1.generativeaihosteddeployment.test"
-    output(str(scenario["deployment_count"]) if "length(" in query else deployment_id)
+    if "length(" in query:
+        count = (
+            1 if scenario.get("created_deployment")
+            else scenario["deployment_count"]
+        )
+        output(str(count))
+    else:
+        selected = (
+            "ocid1.generativeaihosteddeployment.created"
+            if scenario.get("created_deployment") else deployment_id
+        )
+        output(selected)
 elif "hosted-deployment" in arguments and "get" in arguments:
     gets = scenario.setdefault("get_count", 0)
     scenario["get_count"] = gets + 1
-    with open(os.environ["OCI_RELEASE_SCENARIO"], "w", encoding="utf-8") as file:
-        json.dump(scenario, file)
+    save()
+    failures = scenario.get("get_failures", [])
+    if gets < len(failures) and failures[gets]:
+        print("HTTP " + str(failures[gets]), file=sys.stderr)
+        sys.exit(1)
+    if scenario.get("created_after_delete"):
+        states = ["ACTIVE"]
+    elif scenario.get("deleting"):
+        states = scenario.get("deletion_states", ["DELETING", "DELETED"])
+    else:
+        states = scenario.get("deployment_states", [scenario["deployment_state"]])
+    state = states[min(gets, len(states) - 1)]
+    if state == "404":
+        print("HTTP 404", file=sys.stderr)
+        sys.exit(1)
     active = scenario["target"]
     if not gets or not scenario["activation_succeeds"]:
         active = scenario["active"]
     output(
         {
             "data": {
-                "lifecycle-state": scenario["deployment_state"],
+                "lifecycle-state": state,
+                "time-created": "2026-10-02T00:00:00Z",
                 "active-artifact": {"tag": active},
                 "artifacts": scenario["artifacts"],
             }
         }
     )
 elif "hosted-application" in arguments and "create" in arguments:
-    output({"data": {"id": "ocid1.generativeaihostedapplication.created"}})
+    scenario["created_application"] = True
+    save()
+    value = {"data": {"id": "ocid1.generativeaihostedapplication.created"}}
+    if scenario.get("no_id_output"):
+        value["data"] = {}
+    if scenario.get("work_request_header"):
+        value["opc-work-request-id"] = "ocid1.workrequest.application"
+    if scenario.get("f2_output"):
+        print("Encountered error while waiting for work request")
+    output(value)
 elif "create-hosted-deployment-single-docker-artifact" in arguments:
-    output({"data": {"id": "ocid1.generativeaihosteddeployment.created"}})
+    if scenario.get("deleting"):
+        scenario["created_after_delete"] = True
+        scenario["get_count"] = 0
+        save()
+    scenario["created_deployment"] = True
+    save()
+    value = {"data": {"id": "ocid1.generativeaihosteddeployment.created"}}
+    if scenario.get("no_id_output"):
+        value["data"] = {}
+    if scenario.get("work_request_header"):
+        value["opc-work-request-id"] = "ocid1.workrequest.deployment"
+    if scenario.get("f2_output"):
+        print("Encountered error while waiting for work request")
+    output(value)
+elif "hosted-deployment" in arguments and "delete" in arguments:
+    scenario["deleting"] = True
+    scenario["get_count"] = 0
+    save()
+    data = {} if scenario.get("delete_no_id") else {
+        "id": "ocid1.generativeaihosteddeployment.test"
+    }
+    output({"data": data})
+elif "work-request-error" in arguments and "list" in arguments:
+    message = "Node pool capacity unavailable"
+    if scenario.get("work_error_echo_runtime"):
+        message += " " + json.loads(os.environ["OCI_DEPLOY_RUNTIME_JSON"])[0]["value"]
+    output({"data": [{"code": "OutOfCapacity", "message": message}]})
+elif "work-request" in arguments and "list" in arguments:
+    output({"data": [{"id": "ocid1.workrequest.failed"}]})
 elif "update" in arguments:
     if "--force" not in arguments:
         print("Abort", file=sys.stderr)
@@ -197,6 +283,92 @@ def scenario_for(case: str) -> dict[str, object]:
             "activation_succeeds": False,
         },
         "update_command_fails": {"update_command_fails": True},
+        "application_creating": {
+            "application_states": ["CREATING", "CREATING", "ACTIVE"],
+            "deployment_count": 0,
+        },
+        "application_create_wait": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "application_states": ["CREATING", "ACTIVE"],
+        },
+        "transient_500": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "ACTIVE"],
+            "get_failures": [0, 500],
+        },
+        "inactive_wait": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "INACTIVE"],
+        },
+        "creating_then_active": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "CREATING", "ACTIVE"],
+        },
+        "creating_then_failed": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "FAILED"],
+        },
+        "creation_in_progress": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "CREATING", "ACTIVE"],
+        },
+        "failed_deployment": {"deployment_state": "FAILED"},
+        "transient_404": {
+            "deployment_state": "CREATING",
+            "deployment_states": ["CREATING", "ACTIVE"],
+            "get_failures": [0, 404],
+        },
+        "five_429": {"deployment_state": "CREATING", "get_failures": [0] + [429] * 5},
+        "deletion_failed": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING", "FAILED"],
+        },
+        "deletion_timeout": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING"],
+        },
+        "replacement": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING", "DELETED"],
+        },
+        "replacement_404": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING", "404"],
+        },
+        "f2_output": {"application_count": 0, "deployment_count": 0, "f2_output": True},
+        "creation_timeout": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "deployment_states": ["CREATING"],
+        },
+        "secret_failure": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "deployment_states": ["CREATING", "FAILED"],
+            "work_error_echo_runtime": True,
+        },
+        "no_id_missing": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "no_id_output": True,
+            "lookup_missing": True,
+        },
+        "delete_no_id": {
+            "deployment_state": "FAILED",
+            "deletion_states": ["DELETING", "DELETED"],
+            "delete_no_id": True,
+        },
+        "no_id_output": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "no_id_output": True,
+        },
+        "header_output": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "work_request_header": True,
+        },
     }
     scenario.update(updates.get(case, {}))
     if case == "rollback":
@@ -238,12 +410,16 @@ def profile_for_case(case: str) -> str:
     return "public-idcs" if case in idcs_cases else "public-noauth"
 
 
+# The scenario runner keeps all invocation inputs explicit for each test.
+# pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
 def run_release(
     tmp_path: Path,
     case: str,
     apply: bool,
     runner: tuple[Path, list[str]],
     tag: str | None = None,
+    extra_options: list[str] | None = None,
+    runtime_value: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run the release script with the selected fake OCI scenario.
 
@@ -253,6 +429,8 @@ def run_release(
         apply: Whether to use apply mode.
         runner: Script path and executable command used to run it.
         tag: Optional release tag to validate or deploy.
+        extra_options: Additional script options.
+        runtime_value: Optional fixture runtime variable value.
 
     Returns:
         Captured script process result.
@@ -271,13 +449,25 @@ def run_release(
         OCIR_TENANCY_NAMESPACE="namespace",
         OCI_RELEASE_SCENARIO=str(scenario_path),
         OCI_RELEASE_LOG=str(log_path),
+        OCI_DEPLOY_POLL_INTERVAL="1",
         PATH=f"{fake_bin}{os.pathsep}{environment['PATH']}",
     )
     target_tag = tag or "1.0.1"
     if tag is None and case == "already_released":
         target_tag = "1.0.0"
     script, command = runner
-    manifest = str(write_manifest(tmp_path / "agent", profile_for_case(case)))
+    manifest_path = write_manifest(tmp_path / "agent", profile_for_case(case))
+    if runtime_value:
+        manifest_path.write_text(
+            manifest_path.read_text(encoding="utf-8").replace(
+                "verify: []",
+                "runtime:\n  env:\n"
+                f"    - {{name: MY_VALUE, value: {runtime_value}}}\n"
+                "verify: []",
+            ),
+            encoding="utf-8",
+        )
+    manifest = str(manifest_path)
     options = [
         "-Apply" if apply else "-Plan",
         "-Manifest",
@@ -289,6 +479,8 @@ def run_release(
         options[0] = "--apply" if apply else "--plan"
         options[1] = "--manifest"
         options[3] = "--tag"
+    if extra_options:
+        options.extend(extra_options)
     result = subprocess.run(
         [*command, str(script), *options],
         capture_output=True,

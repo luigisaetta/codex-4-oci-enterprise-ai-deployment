@@ -5,27 +5,33 @@
 # Prerequisites: Bash 3.2+, OCI CLI authentication, and Python with PyYAML.
 # Tenancy settings are read from OCI_AGENT_ENV_FILE (default: <tool home>/.env)
 # or from the environment.
-# Inputs: --manifest PATH --tag MAJOR.MINOR.PATCH; --apply authorizes mutations.
+# Inputs: --manifest PATH --tag MAJOR.MINOR.PATCH; --timeout-seconds 1800 by default;
+# --replace-failed selects only a FAILED deployment; --apply authorizes mutations.
 # Side effects: plans read OCI only. Applies create missing resources, or add and
-# activate artifacts in place. It never deletes or replaces resources.
+# activate artifacts in place, or explicitly replace a FAILED deployment.
+# OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
 # Exit codes: 0 success, 1 OCI or tool failure, 20 state requiring review,
-# 64 invalid input, and 65 when the OCI region was not found.
+# 26 still in progress, 64 invalid input, 65 OCI region not found.
 
 set -euo pipefail
 
 readonly EXIT_INVALID_INPUT=64
 readonly EXIT_EXISTING_RESOURCE=20
 readonly WAIT_SECONDS=1200
+timeout_seconds=1800
+poll_interval="${OCI_DEPLOY_POLL_INTERVAL:-30}"
+replace_failed=false
 readonly ARTIFACT_LIMIT=20
 apply_changes=false
 manifest=""
 tag=""
 script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 . "$script_directory/lib/tool_env.sh"
+. "$script_directory/lib/deploy_wait.sh"
 
 # Print command-line usage.
 usage() {
-  printf 'Usage: %s [--plan|--apply] --manifest PATH --tag MAJOR.MINOR.PATCH\n' "$0"
+  printf 'Usage: %s [--plan|--apply] --manifest PATH --tag MAJOR.MINOR.PATCH [--timeout-seconds SECONDS] [--replace-failed]\n' "$0"
 }
 
 # Stop when a required setting is absent.
@@ -36,35 +42,6 @@ require_environment_variable() {
     printf 'Missing required environment variable: %s\n' "$variable_name" >&2
     exit "$EXIT_INVALID_INPUT"
   fi
-}
-
-# Extract exactly one OCID with the requested prefix from OCI JSON output.
-extract_expected_ocid() {
-  local expected_prefix="$1"
-
-  "$OCI_AGENT_PYTHON" -c '
-import json
-import sys
-
-prefix = sys.argv[1]
-matches = []
-
-def walk(value):
-    if isinstance(value, dict):
-        for nested in value.values():
-            walk(nested)
-    elif isinstance(value, list):
-        for nested in value:
-            walk(nested)
-    elif isinstance(value, str) and value.startswith(prefix):
-        matches.append(value)
-
-walk(json.load(sys.stdin))
-matches = sorted(set(matches))
-if len(matches) != 1:
-    raise SystemExit("Expected exactly one matching OCID; found {}.".format(len(matches)))
-print(matches[0])
-' "$expected_prefix"
 }
 
 # Read lifecycle and artifact information from the selected deployment.
@@ -89,11 +66,19 @@ print(data.get("lifecycle-state", ""))
 print(active.get("tag", ""))
 print(len(data.get("artifacts", [])))
 print(status)
-' "$container_uri" "$tag")"
+from datetime import datetime, timezone
+created = data.get("time-created", "")
+try:
+    age = max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(created.replace("Z", "+00:00"))).total_seconds()))
+    print("{}s".format(age))
+except (ValueError, TypeError):
+    print("unknown")
+'  "$container_uri" "$tag")"
   deployment_state="$(printf '%s\n' "$deployment_details" | sed -n '1p')"
   active_tag="$(printf '%s\n' "$deployment_details" | sed -n '2p')"
   artifact_count="$(printf '%s\n' "$deployment_details" | sed -n '3p')"
   target_status="$(printf '%s\n' "$deployment_details" | sed -n '4p')"
+  deployment_age="$(printf '%s\n' "$deployment_details" | sed -n '5p')"
 }
 
 # Print the release case and the OCI state that selected it.
@@ -118,6 +103,16 @@ print_plan() {
     printf '%s\n' 'Access: public unauthenticated endpoint.'
   fi
   printf 'Release case: %s\n' "$release_case"
+  if [[ "$release_case" == 'Creation in progress' ]]; then
+    printf '%s: %s (CREATING; age %s).\n' "$resource_kind" "$resource_id" "$resource_age"
+  elif [[ "$release_case" == 'Failed deployment' || "$release_case" == 'Replace failed deployment' ]]; then
+    printf 'Failed Hosted Deployment: %s\n%s\n' "$deployment_id" "$failure_reason"
+    if [[ "$release_case" == 'Failed deployment' ]]; then
+      printf 'Request replacement with --replace-failed (Bash) or -ReplaceFailed (PowerShell).\n'
+    else
+      printf 'Delete FAILED Hosted Deployment: %s\nCreate Hosted Deployment with tag: %s\n' "$deployment_id" "$tag"
+    fi
+  fi
   printf 'Current active tag: %s\n' "$active_tag"
   printf 'Target tag: %s\n' "$tag"
   printf 'Artifacts: %s/%s\n' "$artifact_count" "$ARTIFACT_LIMIT"
@@ -160,29 +155,39 @@ print(json.load(sys.stdin).get("data", {}).get("status", "unknown"))
   fi
 }
 
-# Create the missing Hosted Application and report its identifier.
-create_hosted_application() {
-  local application_output
-
-  printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' \
-    "$profile"
-  application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
-    hosted-application create --display-name "$application_name" \
-    --compartment-id "$compartment_id" \
-    --inbound-auth-config "$inbound_auth_json" \
-    --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
-'"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
-    --environment-variables "$environment_variables_json" --wait-for-state SUCCEEDED \
-    --max-wait-seconds "$WAIT_SECONDS")"
-  application_id="$(printf '%s' "$application_output" | \
-    extract_expected_ocid 'ocid1.generativeaihostedapplication.')"
-  printf 'Created Hosted Application: %s\n' "$application_id"
+# Resolve an accepted mutation without exposing its raw CLI output.
+resolve_mutation_id() {
+  local kind="$1" response="$2" resolved
+  resolved="$(parse_mutation_id "$response")"
+  if [[ -z "$resolved" ]]; then
+    resolved="$(lookup_mutated_resource "$kind")" || {
+      printf '%s create/delete response had no data.id and lookup found no unique resource. Check OCI before retrying.\n' "$kind" >&2
+      exit 1
+    }
+  fi
+  printf '%s' "$resolved"
 }
 
-# Create the first deployment after creating or reusing its Hosted Application.
+create_hosted_application() {
+  local application_output result
+  printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' "$profile"
+  application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
+    hosted-application create --display-name "$application_name" \
+    --compartment-id "$compartment_id" --inbound-auth-config "$inbound_auth_json" \
+    --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
+'"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
+    --environment-variables "$environment_variables_json" 2>/dev/null)" || {
+      printf '%s\n' 'Hosted Application create request failed; check OCI before retrying.' >&2
+      exit 1
+    }
+  application_id="$(resolve_mutation_id 'Hosted Application' "$application_output")"
+  application_work_request_id="$(parse_mutation_work_request "$application_output")"
+  printf 'Created Hosted Application: %s\n' "$application_id"
+  wait_for_resource 'Hosted Application' "$application_id" create || exit $?
+}
+
 create_first_release() {
   local deployment_output
-
   if [[ -z "$application_id" ]]; then
     create_hosted_application
   else
@@ -193,11 +198,14 @@ create_first_release() {
     hosted-deployment create-hosted-deployment-single-docker-artifact \
     --hosted-application-id "$application_id" \
     --active-artifact-container-uri "$container_uri" --active-artifact-tag "$tag" \
-    --compartment-id "$compartment_id" --wait-for-state SUCCEEDED \
-    --max-wait-seconds "$WAIT_SECONDS")"
-  deployment_id="$(printf '%s' "$deployment_output" | \
-    extract_expected_ocid 'ocid1.generativeaihosteddeployment.')"
+    --compartment-id "$compartment_id" 2>/dev/null)" || {
+      printf '%s\n' 'Hosted Deployment create request failed; check OCI before retrying.' >&2
+      exit 1
+    }
+  deployment_id="$(resolve_mutation_id 'Hosted Deployment' "$deployment_output")"
+  deployment_work_request_id="$(parse_mutation_work_request "$deployment_output")"
   printf 'Created Hosted Deployment: %s\n' "$deployment_id"
+  wait_for_resource 'Hosted Deployment' "$deployment_id" create || exit $?
 }
 
 while [[ $# -gt 0 ]]; do
@@ -210,18 +218,22 @@ while [[ $# -gt 0 ]]; do
       apply_changes=true
       shift
       ;;
-    --manifest|--tag)
+    --replace-failed)
+      replace_failed=true
+      shift
+      ;;
+    --manifest|--tag|--timeout-seconds)
       option="$1"
       shift
       if [[ $# -eq 0 || -z "$1" || "$1" == --* ]]; then
         usage >&2
         exit "$EXIT_INVALID_INPUT"
       fi
-      if [[ "$option" == '--manifest' ]]; then
-        manifest="$1"
-      else
-        tag="$1"
-      fi
+      case "$option" in
+        --manifest) manifest="$1" ;;
+        --tag) tag="$1" ;;
+        --timeout-seconds) timeout_seconds="$1" ;;
+      esac
       shift
       ;;
     --help|-h)
@@ -235,6 +247,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]] || [[ "$timeout_seconds" =~ ^0+$ ]] || \
+    ! [[ "$poll_interval" =~ ^[0-9]+$ ]] || [[ "$poll_interval" =~ ^0+$ ]]; then
+  printf 'Timeout and polling interval must be positive integers.\n' >&2
+  exit "$EXIT_INVALID_INPUT"
+fi
 resolve_python
 load_tenancy_settings OCI_REGION OCI_COMPARTMENT_NAME OCIR_TENANCY_NAMESPACE
 if [[ -z "$manifest" || -z "$tag" ]]; then
@@ -278,6 +295,7 @@ if [[ "$profile" == 'public-idcs' ]]; then
 fi
 environment_variables_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
   runtime-env --manifest "$manifest" --format oci-json)"
+export OCI_DEPLOY_RUNTIME_JSON="$environment_variables_json"
 environment_report="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
   runtime-env --manifest "$manifest" --format report)"
 ocir_registry="$("$script_directory/resolve_ocir_registry.sh")"
@@ -324,19 +342,32 @@ import json
 import sys
 print(json.load(sys.stdin)["data"].get("lifecycle-state", ""))
 ')"
-  if [[ "$application_state" != 'ACTIVE' ]]; then
+  application_age="$(printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" -c '
+import json,sys
+from datetime import datetime,timezone
+created=(json.load(sys.stdin).get("data") or {}).get("time-created", "")
+try:
+ print("{}s".format(max(0,int((datetime.now(timezone.utc)-datetime.fromisoformat(created.replace("Z","+00:00"))).total_seconds()))))
+except (ValueError,TypeError):
+ print("unknown")
+')"
+  if "$replace_failed" && [[ "$application_state" != 'ACTIVE' ]]; then
+    printf '%s\n' '--replace-failed requires a FAILED deployment.' >&2
+    exit "$EXIT_INVALID_INPUT"
+  fi
+  if [[ "$application_state" != 'ACTIVE' && "$application_state" != 'CREATING' ]]; then
     printf 'Existing Hosted Application must be ACTIVE to reuse; observed: %s.\n' \
       "$application_state" >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
-  if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
+  if [[ "$application_state" == 'ACTIVE' ]] && ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
     "$script_directory/agent_manifest.py" inbound-auth-matches --manifest "$manifest"; then
     printf '%s%s\n' \
       'The existing Hosted Application uses a different inbound authentication; ' \
       'changing authentication is not supported.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
-  if ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
+  if [[ "$application_state" == 'ACTIVE' ]] && ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
     "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
     printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
@@ -356,33 +387,57 @@ print(json.load(sys.stdin)["data"].get("lifecycle-state", ""))
       --compartment-id "$compartment_id" --application-id "$application_id" --all \
       --query "(${non_deleted_query})[0].id" --raw-output)"
     read_deployment_details
-    if [[ "$deployment_state" != 'ACTIVE' ]]; then
+    if "$replace_failed" && [[ "$deployment_state" != 'FAILED' ]]; then
+      printf '%s\n' '--replace-failed requires a FAILED deployment.' >&2
+      exit "$EXIT_INVALID_INPUT"
+    fi
+    if [[ "$deployment_state" != 'ACTIVE' && "$deployment_state" != 'CREATING' && "$deployment_state" != 'FAILED' ]]; then
       printf 'Hosted Deployment must be ACTIVE; observed: %s. Check it and retry.\n' \
         "$deployment_state" >&2
       exit "$EXIT_EXISTING_RESOURCE"
     fi
-    if [[ "$target_status" == 'FAILED' || "$target_status" == 'UPDATING' ]]; then
+    if [[ "$deployment_state" == 'CREATING' ]]; then
+      release_case='Creation in progress'
+    elif [[ "$deployment_state" == 'FAILED' ]]; then
+      release_case='Failed deployment'
+      if "$replace_failed"; then release_case='Replace failed deployment'; fi
+      failure_reason="$(report_work_request_errors "$deployment_id" 2>&1)"
+    elif [[ "$target_status" == 'FAILED'  || "$target_status" == 'UPDATING' ]]; then
       printf 'Target artifact tag %s is %s. Check it and retry; no changes were made.\n' \
         "$tag" "$target_status" >&2
       exit "$EXIT_EXISTING_RESOURCE"
     fi
-    if [[ "$active_tag" == "$tag" ]]; then
+    if [[ "$deployment_state" == 'ACTIVE' && "$active_tag" == "$tag" ]]; then
       release_case='Already released'
-    elif [[ -z "$target_status" ]]; then
+    elif [[ "$deployment_state" == 'ACTIVE' && -z "$target_status" ]]; then
       if [[ "$artifact_count" -ge "$ARTIFACT_LIMIT" ]]; then
         printf 'Adding tag %s exceeds the artifact limit of %s; no changes were made.\n' \
           "$tag" "$ARTIFACT_LIMIT" >&2
         exit "$EXIT_EXISTING_RESOURCE"
       fi
       release_case='New version'
-    elif [[ "$target_status" == 'INACTIVE' ]]; then
+    elif [[ "$deployment_state" == 'ACTIVE' && "$target_status" == 'INACTIVE' ]]; then
       release_case='Return to a previous version'
-    else
+    elif [[ "$deployment_state" == 'ACTIVE' ]]; then
       printf 'Target artifact tag %s has unsupported status: %s.\n' \
         "$tag" "$target_status" >&2
       exit "$EXIT_EXISTING_RESOURCE"
     fi
   fi
+fi
+if "$replace_failed" && [[ "$release_case" != 'Replace failed deployment' ]]; then
+  printf '%s\n' '--replace-failed requires a FAILED deployment.' >&2
+  exit "$EXIT_INVALID_INPUT"
+fi
+if [[ "${application_state:-}" == 'CREATING' ]]; then
+  release_case='Creation in progress'
+  resource_kind='Hosted Application'
+  resource_id="$application_id"
+  resource_age="$application_age"
+elif [[ "$release_case" == 'Creation in progress' ]]; then
+  resource_kind='Hosted Deployment'
+  resource_id="$deployment_id"
+  resource_age="$deployment_age"
 fi
 
 print_plan
@@ -392,6 +447,28 @@ if [[ "$apply_changes" == false ]]; then
 fi
 
 case "$release_case" in
+  'Creation in progress')
+    wait_for_resource "$resource_kind" "$resource_id" create || exit $?
+    ;;
+  'Failed deployment')
+    exit "$EXIT_EXISTING_RESOURCE"
+    ;;
+  'Replace failed deployment')
+    delete_output="$(oci --region "$OCI_REGION" --output json generative-ai hosted-deployment delete \
+      --hosted-deployment-id "$deployment_id" --force 2>/dev/null)" || {
+        printf '%s\n' 'Hosted Deployment delete request failed.' >&2; exit 1;
+      }
+    deleted_id="$(parse_mutation_id "$delete_output")"
+    deletion_work_request_id="$(parse_mutation_work_request "$delete_output")"
+    if [[ -z "$deleted_id" ]]; then
+      deleted_id="$(lookup_mutated_resource 'Hosted Deployment')" || deleted_id=""
+    fi
+    if [[ -n "$deleted_id" && "$deleted_id" != "$deployment_id" ]]; then
+      printf '%s\n' 'Delete response identifies a different deployment.' >&2; exit 1
+    fi
+    wait_for_resource 'Hosted Deployment' "$deployment_id" delete || exit $?
+    create_first_release
+    ;;
   'Already released')
     printf 'Tag %s is already active; no changes were made.\n' "$tag"
     ;;

@@ -103,8 +103,11 @@ print_plan() {
     printf '%s\n' 'Access: public unauthenticated endpoint.'
   fi
   printf 'Release case: %s\n' "$release_case"
-  if [[ "$release_case" == 'Creation in progress' ]]; then
+  if [[ "$release_case" == 'Creation in progress' || "$release_case" == 'Application creation in progress' ]]; then
     printf '%s: %s (CREATING; age %s).\n' "$resource_kind" "$resource_id" "$resource_age"
+    if [[ "$release_case" == 'Application creation in progress' ]]; then
+      printf 'Create Hosted Deployment with tag: %s\n' "$tag"
+    fi
   elif [[ "$release_case" == 'Failed deployment' || "$release_case" == 'Replace failed deployment' ]]; then
     printf 'Failed Hosted Deployment: %s\n%s\n' "$deployment_id" "$failure_reason"
     if [[ "$release_case" == 'Failed deployment' ]]; then
@@ -155,6 +158,23 @@ print(json.load(sys.stdin).get("data", {}).get("status", "unknown"))
   fi
 }
 
+# Check that an ACTIVE application still matches the manifest before reusing it.
+check_application_configuration() {
+  local current_json="$1"
+  if ! printf '%s' "$current_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" inbound-auth-matches --manifest "$manifest"; then
+    printf '%s%s\n' \
+      'The existing Hosted Application uses a different inbound authentication; ' \
+      'changing authentication is not supported.' >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
+  if ! printf '%s' "$current_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
+    printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest.' >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
+}
+
 # Resolve an accepted mutation without exposing its raw CLI output.
 resolve_mutation_id() {
   local kind="$1" response="$2" resolved
@@ -169,15 +189,15 @@ resolve_mutation_id() {
 }
 
 create_hosted_application() {
-  local application_output result
+  local application_output application_error
   printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' "$profile"
   application_output="$(oci --region "$OCI_REGION" --output json generative-ai \
     hosted-application create --display-name "$application_name" \
     --compartment-id "$compartment_id" --inbound-auth-config "$inbound_auth_json" \
     --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
 '"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
-    --environment-variables "$environment_variables_json" 2>/dev/null)" || {
-      printf '%s\n' 'Hosted Application create request failed; check OCI before retrying.' >&2
+    --environment-variables "$environment_variables_json" 2>&1)" || {
+      report_service_error 'Hosted Application create' "$application_output"
       exit 1
     }
   application_id="$(resolve_mutation_id 'Hosted Application' "$application_output")"
@@ -198,8 +218,8 @@ create_first_release() {
     hosted-deployment create-hosted-deployment-single-docker-artifact \
     --hosted-application-id "$application_id" \
     --active-artifact-container-uri "$container_uri" --active-artifact-tag "$tag" \
-    --compartment-id "$compartment_id" 2>/dev/null)" || {
-      printf '%s\n' 'Hosted Deployment create request failed; check OCI before retrying.' >&2
+    --compartment-id "$compartment_id" 2>&1)" || {
+      report_service_error 'Hosted Deployment create' "$deployment_output"
       exit 1
     }
   deployment_id="$(resolve_mutation_id 'Hosted Deployment' "$deployment_output")"
@@ -360,17 +380,8 @@ except (ValueError,TypeError):
       "$application_state" >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
-  if [[ "$application_state" == 'ACTIVE' ]] && ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
-    "$script_directory/agent_manifest.py" inbound-auth-matches --manifest "$manifest"; then
-    printf '%s%s\n' \
-      'The existing Hosted Application uses a different inbound authentication; ' \
-      'changing authentication is not supported.' >&2
-    exit "$EXIT_EXISTING_RESOURCE"
-  fi
-  if [[ "$application_state" == 'ACTIVE' ]] && ! printf '%s' "$application_json" | "$OCI_AGENT_PYTHON" \
-    "$script_directory/agent_manifest.py" runtime-matches --manifest "$manifest"; then
-    printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest.' >&2
-    exit "$EXIT_EXISTING_RESOURCE"
+  if [[ "$application_state" == 'ACTIVE' ]]; then
+    check_application_configuration "$application_json"
   fi
   deployment_count="$(oci --region "$OCI_REGION" generative-ai \
     hosted-deployment-collection list-hosted-deployments \
@@ -379,6 +390,10 @@ except (ValueError,TypeError):
   if [[ "$deployment_count" != '0' && "$deployment_count" != '1' ]]; then
     printf 'Expected zero or one non-deleted Hosted Deployment; found %s.\n' \
       "$deployment_count" >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
+  if [[ "$application_state" == 'CREATING' && "$deployment_count" != '0' ]]; then
+    printf '%s\n' 'A CREATING Hosted Application already has a deployment; check it before completing the first release.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
   if [[ "$deployment_count" == '1' ]]; then
@@ -430,7 +445,7 @@ if "$replace_failed" && [[ "$release_case" != 'Replace failed deployment' ]]; th
   exit "$EXIT_INVALID_INPUT"
 fi
 if [[ "${application_state:-}" == 'CREATING' ]]; then
-  release_case='Creation in progress'
+  release_case='Application creation in progress'
   resource_kind='Hosted Application'
   resource_id="$application_id"
   resource_age="$application_age"
@@ -447,6 +462,13 @@ if [[ "$apply_changes" == false ]]; then
 fi
 
 case "$release_case" in
+  'Application creation in progress')
+    wait_for_resource 'Hosted Application' "$application_id" create || exit $?
+    application_json="$(oci --region "$OCI_REGION" --output json generative-ai \
+      hosted-application get --hosted-application-id "$application_id")"
+    check_application_configuration "$application_json"
+    create_first_release
+    ;;
   'Creation in progress')
     wait_for_resource "$resource_kind" "$resource_id" create || exit $?
     ;;
@@ -455,8 +477,8 @@ case "$release_case" in
     ;;
   'Replace failed deployment')
     delete_output="$(oci --region "$OCI_REGION" --output json generative-ai hosted-deployment delete \
-      --hosted-deployment-id "$deployment_id" --force 2>/dev/null)" || {
-        printf '%s\n' 'Hosted Deployment delete request failed.' >&2; exit 1;
+      --hosted-deployment-id "$deployment_id" --force 2>&1)" || {
+        report_service_error 'Hosted Deployment delete' "$delete_output"; exit 1;
       }
     deleted_id="$(parse_mutation_id "$delete_output")"
     deletion_work_request_id="$(parse_mutation_work_request "$delete_output")"

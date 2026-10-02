@@ -5,8 +5,11 @@ License: MIT
 Description: Test reliable deployment waits and failed deployment replacement offline.
 """
 
+import json
+import os
 from pathlib import Path
 import shutil
+import subprocess
 
 import pytest
 
@@ -16,6 +19,8 @@ from test_deploy_release_cases import (
     SCRIPT,
     mutating_commands,
     run_release,
+    scenario_for,
+    write_fake_oci,
 )
 
 
@@ -71,7 +76,6 @@ def test_first_release_parses_or_recovers_create_output(
         ("transient_404", 0, "GET_RETRY"),
         ("transient_500", 0, "GET_RETRY"),
         ("inactive_wait", 1, "INACTIVE"),
-        ("application_creating", 0, "Hosted Application: ACTIVE"),
         ("five_429", 1, "5 consecutive attempts"),
         ("creation_in_progress", 0, "Creation in progress"),
     ],
@@ -210,6 +214,20 @@ def test_invalid_timeout_stops_before_oci(
         "no_id_missing",
         "delete_no_id",
         "application_creating",
+        "application_failed",
+        "application_runtime_mismatch_after_active",
+        "application_auth_mismatch_after_active",
+        "rejected_application_create",
+        "rejected_deployment_create",
+        "rejected_deployment_delete",
+        "misleading_get_401",
+        "misleading_deletion_401",
+        "unreadable_get_status",
+        "unreadable_deletion_status",
+        "failed_missing_work_requests",
+        "failed_malformed_work_requests",
+        "failed_missing_work_errors",
+        "failed_malformed_work_errors",
         "application_create_wait",
         "transient_500",
         "inactive_wait",
@@ -301,3 +319,234 @@ def test_one_progress_line_per_wait_poll(
         if line.startswith("Hosted Deployment:") and "(elapsed " in line
     ]
     assert len(progress) == gets - 1  # The first get selects the release case.
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("failed_missing_work_requests", "No FAILED work request found"),
+        ("failed_malformed_work_requests", "No FAILED work request found"),
+        ("failed_missing_work_errors", "No work request errors available"),
+        ("failed_malformed_work_errors", "No work request errors available"),
+    ],
+)
+def test_work_request_missing_or_malformed_is_reported(
+    tmp_path: Path, case: str, expected: str, release_runner: tuple[Path, list[str]]
+) -> None:
+    """Malformed or absent F9 payloads give a stable message without a traceback."""
+    result = run_release(tmp_path, case, False, release_runner)
+    assert result.returncode == 0, result.stderr
+    assert expected in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+    assert not mutating_commands(result)
+
+
+def test_work_request_calls_use_compartment_all_and_real_shapes(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """The strict fake accepts only complete F9 list requests."""
+    result = run_release(tmp_path, "failed_deployment", False, release_runner)
+    assert result.returncode == 0, result.stderr
+    assert "OutOfCapacity" in result.stdout
+    work_lists = [
+        call
+        for call in result.invocations
+        if "list" in call and ("work-request" in call or "work-request-error" in call)
+    ]
+    assert len(work_lists) == 2
+    work_request = next(call for call in work_lists if "work-request-error" not in call)
+    work_error = next(call for call in work_lists if "work-request-error" in call)
+    assert "--compartment-id" in work_request
+    assert "--all" in work_request
+    assert "--all" in work_error
+    assert not mutating_commands(result)
+
+
+@pytest.mark.parametrize("case", ["misleading_get_401", "misleading_deletion_401"])
+def test_service_error_status_ignores_incidental_digits(
+    tmp_path: Path, case: str, release_runner: tuple[Path, list[str]]
+) -> None:
+    """A real 401 is neither transient nor a completed deletion."""
+    options = (
+        deploy_options(release_runner, "--replace-failed")
+        if case == "misleading_deletion_401"
+        else []
+    )
+    result = run_release(tmp_path, case, True, release_runner, extra_options=options)
+    assert result.returncode == 1, result.stderr
+    assert "last error: HTTP 401" in result.stderr
+    assert "GET_RETRY" not in result.stdout
+    assert mutating_commands(result) == (["delete"] if options else [])
+
+
+@pytest.mark.parametrize(
+    ("case", "mutation", "kind"),
+    [
+        ("rejected_application_create", "create", "Hosted Application create"),
+        (
+            "rejected_deployment_create",
+            "create-hosted-deployment-single-docker-artifact",
+            "Hosted Deployment create",
+        ),
+        ("rejected_deployment_delete", "delete", "Hosted Deployment delete"),
+    ],
+)
+def test_rejected_requests_report_redacted_service_error(
+    tmp_path: Path,
+    case: str,
+    mutation: str,
+    kind: str,
+    release_runner: tuple[Path, list[str]],
+) -> None:
+    """A rejected request prints its structured error and makes no later mutation."""
+    secret = "privateFixtureValue123"
+    options = (
+        deploy_options(release_runner, "--replace-failed")
+        if mutation == "delete"
+        else []
+    )
+    result = run_release(
+        tmp_path,
+        case,
+        True,
+        release_runner,
+        extra_options=options,
+        runtime_value=secret,
+    )
+    assert result.returncode == 1, result.stderr
+    assert f"{kind} request failed: status=403; code=NotAllowed;" in result.stderr
+    assert "message=" in result.stderr and "[REDACTED]" in result.stderr
+    assert secret not in result.stderr
+    assert "ServiceError:" not in result.stdout + result.stderr
+    assert mutating_commands(result) == [mutation]
+
+
+def test_application_creation_in_progress_completes_first_release(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """The application wait and checks finish before deployment creation."""
+    plan_dir = tmp_path / "plan"
+    plan_dir.mkdir()
+    apply_dir = tmp_path / "apply"
+    apply_dir.mkdir()
+    plan = run_release(plan_dir, "application_creating", False, release_runner)
+    assert plan.returncode == 0, plan.stderr
+    assert "Release case: Application creation in progress" in plan.stdout
+    assert "Create Hosted Deployment with tag: 1.0.1" in plan.stdout
+    assert not mutating_commands(plan)
+    apply_result = run_release(apply_dir, "application_creating", True, release_runner)
+    assert apply_result.returncode == 0, apply_result.stderr
+    assert mutating_commands(apply_result) == [
+        "create-hosted-deployment-single-docker-artifact"
+    ]
+    create_index = next(
+        i
+        for i, call in enumerate(apply_result.invocations)
+        if "create-hosted-deployment-single-docker-artifact" in call
+    )
+    application_gets = [
+        i
+        for i, call in enumerate(apply_result.invocations)
+        if "hosted-application" in call and "get" in call
+    ]
+    assert len(application_gets) >= 4
+    assert all(i < create_index for i in application_gets)
+    assert any(
+        "hosted-deployment" in call and "get" in call
+        for call in apply_result.invocations[create_index + 1 :]
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "code", "message"),
+    [
+        ("application_failed", 1, "OutOfCapacity"),
+        (
+            "application_runtime_mismatch_after_active",
+            20,
+            "runtime environment differs",
+        ),
+        (
+            "application_auth_mismatch_after_active",
+            20,
+            "different inbound authentication",
+        ),
+    ],
+)
+def test_application_resume_stops_before_create_on_failure(
+    tmp_path: Path,
+    case: str,
+    code: int,
+    message: str,
+    release_runner: tuple[Path, list[str]],
+) -> None:
+    """A failed application or post-wait check prevents deployment creation."""
+    result = run_release(tmp_path, case, True, release_runner)
+    assert result.returncode == code, result.stderr
+    assert message in result.stdout + result.stderr
+    assert not mutating_commands(result)
+
+
+@pytest.mark.parametrize(
+    "case", ["unreadable_get_status", "unreadable_deletion_status"]
+)
+def test_unreadable_status_never_retries_or_completes_delete(
+    tmp_path: Path, case: str, release_runner: tuple[Path, list[str]]
+) -> None:
+    """A string status in ServiceError is not a valid HTTP result."""
+    options = (
+        deploy_options(release_runner, "--replace-failed")
+        if case == "unreadable_deletion_status"
+        else []
+    )
+    result = run_release(tmp_path, case, True, release_runner, extra_options=options)
+    assert result.returncode == 1, result.stderr
+    assert "last error: HTTP unknown" in result.stderr
+    assert "GET_RETRY" not in result.stdout
+    assert "Hosted Deployment: DELETED" not in result.stdout
+    assert mutating_commands(result) == (["delete"] if options else [])
+
+
+def test_creating_application_with_deployment_stops_for_review(
+    tmp_path: Path, release_runner: tuple[Path, list[str]]
+) -> None:
+    """The resume path never creates a second deployment."""
+    result = run_release(
+        tmp_path, "application_creating_with_deployment", True, release_runner
+    )
+    assert result.returncode == 20
+    assert "already has a deployment" in result.stderr
+    assert not mutating_commands(result)
+
+
+def test_fake_work_request_requires_compartment(tmp_path: Path) -> None:
+    """The fake CLI enforces the real work-request list input contract."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    executable = write_fake_oci(fake_bin)
+    scenario = tmp_path / "scenario.json"
+    scenario.write_text(json.dumps(scenario_for("failed_deployment")), encoding="utf-8")
+    environment = os.environ.copy()
+    environment.update(
+        OCI_RELEASE_SCENARIO=str(scenario),
+        OCI_RELEASE_LOG=str(tmp_path / "oci.log"),
+    )
+    result = subprocess.run(
+        [
+            str(executable),
+            "generative-ai",
+            "work-request",
+            "list",
+            "--resource-id",
+            "ocid1.test",
+            "--status",
+            "FAILED",
+            "--all",
+        ],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "--compartment-id" in result.stderr

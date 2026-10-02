@@ -56,6 +56,18 @@ function Invoke-Oci {
     return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
 }
 
+# Capture a rejected mutating request and print only selected, redacted ServiceError fields.
+function Invoke-OciMutation {
+    param([string]$Kind, [string[]]$Arguments)
+    $output = & oci @Arguments 2>&1
+    $text = ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
+    if ($LASTEXITCODE -ne 0) {
+        Write-HostedServiceError -Kind $Kind -OutputText $text
+        exit 1
+    }
+    return $text
+}
+
 # Stop when a required setting is absent.
 function Require-EnvironmentVariable {
     param([string]$Name)
@@ -90,6 +102,22 @@ function Read-DeploymentDetails {
     }
 }
 
+# Validate the unchanged application settings before creating another deployment.
+function Test-ExistingApplicationConfiguration {
+    param([string]$ApplicationJson)
+    $ApplicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+        inbound-auth-matches --manifest $Manifest | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Fail $exitExistingResource (
+            'The existing Hosted Application uses a different inbound authentication; ' +
+            'changing authentication is not supported.'
+        )
+    }
+    if (-not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $ApplicationJson)) {
+        Fail $exitExistingResource 'Existing Hosted Application runtime environment differs from the manifest.'
+    }
+}
+
 # Print the release case and the OCI state that selected it.
 function Get-ResourceAge {
     param($Data)
@@ -116,8 +144,11 @@ function Write-Plan {
         Write-Output 'Access: public unauthenticated endpoint.'
     }
     Write-Output "Release case: $releaseCase"
-    if ($releaseCase -eq 'Creation in progress') {
+    if ($releaseCase -in @('Creation in progress', 'Application creation in progress')) {
         Write-Output "${resourceKind}: $resourceId (CREATING; age $resourceAge)."
+        if ($releaseCase -eq 'Application creation in progress') {
+            Write-Output "Create Hosted Deployment with tag: $Tag"
+        }
     } elseif ($releaseCase -in @('Failed deployment', 'Replace failed deployment')) {
         Write-Output "Failed Hosted Deployment: $deploymentId"
         foreach ($line in $failureReason) { Write-Output $line }
@@ -180,7 +211,7 @@ function Resolve-MutationId {
 
 function New-HostedApplication {
     Write-Output "Creating Hosted Application with $deployProfile and Oracle-managed networking."
-    $applicationOutput = Invoke-Oci @(
+    $applicationOutput = Invoke-OciMutation -Kind 'Hosted Application create' -Arguments @(
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'create',
         '--display-name', $applicationName, '--compartment-id', $compartmentId, '--inbound-auth-config',
         $inboundAuthJson, '--networking-config',
@@ -191,7 +222,7 @@ function New-HostedApplication {
     $script:applicationWorkRequestId = Get-MutationWorkRequestId -Response $applicationOutput
     Write-Output "Created Hosted Application: $applicationId"
     $result = Wait-HostedResource -Kind 'Hosted Application' -ResourceId $applicationId `
-        -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+        -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
     if ($result -ne 0) { exit $result }
 }
 
@@ -202,7 +233,7 @@ function New-FirstRelease {
         Write-Output "Reusing ACTIVE Hosted Application: $applicationId"
     }
     Write-Output 'Creating Hosted Deployment from the selected OCIR artifact.'
-    $deploymentOutput = Invoke-Oci @(
+    $deploymentOutput = Invoke-OciMutation -Kind 'Hosted Deployment create' -Arguments @(
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment',
         'create-hosted-deployment-single-docker-artifact', '--hosted-application-id', $applicationId,
         '--active-artifact-container-uri', $containerUri, '--active-artifact-tag', $Tag,
@@ -212,7 +243,7 @@ function New-FirstRelease {
     $script:deploymentWorkRequestId = Get-MutationWorkRequestId -Response $deploymentOutput
     Write-Output "Created Hosted Deployment: $deploymentId"
     $result = Wait-HostedResource -Kind 'Hosted Deployment' -ResourceId $deploymentId `
-        -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+        -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
     if ($result -ne 0) { exit $result }
 }
 
@@ -340,16 +371,8 @@ if ($applicationCount -eq '1') {
     if ($applicationState -notin @('ACTIVE', 'CREATING')) {
         Fail $exitExistingResource "Existing Hosted Application must be ACTIVE to reuse; observed: $applicationState."
     }
-    if ($applicationState -eq 'ACTIVE') { $applicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
-        inbound-auth-matches --manifest $Manifest | Out-Null }
-    if ($applicationState -eq 'ACTIVE' -and $LASTEXITCODE -ne 0) {
-        Fail $exitExistingResource (
-            'The existing Hosted Application uses a different inbound authentication; ' +
-            'changing authentication is not supported.'
-        )
-    }
-    if ($applicationState -eq 'ACTIVE' -and -not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $applicationJson)) {
-        Fail $exitExistingResource 'Existing Hosted Application runtime environment differs from the manifest.'
+    if ($applicationState -eq 'ACTIVE') {
+        Test-ExistingApplicationConfiguration -ApplicationJson $applicationJson
     }
     $deploymentListArgs = @(
         '--region', $region, 'generative-ai', 'hosted-deployment-collection',
@@ -361,6 +384,9 @@ if ($applicationCount -eq '1') {
     ))
     if ($deploymentCount -ne '0' -and $deploymentCount -ne '1') {
         Fail $exitExistingResource "Expected zero or one non-deleted Hosted Deployment; found $deploymentCount."
+    }
+    if ($applicationState -eq 'CREATING' -and $deploymentCount -ne '0') {
+        Fail $exitExistingResource 'A CREATING Hosted Application already has a deployment; check it before completing the first release.'
     }
     if ($deploymentCount -eq '1') {
         $deploymentId = Invoke-Oci ($deploymentListArgs + @(
@@ -378,7 +404,7 @@ if ($applicationCount -eq '1') {
             $releaseCase = 'Creation in progress'
         } elseif ($deploymentState -eq 'FAILED') {
             $releaseCase = if ($ReplaceFailed) { 'Replace failed deployment' } else { 'Failed deployment' }
-            $failureReason = @(Get-HostedWorkRequestErrors -Region $region -ResourceId $deploymentId)
+            $failureReason = @(Get-HostedWorkRequestErrors -Region $region -CompartmentId $compartmentId -ResourceId $deploymentId)
         } elseif ($targetStatus -eq 'FAILED' -or $targetStatus -eq 'UPDATING') {
             $message = "Target artifact tag $Tag is $targetStatus. Check it and retry; "
             Fail $exitExistingResource ($message + 'no changes were made.')
@@ -403,7 +429,7 @@ if ($ReplaceFailed -and $releaseCase -ne 'Replace failed deployment') {
     Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
 }
 if ($applicationState -eq 'CREATING') {
-    $releaseCase = 'Creation in progress'
+    $releaseCase = 'Application creation in progress'
     $resourceKind = 'Hosted Application'
     $resourceId = $applicationId
     $resourceAge = $applicationAge
@@ -419,14 +445,26 @@ if (-not $Apply) {
 }
 
 switch ($releaseCase) {
+    'Application creation in progress' {
+        $result = Wait-HostedResource -Kind 'Hosted Application' -ResourceId $applicationId `
+            -Operation create -Region $region -CompartmentId $compartmentId `
+            -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+        if ($result -ne 0) { exit $result }
+        $applicationJson = Invoke-Oci @(
+            '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application',
+            'get', '--hosted-application-id', $applicationId
+        )
+        Test-ExistingApplicationConfiguration -ApplicationJson $applicationJson
+        New-FirstRelease
+    }
     'Creation in progress' {
         $result = Wait-HostedResource -Kind $resourceKind -ResourceId $resourceId `
-            -Operation create -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+            -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
         if ($result -ne 0) { exit $result }
     }
     'Failed deployment' { exit $exitExistingResource }
     'Replace failed deployment' {
-        $deleteOutput = Invoke-Oci @(
+        $deleteOutput = Invoke-OciMutation -Kind 'Hosted Deployment delete' -Arguments @(
             '--region', $region, '--output', 'json', 'generative-ai', 'hosted-deployment',
             'delete', '--hosted-deployment-id', $deploymentId, '--force'
         )
@@ -441,7 +479,7 @@ switch ($releaseCase) {
             Fail 1 'Delete response identifies a different deployment.'
         }
         $result = Wait-HostedResource -Kind 'Hosted Deployment' -ResourceId $deploymentId `
-            -Operation delete -Region $region -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+            -Operation delete -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
         if ($result -ne 0) { exit $result }
         New-FirstRelease
     }

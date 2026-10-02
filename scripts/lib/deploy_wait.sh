@@ -55,51 +55,113 @@ lookup_mutated_resource() {
   printf '%s' "$result"
 }
 
+# Read only the structured ServiceError object, never incidental digits in CLI text.
+parse_service_error() {
+  "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+
+output = sys.stdin.read()
+marker = "ServiceError:"
+try:
+    payload = output.split(marker, 1)[1].lstrip()
+    error, _ = json.JSONDecoder().raw_decode(payload)
+    if not isinstance(error, dict) or type(error.get("status")) is not int:
+        raise ValueError("Missing integer status")
+    print(json.dumps({key: error.get(key) for key in ("status", "code", "message")}))
+except (IndexError, TypeError, ValueError):
+    print("{}")
+'
+}
+
+service_error_status() {
+  printf '%s' "$1" | parse_service_error | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+print(json.load(sys.stdin).get("status", ""))
+'
+}
+
+# Print only selected ServiceError fields after masking configured runtime values.
+report_service_error() {
+  local kind="$1" response="$2"
+  printf '%s' "$response" | parse_service_error | "$OCI_AGENT_PYTHON" -c '
+import json
+import os
+import sys
+
+kind = sys.argv[1]
+error = json.load(sys.stdin)
+try:
+    runtime = json.loads(os.environ.get("OCI_DEPLOY_RUNTIME_JSON", "[]"))
+    values = sorted((str(item.get("value")) for item in runtime
+                     if isinstance(item, dict) and item.get("value")), key=len, reverse=True)
+except (ValueError, TypeError, AttributeError):
+    values = []
+fields = [str(error.get(key) if error.get(key) is not None else "unknown")
+          for key in ("status", "code", "message")]
+for value in values:
+    fields = [field.replace(value, "[REDACTED]") for field in fields]
+print("{} request failed: status={}; code={}; message={}.".format(kind, *fields), file=sys.stderr)
+' "$kind"
+}
+
 report_work_request_errors() {
   local resource_id="$1" requests request_id errors
   requests="$(oci --region "$OCI_REGION" --output json generative-ai work-request list \
-    --resource-id "$resource_id" --status FAILED 2>/dev/null)" || requests=''
+    --compartment-id "$compartment_id" --resource-id "$resource_id" \
+    --status FAILED --all 2>/dev/null)" || requests=''
   request_id="$(printf '%s' "$requests" | "$OCI_AGENT_PYTHON" -c '
 import json
 import sys
 try:
-    data = json.load(sys.stdin).get("data") or []
-    print(data[0].get("id", "") if data else "")
-except (ValueError, TypeError, AttributeError):
+    items = json.load(sys.stdin)["data"]["items"]
+    if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+        raise ValueError("Missing work requests")
+    print(items[0].get("id") or "")
+except (ValueError, TypeError, AttributeError, KeyError, IndexError):
     print("")
 ')"
   if [[ -z "$request_id" ]]; then
     printf 'No FAILED work request found for %s.\n' "$resource_id" >&2
-    return
+    return 0
   fi
   errors="$(oci --region "$OCI_REGION" --output json generative-ai work-request-error list \
-    --work-request-id "$request_id" 2>/dev/null)" || errors=''
+    --work-request-id "$request_id" --all 2>/dev/null)" || errors=''
   printf '%s' "$errors" | "$OCI_AGENT_PYTHON" -c '
 import json
+import os
 import sys
 try:
-    entries = json.load(sys.stdin).get("data") or []
-except (ValueError, TypeError, AttributeError):
+    entries = json.load(sys.stdin)["data"]["items"]
+    if not isinstance(entries, list):
+        raise ValueError("Missing work request errors")
+except (ValueError, TypeError, AttributeError, KeyError):
     entries = []
 try:
-    runtime = json.loads(__import__("os").environ.get("OCI_DEPLOY_RUNTIME_JSON", "[]"))
-except ValueError:
-    runtime = []
-values = sorted((str(item.get("value")) for item in runtime if item.get("value")), key=len, reverse=True)
+    runtime = json.loads(os.environ.get("OCI_DEPLOY_RUNTIME_JSON", "[]"))
+    values = sorted((str(item.get("value")) for item in runtime
+                     if isinstance(item, dict) and item.get("value")), key=len, reverse=True)
+except (ValueError, TypeError, AttributeError):
+    values = []
+printed = False
 for entry in entries:
+    if not isinstance(entry, dict):
+        continue
     code = str(entry.get("code", "unknown"))
     message = str(entry.get("message", "unknown"))
     for value in values:
         code = code.replace(value, "[REDACTED]")
         message = message.replace(value, "[REDACTED]")
     print("OCI work request error: code={}; message={}".format(code, message), file=sys.stderr)
-if not entries:
+    printed = True
+if not printed:
     print("No work request errors available.", file=sys.stderr)
 '
 }
 
 wait_for_resource() {
-  local kind="$1" resource_id="$2" operation="$3" start elapsed state response error failures=0
+  local kind="$1" resource_id="$2" operation="$3" start elapsed state response error status failures=0
   start="$(date +%s)"
   while true; do
     elapsed=$(( $(date +%s) - start ))
@@ -111,23 +173,24 @@ wait_for_resource() {
         --hosted-deployment-id "$resource_id" 2>&1)" && error=0 || error=$?
     fi
     if (( error != 0 )); then
-      if [[ "$operation" == 'delete' && "$response" == *404* ]]; then
+      status="$(service_error_status "$response")"
+      if [[ "$operation" == 'delete' && "$status" == '404' ]]; then
         printf '%s: DELETED (elapsed %ss)\n' "$kind" "$elapsed"
         return 0
       fi
-      if { [[ "$response" == *404* ]] && (( elapsed < 60 )); } || \
-        [[ "$response" == *429* || "$response" =~ 5[0-9][0-9] ]]; then
+      if { [[ "$status" == '404' ]] && (( elapsed < 60 )); } || \
+        [[ "$status" == '429' || "$status" == 5?? ]]; then
         failures=$((failures + 1))
         state='GET_RETRY'
         printf '%s: %s (elapsed %ss)\n' "$kind" "$state" "$elapsed"
         if (( failures >= 5 )); then
           printf '%s get failed after 5 consecutive attempts (last error: HTTP %s).\n' \
-            "$kind" "$(printf '%s' "$response" | "$OCI_AGENT_PYTHON" -c 'import re,sys; s=sys.stdin.read(); m=re.search(r"\b(404|429|5[0-9][0-9])\b",s); print(m.group(1) if m else "unknown")')" >&2
+            "$kind" "$status" >&2
           return 1
         fi
       else
-        printf '%s get failed for %s (last error: HTTP %s).\n' "$kind" "$resource_id" \
-          "$(printf '%s' "$response" | "$OCI_AGENT_PYTHON" -c 'import re,sys; s=sys.stdin.read(); m=re.search(r"\b([45][0-9][0-9])\b",s); print(m.group(1) if m else "unknown")')" >&2
+        printf '%s get failed for %s (last error: HTTP %s).\n' \
+          "$kind" "$resource_id" "${status:-unknown}" >&2
         return 1
       fi
     else

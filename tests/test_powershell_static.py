@@ -92,3 +92,18 @@ def test_powershell_idcs_paths_avoid_secret_command_arguments() -> None:
     ]
     assert "Bearer" not in token_invocation
     assert "OCI_AGENT_IDCS_CLIENT_SECRET" not in token_invocation
+
+
+def test_deploy_wait_uses_structured_errors_and_complete_work_request_reads() -> None:
+    """Static safeguards cover PowerShell paths skipped without pwsh."""
+    content = (SCRIPTS / "lib" / "DeployWait.psm1").read_text(encoding="utf-8")
+    assert "& oci @lookupArgs" in content
+    assert "& oci @getArgs" in content
+    assert "$errorText -match" not in content
+    assert "Get-HostedServiceError -OutputText $errorText" in content
+    assert (
+        "--compartment-id $CompartmentId --resource-id $ResourceId "
+        "--status FAILED --all" in content
+    )
+    assert "--work-request-id $items[0].id --all" in content
+    assert content.count(".data.items") >= 2

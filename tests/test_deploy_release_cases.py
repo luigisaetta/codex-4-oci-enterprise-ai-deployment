@@ -87,6 +87,22 @@ def save():
     with open(os.environ["OCI_RELEASE_SCENARIO"], "w", encoding="utf-8") as file:
         json.dump(scenario, file)
 
+def service_error(status, code="NotAuthorizedOrNotFound", message="OCI request failed"):
+    print("ServiceError:", file=sys.stderr)
+    error = {
+        "status": status,
+        "code": code,
+        "message": message,
+        "opc-request-id": "request-404-5xx",
+        "request_endpoint": "https://example.invalid/ocid1.test.404.5xx",
+        "timestamp": "2026-10-02T04:04:04Z",
+    }
+    if scenario.get("echo_runtime_in_error"):
+        runtime = json.loads(os.environ["OCI_DEPLOY_RUNTIME_JSON"])
+        error["message"] += " " + runtime[0]["value"]
+    print(json.dumps(error), file=sys.stderr)
+    sys.exit(2)
+
 def output(value):
     if isinstance(value, (dict, list)):
         print(json.dumps(value))
@@ -126,13 +142,19 @@ elif "hosted-application" in arguments and "get" in arguments:
         scenario["application_get_count"] = gets + 1
         save()
         states = scenario.get("application_states", ["ACTIVE"])
+        active = states[min(gets, len(states) - 1)] == "ACTIVE"
+        runtime = scenario["runtime"]
+        auth = scenario["inbound_auth"]
+        if active:
+            runtime = scenario.get("runtime_after_active", runtime)
+            auth = scenario.get("auth_after_active", auth)
         output(
             {
                 "data": {
                     "lifecycle-state": states[min(gets, len(states) - 1)],
                     "time-created": "2026-10-02T00:00:00Z",
-                    "environment-variables": scenario["runtime"],
-                    "inbound-auth-config": scenario["inbound_auth"],
+                    "environment-variables": runtime,
+                    "inbound-auth-config": auth,
                 }
             }
         )
@@ -155,10 +177,12 @@ elif "hosted-deployment" in arguments and "get" in arguments:
     gets = scenario.setdefault("get_count", 0)
     scenario["get_count"] = gets + 1
     save()
-    failures = scenario.get("get_failures", [])
+    if scenario.get("deleting"):
+        failures = scenario.get("deletion_get_failures", [])
+    else:
+        failures = scenario.get("get_failures", [])
     if gets < len(failures) and failures[gets]:
-        print("HTTP " + str(failures[gets]), file=sys.stderr)
-        sys.exit(1)
+        service_error(failures[gets])
     if scenario.get("created_after_delete"):
         states = ["ACTIVE"]
     elif scenario.get("deleting"):
@@ -167,8 +191,7 @@ elif "hosted-deployment" in arguments and "get" in arguments:
         states = scenario.get("deployment_states", [scenario["deployment_state"]])
     state = states[min(gets, len(states) - 1)]
     if state == "404":
-        print("HTTP 404", file=sys.stderr)
-        sys.exit(1)
+        service_error(404)
     active = scenario["target"]
     if not gets or not scenario["activation_succeeds"]:
         active = scenario["active"]
@@ -183,6 +206,8 @@ elif "hosted-deployment" in arguments and "get" in arguments:
         }
     )
 elif "hosted-application" in arguments and "create" in arguments:
+    if scenario.get("reject_application_create"):
+        service_error(403, "NotAllowed", "Application creation rejected")
     scenario["created_application"] = True
     save()
     value = {"data": {"id": "ocid1.generativeaihostedapplication.created"}}
@@ -194,6 +219,8 @@ elif "hosted-application" in arguments and "create" in arguments:
         print("Encountered error while waiting for work request")
     output(value)
 elif "create-hosted-deployment-single-docker-artifact" in arguments:
+    if scenario.get("reject_deployment_create"):
+        service_error(403, "NotAllowed", "Deployment creation rejected")
     if scenario.get("deleting"):
         scenario["created_after_delete"] = True
         scenario["get_count"] = 0
@@ -209,6 +236,8 @@ elif "create-hosted-deployment-single-docker-artifact" in arguments:
         print("Encountered error while waiting for work request")
     output(value)
 elif "hosted-deployment" in arguments and "delete" in arguments:
+    if scenario.get("reject_deployment_delete"):
+        service_error(403, "NotAllowed", "Deployment deletion rejected")
     scenario["deleting"] = True
     scenario["get_count"] = 0
     save()
@@ -217,12 +246,32 @@ elif "hosted-deployment" in arguments and "delete" in arguments:
     }
     output({"data": data})
 elif "work-request-error" in arguments and "list" in arguments:
-    message = "Node pool capacity unavailable"
-    if scenario.get("work_error_echo_runtime"):
-        message += " " + json.loads(os.environ["OCI_DEPLOY_RUNTIME_JSON"])[0]["value"]
-    output({"data": [{"code": "OutOfCapacity", "message": message}]})
+    if "--all" not in arguments:
+        print("Usage: --all is required by this fake", file=sys.stderr)
+        sys.exit(2)
+    if scenario.get("malformed_work_errors"):
+        print("malformed work request errors")
+        sys.exit(0)
+    items = []
+    if not scenario.get("missing_work_errors"):
+        message = "Node pool capacity unavailable"
+        if scenario.get("work_error_echo_runtime"):
+            runtime = json.loads(os.environ["OCI_DEPLOY_RUNTIME_JSON"])
+            message += " " + runtime[0]["value"]
+        items = [{"code": "OutOfCapacity", "message": message}]
+    output({"data": {"items": items}})
 elif "work-request" in arguments and "list" in arguments:
-    output({"data": [{"id": "ocid1.workrequest.failed"}]})
+    if "--compartment-id" not in arguments or "--all" not in arguments:
+        print("Usage: work-request list requires --compartment-id and --all",
+              file=sys.stderr)
+        sys.exit(2)
+    if scenario.get("malformed_work_requests"):
+        print("malformed work requests")
+        sys.exit(0)
+    items = []
+    if not scenario.get("missing_work_requests"):
+        items = [{"id": "ocid1.workrequest.failed"}]
+    output({"data": {"items": items}})
 elif "update" in arguments:
     if "--force" not in arguments:
         print("Abort", file=sys.stderr)
@@ -337,6 +386,69 @@ def scenario_for(case: str) -> dict[str, object]:
             "deletion_states": ["DELETING", "404"],
         },
         "f2_output": {"application_count": 0, "deployment_count": 0, "f2_output": True},
+        "rejected_application_create": {
+            "application_count": 0,
+            "deployment_count": 0,
+            "reject_application_create": True,
+            "echo_runtime_in_error": True,
+        },
+        "rejected_deployment_create": {
+            "deployment_count": 0,
+            "reject_deployment_create": True,
+            "echo_runtime_in_error": True,
+        },
+        "rejected_deployment_delete": {
+            "deployment_state": "FAILED",
+            "reject_deployment_delete": True,
+            "echo_runtime_in_error": True,
+        },
+        "misleading_get_401": {
+            "deployment_state": "CREATING",
+            "get_failures": [0, 401],
+        },
+        "misleading_deletion_401": {
+            "deployment_state": "FAILED",
+            "deletion_get_failures": [401],
+        },
+        "application_creating_with_deployment": {"application_states": ["CREATING"]},
+        "unreadable_get_status": {
+            "deployment_state": "CREATING",
+            "get_failures": [0, "404"],
+        },
+        "unreadable_deletion_status": {
+            "deployment_state": "FAILED",
+            "deletion_get_failures": ["404"],
+        },
+        "application_failed": {
+            "application_states": ["CREATING", "FAILED"],
+            "deployment_count": 0,
+        },
+        "application_runtime_mismatch_after_active": {
+            "application_states": ["CREATING", "ACTIVE"],
+            "deployment_count": 0,
+            "runtime_after_active": [{"name": "OTHER", "value": "value"}],
+        },
+        "application_auth_mismatch_after_active": {
+            "application_states": ["CREATING", "ACTIVE"],
+            "deployment_count": 0,
+            "auth_after_active": {"inbound-auth-config-type": "IDCS_AUTH_CONFIG"},
+        },
+        "failed_missing_work_requests": {
+            "deployment_state": "FAILED",
+            "missing_work_requests": True,
+        },
+        "failed_malformed_work_requests": {
+            "deployment_state": "FAILED",
+            "malformed_work_requests": True,
+        },
+        "failed_missing_work_errors": {
+            "deployment_state": "FAILED",
+            "missing_work_errors": True,
+        },
+        "failed_malformed_work_errors": {
+            "deployment_state": "FAILED",
+            "malformed_work_errors": True,
+        },
         "creation_timeout": {
             "application_count": 0,
             "deployment_count": 0,
@@ -439,7 +551,12 @@ def run_release(
     fake_bin.mkdir()
     write_fake_oci(fake_bin)
     scenario_path = tmp_path / "scenario.json"
-    scenario_path.write_text(json.dumps(scenario_for(case)), encoding="utf-8")
+    scenario = scenario_for(case)
+    if runtime_value:
+        scenario["runtime"] = [
+            {"name": "MY_VALUE", "type": "PLAINTEXT", "value": runtime_value}
+        ]
+    scenario_path.write_text(json.dumps(scenario), encoding="utf-8")
     log_path = tmp_path / "oci.log"
     environment = os.environ.copy()
     environment.update(

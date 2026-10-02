@@ -31,33 +31,79 @@ function Find-MutatedResource {
             'list-hosted-deployments', '--compartment-id', $CompartmentId,
             '--application-id', $ApplicationId, '--all')
     }
-    $count = & oci @args --query "length($query)" --raw-output
+    $count = & oci @lookupArgs --query "length($query)" --raw-output
     if ($LASTEXITCODE -ne 0 -or "$count" -ne '1') { return '' }
-    $id = & oci @args --query "($query)[0].id" --raw-output
+    $id = & oci @lookupArgs --query "($query)[0].id" --raw-output
     if ($LASTEXITCODE -ne 0 -or -not "$id".StartsWith('ocid1.')) { return '' }
     return "$id"
 }
 
+# Decode the JSON following ServiceError, never digits elsewhere in the CLI text.
+function Get-HostedServiceError {
+    param([string]$OutputText)
+    $marker = 'ServiceError:'
+    $index = $OutputText.IndexOf($marker, [StringComparison]::Ordinal)
+    if ($index -lt 0) { return $null }
+    $payload = $OutputText.Substring($index + $marker.Length).Trim()
+    try { $errorObject = $payload | ConvertFrom-Json -ErrorAction Stop }
+    catch { return $null }
+    if ($errorObject.status -isnot [int] -and $errorObject.status -isnot [long]) {
+        return $null
+    }
+    return $errorObject
+}
+
+function Write-HostedServiceError {
+    param([string]$Kind, [string]$OutputText)
+    $errorObject = Get-HostedServiceError -OutputText $OutputText
+    $status = if ($null -ne $errorObject) { [string]$errorObject.status } else { 'unknown' }
+    $code = if ($errorObject.code) { [string]$errorObject.code } else { 'unknown' }
+    $message = if ($errorObject.message) { [string]$errorObject.message } else { 'unknown' }
+    try { $runtime = @((($env:OCI_DEPLOY_RUNTIME_JSON | ConvertFrom-Json -ErrorAction Stop))) }
+    catch { $runtime = @() }
+    foreach ($variable in $runtime) {
+        if ($variable.value) {
+            $status = $status.Replace([string]$variable.value, '[REDACTED]')
+            $code = $code.Replace([string]$variable.value, '[REDACTED]')
+            $message = $message.Replace([string]$variable.value, '[REDACTED]')
+        }
+    }
+    [Console]::Error.WriteLine("$Kind request failed: status=$status; code=$code; message=$message.")
+}
+
 function Get-HostedWorkRequestErrors {
-    param([string]$Region, [string]$ResourceId)
+    param([string]$Region, [string]$CompartmentId, [string]$ResourceId)
     $response = & oci --region $Region --output json generative-ai work-request list `
-        --resource-id $ResourceId --status FAILED 2>$null
+        --compartment-id $CompartmentId --resource-id $ResourceId --status FAILED --all 2>$null
     if ($LASTEXITCODE -ne 0) { return "No FAILED work request found for $ResourceId." }
-    try { $requests = @((($response | ConvertFrom-Json -ErrorAction Stop).data)) }
-    catch { return "No FAILED work request found for $ResourceId." }
-    if (-not $requests -or -not $requests[0].id) {
+    try {
+        $payload = (@($response) -join "`n") | ConvertFrom-Json -ErrorAction Stop
+        if ($payload.data.items -isnot [array]) {
+            return "No FAILED work request found for $ResourceId."
+        }
+        $items = @($payload.data.items)
+    } catch { return "No FAILED work request found for $ResourceId." }
+    if (-not $items -or -not $items[0] -or -not $items[0].id) {
         return "No FAILED work request found for $ResourceId."
     }
     $response = & oci --region $Region --output json generative-ai work-request-error list `
-        --work-request-id $requests[0].id 2>$null
+        --work-request-id $items[0].id --all 2>$null
     if ($LASTEXITCODE -ne 0) { return 'No work request errors available.' }
-    try { $errors = @((($response | ConvertFrom-Json -ErrorAction Stop).data)) }
-    catch { return 'No work request errors available.' }
-    if (-not $errors -or -not $errors[0]) { return 'No work request errors available.' }
+    try {
+        $payload = (@($response) -join "`n") | ConvertFrom-Json -ErrorAction Stop
+        if ($payload.data.items -isnot [array]) {
+            return 'No work request errors available.'
+        }
+        $errors = @($payload.data.items)
+    } catch { return 'No work request errors available.' }
+    if (-not $errors -or -not $errors[0] -or $errors[0] -isnot [pscustomobject]) {
+        return 'No work request errors available.'
+    }
     try { $runtime = @((($env:OCI_DEPLOY_RUNTIME_JSON | ConvertFrom-Json -ErrorAction Stop))) }
     catch { $runtime = @() }
     $lines = @()
     foreach ($item in $errors) {
+        if ($item -isnot [pscustomobject]) { continue }
         $code = [string]$item.code
         $message = [string]$item.message
         foreach ($variable in $runtime) {
@@ -68,12 +114,13 @@ function Get-HostedWorkRequestErrors {
         }
         $lines += "OCI work request error: code=$code; message=$message"
     }
+    if (-not $lines) { return 'No work request errors available.' }
     return $lines
 }
 
 function Wait-HostedResource {
     param([string]$Kind, [string]$ResourceId, [string]$Operation,
-          [string]$Region, [int]$TimeoutSeconds, [int]$PollInterval)
+          [string]$Region, [string]$CompartmentId, [int]$TimeoutSeconds, [int]$PollInterval)
     $started = [DateTimeOffset]::UtcNow
     $failures = 0
     while ($true) {
@@ -85,18 +132,18 @@ function Wait-HostedResource {
             $getArgs = @('--region', $Region, '--output', 'json', 'generative-ai',
                 'hosted-deployment', 'get', '--hosted-deployment-id', $ResourceId)
         }
-        $response = & oci @args 2>&1
+        $response = & oci @getArgs 2>&1
         if ($LASTEXITCODE -ne 0) {
             $errorText = ((@($response) | ForEach-Object { "$_" }) -join "`n")
-            if ($Operation -eq 'delete' -and $errorText -match '\b404\b') {
+            $serviceError = Get-HostedServiceError -OutputText $errorText
+            $httpCode = if ($null -ne $serviceError) { [string]$serviceError.status } else { '' }
+            if ($Operation -eq 'delete' -and $httpCode -eq '404') {
                 Write-Host "${Kind}: DELETED (elapsed ${elapsed}s)"
                 return 0
             }
-            if (($elapsed -lt 60 -and $errorText -match '\b404\b') -or
-                $errorText -match '\b(429|5[0-9][0-9])\b') {
-                $null = $errorText -match '\b(404|429|5[0-9][0-9])\b'
+            if (($elapsed -lt 60 -and $httpCode -eq '404') -or
+                $httpCode -eq '429' -or $httpCode -match '^5[0-9][0-9]$') {
                 $failures++
-                $httpCode = $Matches[1]
                 $state = 'GET_RETRY'
                 Write-Host "${Kind}: $state (elapsed ${elapsed}s)"
                 if ($failures -ge 5) {
@@ -104,7 +151,7 @@ function Wait-HostedResource {
                     return 1
                 }
             } else {
-                $lastHttp = if ($errorText -match '\b([45][0-9][0-9])\b') { $Matches[1] } else { 'unknown' }
+                $lastHttp = if ($httpCode) { $httpCode } else { 'unknown' }
                 [Console]::Error.WriteLine("$Kind get failed for $ResourceId (last error: HTTP $lastHttp).")
                 return 1
             }
@@ -118,7 +165,7 @@ function Wait-HostedResource {
             if ($Operation -ne 'delete' -and $state -eq 'ACTIVE') { return 0 }
             if ($state -eq 'FAILED') {
                 [Console]::Error.WriteLine("$Kind $ResourceId is FAILED.")
-                foreach ($line in @(Get-HostedWorkRequestErrors -Region $Region -ResourceId $ResourceId)) {
+                foreach ($line in @(Get-HostedWorkRequestErrors -Region $Region -CompartmentId $CompartmentId -ResourceId $ResourceId)) {
                     [Console]::Error.WriteLine($line)
                 }
                 return 1
@@ -135,4 +182,4 @@ function Wait-HostedResource {
         Start-Sleep -Seconds $PollInterval
     }
 }
-Export-ModuleMember -Function Get-MutationId, Get-MutationWorkRequestId, Find-MutatedResource, Get-HostedWorkRequestErrors, Wait-HostedResource
+Export-ModuleMember -Function Get-MutationId, Get-MutationWorkRequestId, Find-MutatedResource, Get-HostedServiceError, Write-HostedServiceError, Get-HostedWorkRequestErrors, Wait-HostedResource

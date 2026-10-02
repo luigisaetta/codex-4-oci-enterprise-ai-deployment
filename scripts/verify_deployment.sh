@@ -6,11 +6,11 @@
 # Prerequisites: Bash 3.2+, OCI CLI authentication, curl, OCI_REGION, an ACTIVE
 # Hosted Application, and an ACTIVE Hosted Deployment with the expected tag.
 # Inputs: --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH, optional
-# --timeout-seconds and --poll-seconds.
+# --timeout-seconds, --poll-seconds, and --request-timeout-seconds.
 # Side effects: OCI CLI reads and unauthenticated GET requests to /health and
 # /ready only. --functional additionally invokes manifest business paths.
-# The timeout budget starts before deployment-state polling and is shared with
-# subsequent health, readiness, and optional functional probes.
+# The overall timeout budget starts before deployment-state polling; HTTP
+# requests use a separate timeout.
 # Usage: scripts/verify_deployment.sh --application-id OCID --manifest PATH --tag TAG
 
 set -euo pipefail
@@ -30,6 +30,7 @@ manifest=""
 functional=false
 timeout_seconds=300
 poll_seconds=5
+request_timeout_seconds=60
 profile=public-noauth
 auth_mode=none
 access_token=""
@@ -42,7 +43,8 @@ script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 usage() {
   printf '%s\n' "Usage: $0 --application-id OCID --manifest PATH --tag MAJOR.MINOR.PATCH"\
-' [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'
+' [--functional] [--timeout-seconds SECONDS] [--poll-seconds SECONDS]'\
+' [--request-timeout-seconds SECONDS]'
 }
 
 require_positive_integer() {
@@ -67,8 +69,8 @@ probe_endpoint() {
     if code="$(printf 'header = "Authorization: Bearer %s"\n' "$access_token" | \
       curl -K - --silent --show-error --output /dev/null \
         --write-out '%{http_code}' \
-        --connect-timeout "$poll_seconds" \
-        --max-time "$poll_seconds" \
+        --connect-timeout "$request_timeout_seconds" \
+        --max-time "$request_timeout_seconds" \
         "$probe_url")"; then
       curl_exit=0
     else
@@ -76,8 +78,8 @@ probe_endpoint() {
     fi
   elif code="$(curl --silent --show-error --output /dev/null \
     --write-out '%{http_code}' \
-    --connect-timeout "$poll_seconds" \
-    --max-time "$poll_seconds" \
+    --connect-timeout "$request_timeout_seconds" \
+    --max-time "$request_timeout_seconds" \
     "$probe_url")"; then
     curl_exit=0
   else
@@ -107,8 +109,8 @@ probe_unauthenticated_health() {
   # U4: a protected endpoint must reject a request without a token.
   code="$(curl --silent --show-error --output /dev/null \
     --write-out '%{http_code}' \
-    --connect-timeout "$poll_seconds" \
-    --max-time "$poll_seconds" \
+    --connect-timeout "$request_timeout_seconds" \
+    --max-time "$request_timeout_seconds" \
     "$probe_url")" || true
   unauthenticated_status="${code:-000}"
   if [[ "$unauthenticated_status" =~ ^2[0-9][0-9]$ ]]; then
@@ -140,7 +142,7 @@ report() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --application-id|--expected-tag|--manifest|--tag|--timeout-seconds|--poll-seconds)
+    --application-id|--expected-tag|--manifest|--tag|--timeout-seconds|--poll-seconds|--request-timeout-seconds)
       if [[ $# -lt 2 || -z "$2" || "$2" == --* ]]; then
         usage >&2
         exit "$EXIT_INVALID_INPUT"
@@ -152,6 +154,7 @@ while [[ $# -gt 0 ]]; do
         --tag) expected_tag="$2" ;;
         --timeout-seconds) timeout_seconds="$2" ;;
         --poll-seconds) poll_seconds="$2" ;;
+        --request-timeout-seconds) request_timeout_seconds="$2" ;;
       esac
       shift 2
       ;;
@@ -209,6 +212,7 @@ if [[ ! "$expected_tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
 fi
 require_positive_integer "$timeout_seconds" '--timeout-seconds'
 require_positive_integer "$poll_seconds" '--poll-seconds'
+require_positive_integer "$request_timeout_seconds" '--request-timeout-seconds'
 if (( poll_seconds > timeout_seconds )); then
   printf '%s\n' '--poll-seconds must not exceed --timeout-seconds.' >&2
   exit "$EXIT_INVALID_INPUT"
@@ -358,7 +362,7 @@ while :; do
         --manifest "$manifest")
       printf '%s' "$checks_json" | OCI_AGENT_ACCESS_TOKEN="$access_token" "$OCI_AGENT_PYTHON" \
         "$script_directory/run_manifest_checks.py" --base-url "$endpoint_base" \
-        --timeout-seconds "$poll_seconds"
+        --timeout-seconds "$request_timeout_seconds"
     fi
     report PASS "$elapsed_seconds"
     exit 0

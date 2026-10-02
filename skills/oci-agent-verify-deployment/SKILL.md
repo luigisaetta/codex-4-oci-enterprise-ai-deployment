@@ -109,9 +109,12 @@ they mean. Never switch platform silently.
    release's two probes only, not a production-security or general functional
    certification.
 
-Use `--timeout-seconds` (default 300) and `--poll-seconds` (default 5) to bound
-the deployment-state wait and the probe loop together. `readiness_seconds`
-counts from the start of verification, including any `UPDATING` wait. Do not add
+Use `--timeout-seconds` (default 300) for the overall wait, `--poll-seconds`
+(default 5) between attempts, and `--request-timeout-seconds` (default 60)
+for each `/health`, `/ready`, unauthenticated-health, and authorized functional
+HTTP request. In PowerShell use `-TimeoutSeconds`, `-PollSeconds`, and
+`-RequestTimeoutSeconds`. `readiness_seconds` counts from the start of
+verification, including any `UPDATING` wait. Do not add
 Authorization headers or try alternate endpoint hosts or path encodings when a
 probe fails; report the observed result.
 

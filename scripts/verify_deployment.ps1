@@ -3,8 +3,8 @@
 Verifies an OCI Generative AI Hosted Application deployment through public endpoints.
 
 .DESCRIPTION
-OCI and HTTP reads only. The timeout budget starts before deployment-state polling
-and is shared with subsequent health, readiness, and optional functional probes.
+OCI and HTTP reads only. The overall timeout budget starts before deployment-state
+polling; health, readiness, and optional functional requests use a separate timeout.
 #>
 [CmdletBinding()]
 param(
@@ -14,11 +14,13 @@ param(
   [switch]$Functional,
   [int]$TimeoutSeconds = 300,
   [int]$PollSeconds = 5,
+  [int]$RequestTimeoutSeconds = 60,
   [switch]$Help
 )
 $usage = (
   "Usage: $PSCommandPath -ApplicationId OCID -Manifest PATH -Tag MAJOR.MINOR.PATCH" +
-  ' [-Functional] [-TimeoutSeconds 300] [-PollSeconds 5]'
+  ' [-Functional] [-TimeoutSeconds 300] [-PollSeconds 5]' +
+  ' [-RequestTimeoutSeconds 60]'
 )
 if ($Help) { Write-Output $usage; exit 0 }
 $ErrorActionPreference = 'Stop'
@@ -90,6 +92,7 @@ if (-not $Tag -or $Tag -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$') {
 }
 if ($TimeoutSeconds -lt 1) { Fail 64 "-TimeoutSeconds must be a positive integer: $TimeoutSeconds" }
 if ($PollSeconds -lt 1) { Fail 64 "-PollSeconds must be a positive integer: $PollSeconds" }
+if ($RequestTimeoutSeconds -lt 1) { Fail 64 "-RequestTimeoutSeconds must be a positive integer: $RequestTimeoutSeconds" }
 if ($PollSeconds -gt $TimeoutSeconds) { Fail 64 '-PollSeconds must not exceed -TimeoutSeconds.' }
 if (-not $env:OCI_REGION -or $env:OCI_REGION -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
   Fail 64 'OCI_REGION must be a non-empty OCI region identifier.'
@@ -188,7 +191,7 @@ $endpointBase = "https://$endpointHost/20251112/hostedApplications/$ApplicationI
 # Report keys match the Bash script; the *_curl_exit fields carry 0 on transport success and 1 on transport failure.
 function Invoke-Probe([string]$Url, [hashtable]$Headers) {
   try {
-    $response = Invoke-WebRequest -Uri $Url -Method Get -Headers $Headers -TimeoutSec $PollSeconds `
+    $response = Invoke-WebRequest -Uri $Url -Method Get -Headers $Headers -TimeoutSec $RequestTimeoutSeconds `
       -SkipHttpErrorCheck -ErrorAction Stop
     return @{ Exit = '0'; Status = "$([int]$response.StatusCode)" }
   } catch {
@@ -242,7 +245,7 @@ while ($true) {
       [void]$startInfo.ArgumentList.Add('--base-url')
       [void]$startInfo.ArgumentList.Add($endpointBase)
       [void]$startInfo.ArgumentList.Add('--timeout-seconds')
-      [void]$startInfo.ArgumentList.Add("$PollSeconds")
+      [void]$startInfo.ArgumentList.Add("$RequestTimeoutSeconds")
       $checksProcess = [System.Diagnostics.Process]::Start($startInfo)
       $checksProcess.StandardInput.Write($checks)
       $checksProcess.StandardInput.Close()

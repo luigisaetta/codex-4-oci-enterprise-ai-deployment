@@ -94,6 +94,15 @@ def test_powershell_idcs_paths_avoid_secret_command_arguments() -> None:
     assert "OCI_AGENT_IDCS_CLIENT_SECRET" not in token_invocation
 
 
+def test_verifier_powershell_http_timeout_is_separate_from_polling() -> None:
+    """Every PowerShell HTTP path uses the independent request timeout."""
+    verify = (SCRIPTS / "verify_deployment.ps1").read_text(encoding="utf-8")
+    assert "[int]$RequestTimeoutSeconds = 60" in verify
+    assert "-TimeoutSec $RequestTimeoutSeconds" in verify
+    assert 'ArgumentList.Add("$RequestTimeoutSeconds")' in verify
+    assert "-TimeoutSec $PollSeconds" not in verify
+
+
 def test_deploy_wait_uses_structured_errors_and_complete_work_request_reads() -> None:
     """Static safeguards cover PowerShell paths skipped without pwsh."""
     content = (SCRIPTS / "lib" / "DeployWait.psm1").read_text(encoding="utf-8")

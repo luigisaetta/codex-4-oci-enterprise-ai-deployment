@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-02: Give Hosted Application health, readiness, and optional functional
+  HTTP requests an independent 60-second default timeout; keep polling at five
+  seconds by default in Bash and PowerShell.
+
 * 2026-10-02: Add bounded, resumable Hosted Application and deployment waits,
   with progress, OCI error reporting, and exit 26 while OCI remains in progress.
 

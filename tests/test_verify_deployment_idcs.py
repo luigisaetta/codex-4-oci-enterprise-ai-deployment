@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-30
+Date last modified: 2026-10-02
 License: MIT
 Description: Exercise Bash verifier identity-domain authentication without
 network access.
@@ -133,10 +133,11 @@ os.execv(sys.executable, [sys.executable] + sys.argv[1:])
         (directory / name).chmod(0o755)
 
 
-def run_verifier(
+def run_verifier(  # pylint: disable=too-many-locals
     tmp_path: Path,
     profile: str = "public-idcs",
     runner: tuple[Path, list[str]] | None = None,
+    request_timeout_seconds: int | None = None,
     **scenario_updates: object,
 ) -> subprocess.CompletedProcess[str]:
     """Run the Bash verifier against offline identity-domain scenarios."""
@@ -210,6 +211,13 @@ def run_verifier(
         ]
         if scenario.get("functional"):
             options.append("-Functional")
+    if request_timeout_seconds is not None:
+        option = (
+            "-RequestTimeoutSeconds"
+            if script.suffix == ".ps1"
+            else "--request-timeout-seconds"
+        )
+        options.extend([option, str(request_timeout_seconds)])
     result = subprocess.run(
         [*command, str(script), *options],
         capture_output=True,
@@ -286,6 +294,48 @@ def test_idcs_success_uses_stdin_bearer_auth_and_functional_token(
     assert CLIENT_SECRET not in all_output
     assert ACCESS_TOKEN not in all_output
     assert all(ACCESS_TOKEN not in " ".join(entry["argv"]) for entry in curl_log)
+
+
+@pytest.mark.parametrize("request_timeout_seconds", [None, 9])
+def test_http_timeout_is_independent_of_poll_interval(
+    tmp_path: Path, request_timeout_seconds: int | None
+) -> None:
+    """Health, readiness, and functional requests share the HTTP limit."""
+    result = run_verifier(
+        tmp_path, functional=True, request_timeout_seconds=request_timeout_seconds
+    )
+    assert result.returncode == 0, result.stderr
+    expected = str(request_timeout_seconds or 60)
+    curl_log = [
+        json.loads(line) for line in read_log(result.log_paths["curl"]).splitlines()
+    ]
+    assert len(curl_log) == 3
+    for entry in curl_log:
+        args = entry["argv"]
+        assert args[args.index("--connect-timeout") + 1] == expected
+        assert args[args.index("--max-time") + 1] == expected
+    checks_call = next(
+        line
+        for line in read_log(result.log_paths["python"]).splitlines()
+        if line.startswith("run_manifest_checks.py ")
+    )
+    assert f"--timeout-seconds {expected}" in checks_call
+
+
+def test_invalid_http_timeout_stops_before_oci_or_http(
+    tmp_path: Path, idcs_preflight_runner: tuple[Path, list[str]]
+) -> None:
+    """A nonpositive request timeout is rejected before remote reads."""
+    result = run_verifier(
+        tmp_path, runner=idcs_preflight_runner, request_timeout_seconds=0
+    )
+    assert result.returncode == 64
+    assert (
+        "RequestTimeoutSeconds" in result.stderr
+        or "request-timeout-seconds" in result.stderr
+    )
+    assert not read_log(result.log_paths["oci"])
+    assert not read_log(result.log_paths["curl"])
 
 
 def test_idcs_token_failure_is_sanitized(tmp_path: Path) -> None:

@@ -355,6 +355,12 @@ file and uses it as the specification file input. The rest of the
 workflow is unchanged. No script, exit code, or test changes; edge cases are
 deliberately not handled yet.
 
+Guidelines (added 2026-10-03): `skills/oci-agent-new/references/agent-guidelines.md`
+collects defaults learned from real releases. Behavior defaults are written
+into the draft, marked "(default)", so the developer reviews them; code is
+generated from the approved specification only, with the guidelines'
+code-quality rules applied.
+
 ## Verification record
 
 ### 2026-10-01 — Step 1 local checks

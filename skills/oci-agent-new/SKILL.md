@@ -92,16 +92,21 @@ the agent behavior, endpoint, or model identifier.
 
 ## Specification draft
 
+Before drafting, read the [agent guidelines](references/agent-guidelines.md).
 When the developer gives no specification file, copy
 [the specification template](assets/agent-spec.template.md) to `agent-spec.md`
 in the workspace, replace `{{AGENT_NAME}}`, and fill in only what the prompt
-states. List everything else under "Open questions"; never invent behavior.
+states. Write each applicable behavior default (B rules of the guidelines)
+into the draft, marked "(default)". List everything else under "Open
+questions"; never invent behavior.
 Draft the specification in the language of the developer's request; keep the
 section titles of the template in English.
 Stop and ask the developer to review the file. The developer may edit it by
 hand or ask for changes in the chat; until approval, change only
 `agent-spec.md` and generate no other file. After explicit approval, read
-`agent-spec.md` again and use it as the specification file.
+`agent-spec.md` again and use it as the specification file. Generate the
+code from the approved specification only, applying the code-quality rules
+(Q rules) of the guidelines.
 
 ## Requests outside the first iteration
 

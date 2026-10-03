@@ -13,11 +13,10 @@ follow the numbers unless a dependency says otherwise.
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
-| 3 | [Versioned release and compatibility check](#3-versioned-release-and-compatibility-check) | 2 | Low | Now |
+| 3 | [Compatibility check and pre-release smoke test](#3-compatibility-check-and-pre-release-smoke-test) | — | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
 | 6 | [Live acceptance of `public-idcs`](#6-live-acceptance-of-public-idcs) | identity-domain credentials (external) | Low | Live session |
 | 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 5 | Medium | Short term |
-| 8 | [Skill `oci-agent-new` to scaffold an agent](#8-skill-oci-agent-new-to-scaffold-an-agent) | 7, 9 (agent API) | Medium | Short term |
 | 9 | [Test UI for agents](#9-test-ui-for-agents) | 7 | Medium | Short term |
 | 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 5, 7 | Medium | Short term |
 | 11 | [Diagnostics for a failed deployment](#11-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
@@ -36,14 +35,12 @@ Phases:
 3. **Short term**: the main value step. The Codex workflow covers the whole
    path, from the developer's requirements to an agent that uses Generative
    AI, with a local UI to try it.
-   Write the specifications of items 8 and 9 together: the standard agent API
-   belongs to both.
 4. **Medium term**: needed for continuous use across versions and
    environments.
 5. **Later**: depends on what the service supports.
 
 IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
-the scaffold (8), and the pre-flight check (10) all need correct policies,
+agents created with `oci-agent-new`, and the pre-flight check (10) all need correct policies,
 described in [IAM policies](docs/iam-policies.md). Items 5 and 7 confirm its
 statements live; the automated check (10) comes only after those results.
 
@@ -59,11 +56,11 @@ verification is local:
   what only Windows can show (paths, Docker Desktop or Podman, encodings);
 * record both results in Spec 007.
 
-## 3. Versioned release and compatibility check
+## 3. Compatibility check and pre-release smoke test
 
-* Publish a tagged release (`v0.1.0`) after item 2, with an honest
-  statement of what is verified locally and remotely.
-* Declare the tested OCI CLI and SDK versions (today: SDK 2.187.0, CLI 3.94.0).
+The tested OCI CLI and SDK versions are declared in each release's notes
+(v0.5.0: SDK 2.187.0, CLI 3.94.0).
+
 * Warn at startup when the installed OCI CLI version differs from the tested
   one.
 * Document a manual smoke test (release and rollback on `hello-world`) to run
@@ -141,36 +138,8 @@ profile locally. It extends the design of `hello_world`, which already has
   until then.
 * Verify the demo remotely, not only locally, and update the status of the
   Generative AI statements in [IAM policies](docs/iam-policies.md).
-* This demo becomes the single template for item 8.
-
-## 8. Skill `oci-agent-new` to scaffold an agent
-
-Today only a guide section supports developers starting from scratch. A skill
-that prepares a new agent repository from the developer's requirements. The
-Codex workflow then covers the whole path: create, build, push, deploy,
-verify.
-
-Input: a plain-language request, optionally backed by a requirements file
-with fixed sections (for example `agent-requirements.md`, from a template the
-skill provides): purpose, input and output of the agent API, tools, model,
-access profile, runtime variables, functional checks, and whether a test UI
-(item 9) is wanted. The skill asks only for the missing required values.
-
-Output: `agent.yaml` (schema 2), `Dockerfile`, the agent code with `/health`
-and `/ready`, the Generative AI access code of item 7, functional checks, and,
-on request, the test UI of item 9.
-
-Rules:
-
-* generate the files from one maintained and tested template (the demo of
-  item 7), never from a second copy, so that the scaffold and the demo cannot
-  drift;
-* the generated agent implements the standard agent API of item 9, so that
-  the test UI works without changes;
-* show the list of files before writing, and never overwrite an existing file;
-* never invent a model identifier: ask for it, or take it from the service;
-* acceptance: a freshly generated agent passes the build skill's local
-  verification and its functional checks without manual edits.
+* Its patterns feed the guidelines of `oci-agent-new`
+  (`skills/oci-agent-new/references/agent-guidelines.md`).
 
 ## 9. Test UI for agents
 
@@ -194,7 +163,7 @@ Constraints to document and enforce:
   actually deployed.
 * **Standard agent API.** A minimal contract defined in the specification (for
   example a chat-style `POST` with a message and a session identifier), which
-  agents created by item 8 implement. Agents with a different API declare it
+  agents created with `oci-agent-new` implement. Agents with a different API declare it
   in the manifest, or need a custom UI.
 * **Explicit target.** The developer chooses the local container or the
   deployed endpoint; the UI shows which one is active. Calls to a deployed

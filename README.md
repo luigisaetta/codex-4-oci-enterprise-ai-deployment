@@ -134,6 +134,19 @@ entry; `--dry-run` previews and `--uninstall` removes only this checkout's
 links. On Windows, use `scripts/install_skills.ps1`. Start a new Codex session
 afterwards.
 
+**4. Check the setup**
+
+```bash
+scripts/check_setup.sh
+```
+
+It runs the existing read-only checks (tenancy file, Docker build environment,
+OCI CLI and region, installed skills) and reports each one as `PASS` or
+`FAIL`. Add `--manifest ./agent.yaml` from an agent folder to also check its
+manifest, compartment, and OCIR repository, and `--skills-target DIR` for
+skills installed elsewhere, for example `~/.claude/skills`. On Windows, use
+`scripts/check_setup.ps1`.
+
 <details>
 <summary>Optional settings</summary>
 

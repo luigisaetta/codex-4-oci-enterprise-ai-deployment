@@ -45,6 +45,7 @@ The `SKILL.md` files show Bash examples only; translate them with this rule:
 | `--replace-failed` | `-ReplaceFailed` |
 | `--apply`, `--push`, `--create`, `--functional`, `--no-cache` | `-Apply`, `-Push`, `-Create`, `-Functional`, `-NoCache` |
 | `--application-id OCID` | `-ApplicationId OCID` |
+| `--manifest PATH`, `--skills-target DIR` | `-Manifest PATH`, `-SkillsTarget DIR` |
 | `OCIR_REGISTRY="$("$TOOL_HOME/scripts/resolve_ocir_registry.sh")"` | `$OCIR_REGISTRY = & "$TOOL_HOME\scripts\resolve_ocir_registry.ps1"` |
 | `docker login ...` | `docker login ...` or `podman login ...`, matching the selected engine |
 

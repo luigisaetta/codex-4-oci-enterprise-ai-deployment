@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-04: Add `scripts/check_setup.sh` and its PowerShell twin, a
+  read-only setup check that runs the existing tenancy, Docker, OCI CLI,
+  skill installation, and optional manifest and OCIR repository checks, and
+  reports each one as `PASS` or `FAIL`.
+
 ## 0.5.0 - 2026-10-02
 
 First tagged release. See the [release notes](docs/releases/v0.5.0.md).

@@ -3,6 +3,15 @@
 <!-- Draft created by oci-agent-new from the first request. Review and edit
 every section, then ask Codex to continue. Write in any language. -->
 
+## Business context
+
+* Customer persona: who the agent is for (role, team, company; the customer
+  can be internal).
+* Use case: the situation the agent addresses.
+* Expected outcomes: what the customer expects to see or obtain.
+* Customer concerns (optional): for example security, scalability, cost,
+  data residency; for each, how the agent addresses it.
+
 ## Purpose
 
 What the agent does, for whom, in one paragraph.

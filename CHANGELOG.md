@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* 2026-10-05: `oci-agent-new` now starts from a specification. Without a
+  specification file, it drafts `agent-spec.md` from the request, beginning
+  with a business context (customer persona, use case, expected outcomes, and
+  optional concerns) and asking for the essential ones when missing; it applies
+  the defaults of its agent guidelines, stops for the developer's review, and
+  generates the code only from the approved specification.
+
 * 2026-10-04: Add `scripts/check_setup.sh` and its PowerShell twin, a
   read-only setup check that runs the existing tenancy, Docker, OCI CLI,
   skill installation, and optional manifest and OCIR repository checks, and

@@ -355,6 +355,12 @@ file and uses it as the specification file input. The rest of the
 workflow is unchanged. No script, exit code, or test changes; edge cases are
 deliberately not handled yet.
 
+Business context (added 2026-10-05): the template starts with a "Business
+context" section (customer persona, use case, expected outcomes, optional
+customer concerns). Before drafting, the skill asks in one message for the
+persona, use case, or expected outcomes the request does not give; it does not
+ask for concerns.
+
 Guidelines (added 2026-10-03): `skills/oci-agent-new/references/agent-guidelines.md`
 collects defaults learned from real releases. Behavior defaults are written
 into the draft, marked "(default)", so the developer reviews them; code is

@@ -93,6 +93,10 @@ the agent behavior, endpoint, or model identifier.
 ## Specification draft
 
 Before drafting, read the [agent guidelines](references/agent-guidelines.md).
+If the request does not give the customer persona, the use case, or the
+expected outcomes, ask for the missing ones in one message before drafting.
+Customer concerns are optional: include them when given, and do not ask for
+them.
 When the developer gives no specification file, copy
 [the specification template](assets/agent-spec.template.md) to `agent-spec.md`
 in the workspace, replace `{{AGENT_NAME}}`, and fill in only what the prompt

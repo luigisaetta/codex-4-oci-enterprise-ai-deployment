@@ -1,7 +1,8 @@
 # Repository skills
 
 The new-agent skill drafts an agent specification (`agent-spec.md`) from a
-short request, applies the defaults in its
+short request, starting with the business context (customer persona, use
+case, expected outcomes, and optional concerns), applies the defaults in its
 [agent guidelines](oci-agent-new/references/agent-guidelines.md), and, after
 the developer approves the specification, writes the files the other skills
 need. It changes local files only.

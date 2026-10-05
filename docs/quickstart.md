@@ -36,17 +36,26 @@ Open the folder of your agent as the Codex workspace, in a new session. The
 folder must contain the agent's code and four files: `Dockerfile`,
 `requirements.txt`, `.dockerignore`, and `agent.yaml`.
 
-No agent yet? Ask Codex to create one in an empty Git repository, for example:
+No agent yet? Create an empty folder, run `git init` in it, open it in a new
+Codex session, and describe the agent, for example:
 
 ```text
-Create a small agent in this repository, to be released with the oci-agent
-skills. Follow the section "Creating a new agent repository" of
-~/Progetti/codex-4-oci-enterprise-ai-deployment/docs/using-oci-agent-skills.md.
-The agent receives a text with POST /analyze and returns the number of words.
-Add tests, and do not build or deploy anything yet.
+Create a new OCI agent. It is for the support team of an online shop, which
+receives many customer emails. The agent receives an email with POST /classify
+and returns its category (complaint, question, order) and a short summary. The
+team expects to route emails faster and to see the category of each one.
 ```
 
-Replace the path with the location of the tool checkout on your workstation.
+The `oci-agent-new` skill then:
+
+1. asks for the customer persona, the use case, or the expected outcomes, if
+   the request does not give them;
+2. writes a draft specification, `agent-spec.md`, and stops. Review it: edit
+   the file, or ask for changes in the chat;
+3. after you approve it (for example "ok, go ahead"), creates `agent.yaml`,
+   the `Dockerfile`, and the agent code from the specification.
+
+The specification can be written in your language.
 
 ## 2. Publish the first version
 

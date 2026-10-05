@@ -77,6 +77,14 @@ codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`.
 
 ## Creating a new agent repository
 
+The recommended way is the `oci-agent-new` skill: open an empty folder in
+Codex and describe the agent. The skill drafts a specification
+(`agent-spec.md`, starting with the customer persona, use case, and expected
+outcomes), stops for your review, and after your approval creates the files
+below from it. See the [skill](../skills/oci-agent-new/SKILL.md) and the
+[Quickstart](quickstart.md#1-open-your-agent-in-codex). The rest of this
+section describes those files, for review or for writing them by hand.
+
 An agent kept in its own repository needs four files in the agent's folder,
 which is also the build context (`context: .` in the manifest):
 

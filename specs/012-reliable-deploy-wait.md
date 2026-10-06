@@ -1,6 +1,7 @@
 # Spec 012: reliable waiting in deploy, and replacement of a failed deployment
 
-Status: draft.
+Status: implemented (Bash; PowerShell unexecuted); live first release verified;
+live resume and replacement pending.
 Date: 2026-10-02.
 
 ## Problem
@@ -285,3 +286,22 @@ Bash and PowerShell, with the same report lines and exit codes.
 * Bash and PowerShell mutation helpers now keep stderr separate from stdout JSON. The fake OCI delete can emit a successful stderr warning; the Bash replacement test confirms the JSON ID is parsed directly, without a read-only fallback lookup. The PowerShell twin uses the same separation but could not be executed on this workstation because `pwsh` is unavailable.
 * In the named Conda environment, `black --check .` passed; `pylint scripts tests` passed (10.00/10, with `PYLINTHOME` directed to `/private/tmp` because the default macOS cache path is sandbox-blocked); `pytest -q -rs` passed (327 passed, 131 skipped for unavailable `pwsh`, one unrelated Starlette deprecation warning). All 57 relative Markdown links in the edited Markdown files resolved. Bash syntax and `git diff --check` passed. No live OCI command was run; remote acceptance remains pending.
 * The existing F10 ambiguity remains: a structured 404 during deletion can mean either deleted or unauthorized. The scripts treat it as completed deletion under Spec 012; no offline test can establish which happened remotely.
+
+### Live first release — 2026-10-02, eu-frankfurt-1
+
+* Agent `order_processing` 0.1.1 (an LLM agent created with `oci-agent-new`),
+  after the previous application was deleted, so the case was `First release`.
+  Run from macOS with the Bash scripts, through a Codex session, with separate
+  approvals for push and deploy.
+* `deploy_hosted_application.sh --apply`: exit 0 in 166 seconds, no manual
+  step and no parsing error. Progress lines: Hosted Application `CREATING` at
+  0 s and 31 s, `ACTIVE` at 62 s; Hosted Deployment `CREATING` at 0 s, 30 s,
+  and 61 s, `ACTIVE` at 92 s. No progress line contained a runtime variable
+  value.
+* `oci-agent-verify-deployment`: OCI state, release tag, `/health`, `/ready`,
+  and the functional check passed; readiness in 3 seconds. The first two
+  functional attempts timed out at the then 5-second request timeout, fixed by
+  Spec 013.
+* Criteria 2 and 5 passed. Criterion 3 (resume after exit 26) and criterion 4
+  (replacement of a `FAILED` deployment) remain pending.
+

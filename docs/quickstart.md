@@ -25,8 +25,9 @@ the applications need permission to pull the image. See
 To check the workstation, run `scripts/check_setup.sh` from the tool checkout
 (`scripts/check_setup.ps1` on Windows): every line must say `PASS`.
 
-To check the skills, open Codex and type `$`: the list must include `oci-agent-build`,
-`oci-agent-push`, `oci-agent-deploy`, and `oci-agent-verify-deployment`. If
+To check the skills, open Codex and type `$`: the list must include
+`oci-agent-new`, `oci-agent-build`, `oci-agent-push`, `oci-agent-deploy`, and
+`oci-agent-verify-deployment`. If
 they are missing, start a new Codex session; if they are still missing, ask
 whoever prepared the workstation.
 

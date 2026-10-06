@@ -1,6 +1,6 @@
 # Spec 015: agent secrets in the tool's `.env`
 
-Status: implemented; offline checks passed; live build pending.
+Status: implemented; offline checks and operator end-to-end test passed.
 Date: 2026-10-06.
 
 ## Problem
@@ -102,5 +102,9 @@ available but is not required.
   only in a temporary tool `.env` with a dummy value: the report printed
   `GENAI_API_KEY source=from_env origin=tool .env value=<hidden>`, while the
   OCI JSON payload contained the value, as intended.
-* Pending: acceptance criterion 2 with a real build verification and deploy
-  plan.
+
+### 2026-10-06, operator test
+
+* Criterion 2: the operator ran a real test with `GENAI_API_KEY` only in the
+  tool's `.env` and reported that it works. Details of the run (agent, build
+  and deploy output) were not recorded here.

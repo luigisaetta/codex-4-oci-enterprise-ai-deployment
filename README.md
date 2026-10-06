@@ -21,6 +21,12 @@ the release, asking for your approval before every change in OCI.
 
 ## Why use it
 
+* **From an idea to an agent, specification first.** Describe the agent in a
+  few sentences: `oci-agent-new` drafts a specification (`agent-spec.md`) that
+  starts from the business context (customer persona, use case, expected
+  outcomes) and applies proven defaults. You review and edit it; only after
+  your approval does it generate the agent code and the manifest, ready to
+  build and deploy.
 * **Plain language.** "Release version 0.2.0 of this agent" runs the whole
   chain: build, push, deploy, verify.
 * **Plan first, then approve.** Every remote change is shown before it

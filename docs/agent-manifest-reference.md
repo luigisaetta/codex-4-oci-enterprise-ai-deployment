@@ -5,6 +5,10 @@ code. This page lists every field, with its rule and an example. The rules are
 those enforced by `scripts/agent_manifest.py`: a manifest that breaks one is
 rejected with exit code 64 and a message naming the field.
 
+For a new agent, `oci-agent-new` creates a first `agent.yaml` from the
+approved specification; this page describes every field, for review or
+editing.
+
 ## Choose the access mode first
 
 The most important decision is who may call the agent. It is set by

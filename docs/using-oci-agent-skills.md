@@ -4,8 +4,11 @@
 
 This guide is the operator workflow for taking one agent release from source to
 an OCI Generative AI Hosted Application. It explains when to invoke each of the
-four Codex skills, which inputs to give them, and where an explicit approval is
-required.
+five Codex skills, which inputs to give them, and where an explicit approval is
+required. The first skill, `oci-agent-new`, creates a new agent from an
+approved specification (see
+[Creating a new agent repository](#creating-a-new-agent-repository)); the other
+four release it.
 
 Every skill can be selected from a natural request. Push and deploy still ask
 for approval before each remote change.
@@ -13,6 +16,9 @@ for approval before each remote change.
 The skills are sequential:
 
 ```text
+create the agent from an approved specification (new agents only)
+          |
+          v
 agent manifest + release tag
           |
           v

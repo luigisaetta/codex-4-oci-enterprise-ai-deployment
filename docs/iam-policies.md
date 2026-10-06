@@ -20,9 +20,8 @@ Two kinds of principals need permissions:
 | Assumption | Plausible, not confirmed. To be confirmed live. |
 | Verified live (date) | Confirmed by a recorded test in a specification. |
 
-No statement on this page is verified live yet. The live checks planned in
-the [TODO](../TODO.md), for runtime variables and for the Generative AI demo,
-will update this column.
+Live verifications are recorded in the specifications; this page names them
+in the status column.
 
 In every statement, replace the placeholders:
 
@@ -31,7 +30,7 @@ In every statement, replace the placeholders:
 * `<compartment-name>` and `<compartment-ocid>`: the compartment set by
   `OCI_COMPARTMENT_NAME` in `.env`;
 * `<vault-compartment-name>`, `<genai-compartment-name>`: the compartments of
-  the Vault secrets and of the Generative AI models, if different.
+  the Vault secrets and of the Generative AI project, if different.
 
 In an identity domain other than `Default`, prefix group and dynamic-group
 names with the domain name, for example `'<domain-name>'/'<operator-group>'`.
@@ -62,7 +61,8 @@ non-goals); keeping the rule is harmless and follows the documentation.
 | --- | --- | --- | --- |
 | Pull the image from OCIR | `allow dynamic-group <runtime-dynamic-group> to read repos in compartment <compartment-name>` | Always | Documented |
 | Read Vault secrets passed as runtime variables | `allow dynamic-group <runtime-dynamic-group> to read secret-bundles in compartment <vault-compartment-name>` | The manifest uses `vault_secret_id` | Derived |
-| Call Generative AI chat models with resource principal | `allow dynamic-group <runtime-dynamic-group> to use generative-ai-chat in compartment <genai-compartment-name>` | The agent calls Generative AI | Derived |
+| Call Generative AI with Resource Principal (`GENAI_AUTH_MODE=resource_principal`) | `allow dynamic-group <runtime-dynamic-group> to use generative-ai-family in compartment <genai-compartment-name>` and `allow dynamic-group <runtime-dynamic-group> to use generative-ai-project in compartment <genai-compartment-name>` | The agent uses Resource Principal | Verified live (2026-10-06, Spec 016), through an equivalent broader statement; see the notes |
+| Call Generative AI with an API key (`GENAI_AUTH_MODE=api_key`, the default) | `allow any-user to use generative-ai-family in compartment <genai-compartment-name> where ALL {request.principal.type='generativeaiapikey'}` | The agent uses `GENAI_API_KEY` | Observed (2026-10-06) in a tenancy where API-key calls work, with the `manage` verb |
 | Other OCI services | One statement per service, for example `read object-family` | The agent calls them | Documented (as a pattern) |
 
 Notes:
@@ -74,14 +74,26 @@ Notes:
   The Generative AI documentation does not state this policy for Hosted
   Applications. The live check of runtime variables must record whether the
   deployment, or only the agent, fails without it.
-* **Generative AI**: `Chat` requires `GENERATIVE_AI_CHAT`, granted by `use` on
-  `generative-ai-chat`. The documented example is for user groups; the same
-  statement for the runtime dynamic group is an inference that the Generative
-  AI demo must confirm live. Embeddings and rerank use other resource types
-  (`generative-ai-text-embedding`, `generative-ai-text-rerank`); `use
-  generative-ai-family` covers all of them but is broader than needed.
-* That the container actually receives a resource-principal identity is an
-  assumption until the Generative AI demo confirms it.
+* **Generative AI with Resource Principal** (Spec 016): the Hosted Deployment
+  receives a Resource Principal and the agent signs its calls with the
+  `oci-genai-auth` library. OCI OpenAI-compatible calls require a Generative
+  AI project (`GENAI_PROJECT_ID`), hence the `generative-ai-project`
+  statement; `<genai-compartment-name>` is the project's compartment. In the
+  verified tenancy the call was authorized by existing broader statements
+  (`allow any-user to manage generative-ai-family` and `… generative-ai-project`
+  on the compartment, without conditions); the dedicated dynamic-group
+  statements above are the recommended least-privilege form, not yet tested in
+  isolation. Which narrower resource type covers the Responses API is not
+  documented; `generative-ai-family` is the safe choice.
+* **Generative AI with an API key** (Spec 015): the request principal is the
+  API key, so the statement uses `any-user` with a
+  `request.principal.type='generativeaiapikey'` condition, as in
+  [Adding Key Permissions](https://docs.oracle.com/en-us/iaas/Content/generative-ai/add-api-permission.htm).
+* **Dynamic group in another identity domain**: in the verified tenancy the
+  runtime dynamic group lives in a secondary identity domain; the policy names
+  it as `'<domain-name>'/'<dynamic-group-name>'`. A tenancy-wide rule on
+  `generativeaihostedapplication` and `generativeaihosteddeployment` works; the
+  policies limit access to the compartment.
 
 ## Operator: policies
 
@@ -137,7 +149,7 @@ Notes:
 ## Minimal setup, in one place
 
 For an operator group and a runtime dynamic group in one compartment, with an
-agent that uses Vault variables and Generative AI chat:
+agent that calls Generative AI with Resource Principal:
 
 ```text
 allow group <operator-group> to inspect compartments in tenancy
@@ -147,12 +159,14 @@ allow group <operator-group> to manage generativeaihosteddeployment in compartme
 allow group <operator-group> to read generative-ai-work-request in compartment <compartment-name>
 
 allow dynamic-group <runtime-dynamic-group> to read repos in compartment <compartment-name>
-allow dynamic-group <runtime-dynamic-group> to read secret-bundles in compartment <vault-compartment-name>
-allow dynamic-group <runtime-dynamic-group> to use generative-ai-chat in compartment <genai-compartment-name>
+allow dynamic-group <runtime-dynamic-group> to use generative-ai-family in compartment <genai-compartment-name>
+allow dynamic-group <runtime-dynamic-group> to use generative-ai-project in compartment <genai-compartment-name>
 ```
 
-Drop the last two statements if the agent uses neither Vault nor Generative
-AI. Statements on the tenancy (`in tenancy`) must be in a policy attached to
+Drop the last two statements if the agent does not call Generative AI with
+Resource Principal. With an API key, use the `any-user … generativeaiapikey`
+statement of the table instead. Add `read secret-bundles` only for Vault
+variables. Statements on the tenancy (`in tenancy`) must be in a policy attached to
 the root compartment.
 
 ## Sources
@@ -171,6 +185,11 @@ Verified on 2026-10-01:
 * [Container Registry policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/policyreference/registrypolicyreference.htm)
   and [Policies to control repository access](https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registrypolicyrepoaccess.htm):
   `repos` verbs and push permissions.
+* Verified on 2026-10-06:
+  [Projects](https://docs.oracle.com/en-us/iaas/Content/generative-ai/projects.htm)
+  (`generative-ai-project`, project required for OpenAI-compatible calls) and
+  [Generative AI IAM-Based Authentication](https://docs.oracle.com/en-us/iaas/Content/generative-ai/oci-genai-auth.htm)
+  (`oci-genai-auth`, Resource Principal).
 * [Vault policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/Reference/keypolicyreference.htm):
   `secret-bundles` and `GetSecretBundle`.
 * [IAM policy reference](https://docs.oracle.com/en-us/iaas/Content/Identity/Reference/iampolicyreference.htm):

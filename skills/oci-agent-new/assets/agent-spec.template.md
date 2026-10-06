@@ -33,8 +33,11 @@ The steps the agent follows, in order, and its business rules.
 
 ## Configuration
 
-Runtime variables: name, source (`value` or `from_env`), and whether it is a
-secret.
+* LLM authentication: `api_key` (default, `GENAI_API_KEY` with `from_env`) or
+  `resource_principal` (no secret; needs `GENAI_PROJECT_ID` and the runtime
+  IAM policies).
+* Runtime variables: name, source (`value` or `from_env`), and whether it is a
+  secret.
 
 ## Errors
 

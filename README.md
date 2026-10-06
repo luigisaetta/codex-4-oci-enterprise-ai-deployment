@@ -223,6 +223,10 @@ release. Every field, with complete examples for both access modes, is in the
 * For `public-idcs`, store only the non-secret domain URL, audience, and scope
   in the manifest; export the client ID and secret only in the shell that runs
   the verification.
+* Agents that call OCI Generative AI can use Resource Principal instead of an
+  API key: the Hosted Application authenticates as itself, with no secret to
+  manage. It needs a Generative AI project and the runtime policies in
+  [IAM policies](docs/iam-policies.md).
 * A variable passed with `from_env` stays out of your repository and is shown
   as `value=<hidden>` in every report, but it is stored in the Hosted
   Application configuration in OCI.

@@ -21,9 +21,19 @@ in the specification.
 *Why:* a deployment in one region calling an LLM in another caused confusion.
 
 **B2. Runtime variables.** Use `GENAI_MODEL`, `GENAI_REGION` (literal `value`
-in the manifest), and `GENAI_API_KEY` (`from_env`). The developer keeps the key
-in the tool's `.env` or exports it; the agent code reads only the environment
-variable. Never name an agent variable like a tool tenancy key (`OCI_REGION`,
+in the manifest), and `GENAI_AUTH_MODE`:
+
+* `api_key` (default): `GENAI_API_KEY` with `from_env`. The developer keeps the
+  key in the tool's `.env` or exports it; the agent code reads only the
+  environment variable.
+* `resource_principal`, when the specification asks for it (no secret; the
+  recommended choice for production): `GENAI_PROJECT_ID`, the OCID of a
+  Generative AI project in `GENAI_REGION`, as a literal `value`. Write in the
+  specification the project and the runtime policies of
+  `docs/iam-policies.md` in the tool checkout.
+
+`GENAI_PROJECT_ID` is recommended in `api_key` mode too, and passed when set.
+Never name an agent variable like a tool tenancy key (`OCI_REGION`,
 `OCI_COMPARTMENT_NAME`, `OCIR_*`).
 *Why:* the tool exports its own `OCI_REGION`; `from_env: OCI_REGION` silently
 took the tool's value.
@@ -62,7 +72,29 @@ result = client.responses.parse(
 )
 ```
 
-Never parse JSON out of free text.
+Never parse JSON out of free text. Create the client with one function for
+both authentication modes (`oci-genai-auth` and `httpx` in `requirements.txt`
+for Resource Principal):
+
+```python
+import httpx
+from oci_genai_auth import OciResourcePrincipalAuth
+from openai import OpenAI
+
+
+def make_client(region: str, mode: str, project: str, api_key: str = "") -> OpenAI:
+    """Create the OCI Generative AI client for the selected auth mode."""
+    base_url = f"https://inference.generativeai.{region}.oci.oraclecloud.com/openai/v1"
+    if mode == "resource_principal":
+        return OpenAI(
+            base_url=base_url, api_key="not-used", project=project, max_retries=0,
+            http_client=httpx.Client(auth=OciResourcePrincipalAuth(), timeout=20.0),
+        )
+    return OpenAI(base_url=base_url, api_key=api_key, project=project or None,
+                  timeout=20.0, max_retries=0)
+```
+
+*Why:* verified live with Resource Principal on 2026-10-06 (Spec 016).
 
 **Q2. Timeouts.** Create the LLM client with an explicit timeout (for example
 20 to 30 seconds) and at most one retry, so that one request stays well below
@@ -74,7 +106,13 @@ values, or the full user message. Never turn an exception into an error
 response without logging it.
 
 **Q4. Startup checks.** Validate required variables and data files at startup;
-on failure `/ready` returns 503 and the cause is logged.
+on failure `/ready` returns 503 and the cause is logged. Never create or test
+the LLM client at startup: create it at the first LLM call.
+*Why:* `OciResourcePrincipalAuth()` needs the Resource Principal in its
+constructor, which exists only in OCI; created at startup, it would make
+`/ready` fail in the local verification. Locally, LLM calls in
+`resource_principal` mode answer 502, which is expected; the deterministic
+check (B5) keeps the build verification green.
 
 **Q5. Style.** Module header on every Python file, docstrings on public
 functions and classes, lines under 100 characters, and HTTP handling

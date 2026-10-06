@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-06: Support Resource Principal for agents that call OCI Generative
+  AI (`GENAI_AUTH_MODE=resource_principal`, `GENAI_PROJECT_ID`, library
+  `oci-genai-auth`), verified live; API-key mode stays the default. Update the
+  `oci-agent-new` guidelines and template, and the runtime policies for
+  Resource Principal and API keys in the IAM guide.
+
 * 2026-10-06: Agent secrets such as `GENAI_API_KEY` can live in the tool's
   `.env`: `from_env` reads the operator environment first, then the tool's
   `.env`, without adding the secret to the tenancy settings exported by the

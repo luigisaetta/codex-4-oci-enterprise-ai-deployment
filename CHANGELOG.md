@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-06: `oci-agent-new` treats agents that call OCI Generative AI as
+  supported: it follows its guidelines without asking whether to proceed, and
+  its closing message reminds the API-key or Resource Principal prerequisites
+  (Spec 017).
+
 ## 0.6.0 - 2026-10-06
 
 Spec-first agent creation and Resource Principal. See the

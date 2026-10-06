@@ -1,6 +1,6 @@
 # Spec 011: skill `oci-agent-new`, author a new agent (first iteration)
 
-Status: draft; work in progress.
+Status: implemented; amended by [Spec 017](017-oci-agent-new-llm-agents-supported.md).
 Date: 2026-10-01.
 
 ## Problem
@@ -33,8 +33,8 @@ from the developer's requirements. It is documented as **work in progress**.
 
 ## Non-goals
 
-* Calling OCI Generative AI or any other OCI service from the agent; this
-  comes with the Generative AI demo (TODO item 7).
+* Calling OCI services other than OCI Generative AI (calls to OCI Generative
+  AI are supported since Spec 017).
 * A test UI (TODO item 9).
 * The `public-idcs` profile: the generated manifest always uses
   `public-noauth`; the closing message explains how to switch later.
@@ -132,9 +132,12 @@ invents a value that changes the agent's behavior.
 
 ## Requests outside the first iteration
 
-When the inputs ask for something outside this iteration, for example a `GET`
-business endpoint, more than one endpoint, streaming, file upload, or calls to
-OCI Generative AI, the skill:
+Since [Spec 017](017-oci-agent-new-llm-agents-supported.md), calls to OCI
+Generative AI are part of the supported shape and are no longer handled here.
+
+When the inputs ask for something outside the supported shape, for example a
+`GET` business endpoint, more than one endpoint, streaming, file upload, or
+calls to OCI services other than Generative AI, the skill:
 
 1. says which part of the request is outside the first iteration;
 2. asks whether the developer wants to go ahead anyway.

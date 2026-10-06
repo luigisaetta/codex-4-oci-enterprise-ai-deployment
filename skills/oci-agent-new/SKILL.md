@@ -5,8 +5,8 @@ description: Create a new AI agent for OCI Generative AI Hosted Applications (Ho
 
 # OCI Agent New
 
-This skill is **work in progress (first iteration)**. Contract and verification:
-[Spec 011](../../specs/011-skill-oci-agent-new.md).
+Contract and verification: [Spec 011](../../specs/011-skill-oci-agent-new.md),
+amended by [Spec 017](../../specs/017-oci-agent-new-llm-agents-supported.md).
 
 ## Purpose and when to use
 
@@ -113,15 +113,20 @@ hand or ask for changes in the chat; until approval, change only
 code from the approved specification only, applying the code-quality rules
 (Q rules) of the guidelines.
 
-## Requests outside the first iteration
+## Requests outside the supported shape
 
-For GET business endpoints, multiple endpoints, streaming, file uploads, OCI
-service calls, or other additions outside this iteration, name the requested
-parts and ask whether to proceed. If declined, stop or use the supported shape
-only if requested. If approved, author those additions and identify them as
-outside this specification's tests and acceptance criteria. C1, C2, C5, C6,
-and C8 still apply. For OCI service calls, include
-[IAM policies](../../docs/iam-policies.md) in the closing message.
+Calls to OCI Generative AI are part of the supported shape: follow the
+[agent guidelines](references/agent-guidelines.md) (B1, B2, Q1–Q4) without
+asking whether to proceed.
+
+For GET business endpoints, multiple endpoints, streaming, file uploads, calls
+to OCI services other than Generative AI, or other additions outside the
+supported shape, name the requested parts and ask whether to proceed. If
+declined, stop or use the supported shape only if requested. If approved,
+author those additions and identify them as outside this specification's tests
+and acceptance criteria. C1, C2, C5, C6, and C8 still apply. For calls to other
+OCI services, include [IAM policies](../../docs/iam-policies.md) in the closing
+message.
 
 ## Workflow
 
@@ -129,7 +134,7 @@ and C8 still apply. For OCI service calls, include
 2. Read the prompt and optional specification file. Without a specification
    file, first write the specification draft below and continue only after
    the developer approves it.
-3. Report requests outside the first iteration and obtain the decision above.
+3. Report requests outside the supported shape and obtain the decision above.
 4. Collect the input table's values; ask for missing values together. Set
    `AGENT_NAME` from the inputs. Do not compute the default package or
    repository; the helper supplies them. Initialize the Bash option array:
@@ -247,8 +252,13 @@ and C8 still apply. For OCI service calls, include
 List these four items in order:
 
 1. Files created, any `.gitignore` kept, and parts implemented outside the
-   first iteration, if any; state that those additions are outside its tests
-   and acceptance criteria.
+   supported shape, if any; state that those additions are outside its tests
+   and acceptance criteria. For an agent that calls OCI Generative AI, add:
+   in `api_key` mode, put `GENAI_API_KEY` in the tool's `.env` (or export it)
+   before the build; in `resource_principal` mode, the Generative AI project
+   and the runtime policies of [IAM policies](../../docs/iam-policies.md) must
+   exist before the deploy, and LLM calls answer 502 in the local
+   verification, as expected.
 2. **Review `agent.yaml`**: access profile, any needed runtime variables not
    specified (link to the [manifest reference](../../docs/agent-manifest-reference.md)),
    and whether the functional check matches the expected behavior.
@@ -261,8 +271,8 @@ List these four items in order:
 
 ## Limitations
 
-The first iteration supports one POST JSON endpoint, no OCI service calls,
-and no generated agent tests, README, development requirements, or test UI.
+The skill generates one POST JSON business endpoint and no agent tests,
+README, development requirements, or test UI.
 Packages needing compilation fail the build because the base image has no
 compiler; prefer a version or alternative with a `linux/amd64` wheel.
 Files present before this session are never modified. No local syntax or

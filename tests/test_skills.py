@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-02
+Date last modified: 2026-10-06
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -171,8 +171,8 @@ def test_skills_include_target_platform_check() -> None:
             assert "aidp-agent-deploy" in content
 
 
-def test_new_skill_documents_helper_and_first_iteration() -> None:
-    """The authoring skill exposes the reviewed helper contract and its status."""
+def test_new_skill_documents_helper_and_llm_support() -> None:
+    """The authoring skill exposes the helper contract and supports LLM agents."""
     content = (SKILLS / "oci-agent-new" / "SKILL.md").read_text(encoding="utf-8")
     for command in ("plan", "render", "check-manifest", "check-env"):
         assert f'"$TOOL_HOME/scripts/new_agent.py" {command}' in content
@@ -180,8 +180,11 @@ def test_new_skill_documents_helper_and_first_iteration() -> None:
         assert f"| {code} |" in content
     for section in ("## Prerequisites", "## Closing message"):
         assert section in content
-    assert "work in progress" in content.lower()
-    assert "../../specs/011-skill-oci-agent-new.md" in MARKDOWN_LINK.findall(content)
+    links = MARKDOWN_LINK.findall(content)
+    assert "../../specs/011-skill-oci-agent-new.md" in links
+    assert "references/agent-guidelines.md" in links
+    for phrase in ("work in progress", "first iteration", "no oci service calls"):
+        assert phrase not in content.lower()
 
 
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:

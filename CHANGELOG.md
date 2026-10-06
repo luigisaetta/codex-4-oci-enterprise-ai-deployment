@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-06: Agent secrets such as `GENAI_API_KEY` can live in the tool's
+  `.env`: `from_env` reads the operator environment first, then the tool's
+  `.env`, without adding the secret to the tenancy settings exported by the
+  scripts. Runtime reports now
+  show `from_env` values as `value=<hidden>` with their origin.
+
 * 2026-10-05: `oci-agent-new` now starts from a specification. Without a
   specification file, it drafts `agent-spec.md` from the request, beginning
   with a business context (customer persona, use case, expected outcomes, and

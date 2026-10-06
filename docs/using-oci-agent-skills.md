@@ -57,8 +57,7 @@ manifest folder.
    [Windows workstations](#windows-workstations) for the two Windows paths.
 4. The scripts read the tenancy file themselves from `OCI_AGENT_ENV_FILE`,
    defaulting to `<tool home>/.env`; never source it or print its contents. Copy
-   `.env.example` to the ignored `.env` and set only tenancy-wide,
-   non-secret values:
+   `.env.example` to the ignored `.env` and set the tenancy-wide values:
 
    ```dotenv
    OCI_REGION=eu-frankfurt-1
@@ -67,8 +66,13 @@ manifest folder.
    OCIR_USERNAME=<complete-ocir-login-username>
    ```
 
+   The same file may also hold agent secrets, such as `GENAI_API_KEY`. They
+   are used only to resolve `from_env` entries of agent manifests (and, during a
+   deploy, to mask them in error messages), are never added to your shell or
+   printed, and make the file private: never share or commit it.
+
 5. Configure OCI CLI authentication outside the repository. Do not put an OCI
-   API key, private key, auth token, Docker password, or endpoint override in
+   API private key, auth token, Docker password, or endpoint override in
    `.env` or `agent.yaml`.
 
 Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
@@ -121,8 +125,9 @@ It provides:
 
 `/health` and `/ready` are platform probes and are not placed in `verify`.
 Use a literal `runtime.env.value` only for non-secret committed data,
-`from_env` for tenancy-specific non-secret data, and `vault_secret_id` for
-secrets. Updating runtime variables on an existing Hosted Application is not
+`from_env` for tenancy-specific data and for secrets such as API keys (from the
+operator's shell, or from the tool's `.env`), and `vault_secret_id` for secrets
+kept in OCI Vault. Updating runtime variables on an existing Hosted Application is not
 implemented; a changed value requires an explicitly designed update workflow.
 
 ## Protect an agent with identity-domain tokens

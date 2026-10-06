@@ -47,7 +47,8 @@ Activate that environment or set `OCI_AGENT_PYTHON`, then retry.
 In PowerShell invoke the same `.py` helper
 with the selected interpreter and the same `--option` names; no script twin
 is needed. Tenancy settings come from `OCI_AGENT_ENV_FILE`, default
-`$TOOL_HOME/.env`; the helper reads it. Never source, print, or edit that file.
+`$TOOL_HOME/.env`; the helper reads it. Never source, read into the conversation, print, or edit that file: it may
+hold agent secrets.
 
 ## Prerequisites
 

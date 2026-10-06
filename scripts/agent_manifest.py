@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-30
+Date last modified: 2026-10-06
 License: MIT
 Description: Validate and expose the versioned agent deployment manifest.
 """
@@ -16,6 +16,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 import yaml
+
+if __package__:
+    from . import tool_config
+else:
+    # Direct script execution puts scripts/ on sys.path.
+    import tool_config  # pylint: disable=import-error
 
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
@@ -366,6 +372,27 @@ def validate_deploy(value: Any) -> dict[str, Any]:
     return deploy
 
 
+def from_env_value(source: str) -> tuple[str, str]:
+    """Resolve a ``from_env`` source from the environment, then the tool .env.
+
+    Args:
+        source: Environment variable name declared by the manifest.
+
+    Returns:
+        The value (empty when undefined) and its origin label.
+    """
+    value = os.environ.get(source, "")
+    if value:
+        return value, "environment"
+    try:
+        value = tool_config.configured_value(source)
+    except (OSError, UnicodeError) as error:
+        raise ManifestError(
+            f"The tool .env file is not readable UTF-8: {error}."
+        ) from error
+    return value, "tool .env"
+
+
 def resolve_runtime_environment(
     manifest: dict[str, Any], local: bool
 ) -> tuple[list[dict[str, str]], list[str]]:
@@ -380,10 +407,12 @@ def resolve_runtime_environment(
             )
         elif "from_env" in variable:
             source = variable["from_env"]
-            source_value = os.environ.get(source)
+            source_value, _ = from_env_value(source)
             if not source_value:
                 raise ManifestError(
-                    f"Runtime environment source is undefined: {source}."
+                    f"Runtime environment source is undefined: {source}. Export "
+                    "it, or add it to the tool .env file "
+                    f"({tool_config.configuration_file()})."
                 )
             if "\n" in source_value or "\r" in source_value:
                 raise ManifestError(
@@ -411,7 +440,11 @@ def resolve_runtime_environment(
 
 
 def runtime_report(manifest: dict[str, Any], local: bool) -> str:
-    """Format a safe source report without printing Vault values."""
+    """Format a safe source report without printing secret values.
+
+    Literal values are committed, non-secret data and are printed; ``from_env``
+    values are always hidden; Vault references are never printed.
+    """
     _, skipped = resolve_runtime_environment(manifest, local)
     lines = []
     for variable in manifest["runtime"]["env"]:
@@ -421,10 +454,10 @@ def runtime_report(manifest: dict[str, Any], local: bool) -> str:
                 f"Runtime environment: {name} source=value value={variable['value']}"
             )
         elif "from_env" in variable:
-            source_name = variable["from_env"]
+            _, origin = from_env_value(variable["from_env"])
             lines.append(
-                f"Runtime environment: {name} source=from_env "
-                f"value={os.environ[source_name]}"
+                f"Runtime environment: {name} source=from_env origin={origin} "
+                "value=<hidden>"
             )
         elif local and name in skipped:
             lines.append(

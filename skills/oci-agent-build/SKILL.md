@@ -32,7 +32,8 @@ Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
 (activated, or `conda run --no-capture-output -n
 codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`. Tenancy
 settings come from `OCI_AGENT_ENV_FILE`, default `"$TOOL_HOME/.env"`; the
-scripts read it themselves. Never source it, and never print its content. In a
+scripts read it themselves. Never source it, read it into the conversation, or print its content: it may
+hold agent secrets. In a
 sandboxed session, request permission for Docker and network access before the
 first Docker, OCI CLI, or HTTP command, instead of retrying after a failure.
 

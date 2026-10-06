@@ -21,9 +21,10 @@ in the specification.
 *Why:* a deployment in one region calling an LLM in another caused confusion.
 
 **B2. Runtime variables.** Use `GENAI_MODEL`, `GENAI_REGION` (literal `value`
-in the manifest), and `GENAI_API_KEY` (`from_env`). Never name an agent
-variable like a tool tenancy key (`OCI_REGION`, `OCI_COMPARTMENT_NAME`,
-`OCIR_*`).
+in the manifest), and `GENAI_API_KEY` (`from_env`). The developer keeps the key
+in the tool's `.env` or exports it; the agent code reads only the environment
+variable. Never name an agent variable like a tool tenancy key (`OCI_REGION`,
+`OCI_COMPARTMENT_NAME`, `OCIR_*`).
 *Why:* the tool exports its own `OCI_REGION`; `from_env: OCI_REGION` silently
 took the tool's value.
 

@@ -113,8 +113,8 @@ installed skills point to it, so keep it where it is.
 
 **2. Configure the tenancy**
 
-Copy `.env.example` to `.env` (ignored by Git) and set only these non-secret
-values; the scripts read the file themselves:
+Copy `.env.example` to `.env` (ignored by Git) and set the tenancy values; the
+scripts read the file themselves:
 
 ```dotenv
 OCI_REGION=eu-frankfurt-1
@@ -122,6 +122,11 @@ OCI_COMPARTMENT_NAME=<target-compartment-name>
 OCIR_TENANCY_NAMESPACE=<object-storage-namespace>
 OCIR_USERNAME=<complete-ocir-login-username>
 ```
+
+The same file can hold the secrets your agents need, for example
+`GENAI_API_KEY=<your-key>` for an agent that calls an LLM. The tool uses it
+only to fill `from_env` entries of agent manifests, and during a deploy to mask
+it in error messages; it never adds it to your shell or prints it. Once a secret is in `.env`, never share or commit the file.
 
 **3. Install the skills**
 
@@ -189,8 +194,8 @@ runtime:
   env:
     - name: LOG_LEVEL
       value: INFO
-    - name: OPENAI_API_KEY
-      from_env: OPENAI_API_KEY  # read from your shell at deploy time
+    - name: GENAI_API_KEY
+      from_env: GENAI_API_KEY   # from your shell, or from the tool's .env
 verify:
   - method: POST
     path: /hello
@@ -209,15 +214,18 @@ release. Every field, with complete examples for both access modes, is in the
 > plan first, and a request to deploy never authorizes a push on its own.
 
 > [!WARNING]
-> Never put an OCI auth token, password, private key, Docker credential, or
-> client secret in `.env`, in `agent.yaml`, in a command argument, or in the
-> chat. Type the Docker login token only at Docker's password prompt.
+> Never put a secret in `agent.yaml`, in a command argument, or in the chat.
+> Agent secrets such as `GENAI_API_KEY` go only in your shell or in the tool's
+> `.env`, which is never shared or committed. Never put an OCI auth token, OCI
+> API private key, or Docker credential in `.env`: type the Docker login token
+> only at Docker's password prompt.
 
 * For `public-idcs`, store only the non-secret domain URL, audience, and scope
   in the manifest; export the client ID and secret only in the shell that runs
   the verification.
-* A variable passed with `from_env` stays out of your repository, but it is
-  stored in the Hosted Application configuration in OCI.
+* A variable passed with `from_env` stays out of your repository and is shown
+  as `value=<hidden>` in every report, but it is stored in the Hosted
+  Application configuration in OCI.
 
 ## Documentation
 

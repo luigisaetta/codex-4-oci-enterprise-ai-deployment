@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-10-01
+Date last modified: 2026-10-06
 License: MIT
-Description: Read the non-secret tenancy configuration for OCI agent scripts.
+Description: Read tenancy settings and agent secrets from the tool's .env file.
 """
 
 import argparse
@@ -45,14 +45,14 @@ def unquote(value: str) -> str:
     return value
 
 
-def read_configuration(path: Path) -> dict[str, str]:
-    """Read allowed non-secret keys from a KEY=VALUE configuration file.
+def read_all_entries(path: Path) -> dict[str, str]:
+    """Read every KEY=VALUE entry of a configuration file.
 
     Args:
         path: Configuration file to parse.
 
     Returns:
-        Parsed allowed keys and values, or an empty mapping when absent.
+        Parsed keys and values, or an empty mapping when the file is absent.
     """
     if not path.is_file():
         return {}
@@ -62,10 +62,38 @@ def read_configuration(path: Path) -> dict[str, str]:
         if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
         key, value = stripped.split("=", maxsplit=1)
-        key = key.strip()
-        if key in ALLOWED_KEYS:
-            values[key] = unquote(value.strip())
+        values[key.strip()] = unquote(value.strip())
     return values
+
+
+def read_configuration(path: Path) -> dict[str, str]:
+    """Read the tenancy keys from a KEY=VALUE configuration file.
+
+    Args:
+        path: Configuration file to parse.
+
+    Returns:
+        Parsed tenancy keys and values, or an empty mapping when absent.
+    """
+    return {
+        key: value
+        for key, value in read_all_entries(path).items()
+        if key in ALLOWED_KEYS
+    }
+
+
+def configured_value(key: str) -> str:
+    """Return one entry of the selected .env file, for runtime ``from_env`` sources.
+
+    The value is never exported to the environment of the scripts.
+
+    Args:
+        key: Entry name, for example GENAI_API_KEY.
+
+    Returns:
+        The entry value, or an empty string when the file or the entry is absent.
+    """
+    return read_all_entries(configuration_file()).get(key, "")
 
 
 def configuration_issues(file_values: dict[str, str]) -> tuple[list[str], list[str]]:

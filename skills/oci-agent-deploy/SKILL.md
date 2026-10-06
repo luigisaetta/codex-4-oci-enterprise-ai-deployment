@@ -32,7 +32,8 @@ Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
 (activated, or `conda run --no-capture-output -n
 codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`. Tenancy
 settings come from `OCI_AGENT_ENV_FILE`, default `"$TOOL_HOME/.env"`; the
-scripts read it themselves. Never source it, and never print its content. In a
+scripts read it themselves. Never source it, read it into the conversation, or print its content: it may
+hold agent secrets. In a
 sandboxed session, request permission for Docker and network access before the
 first Docker, OCI CLI, or HTTP command, instead of retrying after a failure.
 
@@ -53,7 +54,8 @@ password, or private key to either file. Non-secret container environment
 configuration belongs only in validated manifest `runtime.env` entries.
 
 When `runtime.env` is present, inspect its source report in the plan. Literal
-and `from_env` values are plaintext; Vault references are never printed. A
+values are printed; `from_env` values are shown as `value=<hidden>` with their
+origin (environment or tool `.env`); Vault references are never printed. A
 missing `from_env` input stops the plan. Existing applications must already have
 the same runtime environment because this skill does not update applications.
 

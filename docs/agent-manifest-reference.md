@@ -165,7 +165,7 @@ Each entry has a `name` and **exactly one** source:
 | Source | Value | Use it for |
 | --- | --- | --- |
 | `value` | A literal, committed with the manifest. Forbidden for names that look secret (containing `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `APIKEY`, `API_KEY`, or `PRIVATE_KEY`). | Non-secret settings, such as a log level. |
-| `from_env` | The name of an environment variable of the operator's shell, read when the plan or deploy runs; missing means the plan stops. | Non-secret values that differ per tenancy. |
+| `from_env` | The name of a variable read when the plan or deploy runs: first from the operator's environment, then from the tool's `.env`. Missing in both means the plan stops. Reports show `value=<hidden>`. | Values that differ per tenancy, and secrets such as `GENAI_API_KEY`. |
 | `vault_secret_id` | The OCID of an OCI Vault secret (`ocid1.vaultsecret.oc1.…`); the value is never printed. | Secrets. The runtime needs an IAM policy to read the secret. |
 
 Rules: names match `^[A-Z][A-Z0-9_]*$`, are unique, and cannot be `PATH`,

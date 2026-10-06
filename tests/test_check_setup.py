@@ -5,6 +5,8 @@ License: MIT
 Description: Offline tests for the read-only setup check orchestrator.
 """
 
+# pylint: disable=duplicate-code
+
 import os
 import shutil
 import subprocess

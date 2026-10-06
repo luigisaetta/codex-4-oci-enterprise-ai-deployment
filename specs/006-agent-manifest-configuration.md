@@ -104,13 +104,15 @@ runtime:
 ```
 
 `value` and `from_env` become OCI `PLAINTEXT` variables. Literal values must be
-non-secret and are committed; `from_env` is resolved from the operator process
-at plan/apply time and fails when absent. `vault_secret_id` becomes `VAULT` and
+non-secret and are committed; `from_env` is resolved at plan/apply time from the
+operator process and then from the tool's `.env` (Spec 015), and fails when
+absent from both. `vault_secret_id` becomes `VAULT` and
 must be an OCI Vault secret OCID. It is the only permitted source for
 sensitive-looking variable names. `PATH`, `HOME`, and `PYTHONPATH` are reserved.
 
-The plan prints each variable name and source, and prints plaintext values only;
-it never prints a Vault value or reference. On local verification, Vault values
+The plan prints each variable name and source. It prints literal values only;
+`from_env` values are shown as `value=<hidden>` with their origin (Spec 015),
+and it never prints a Vault value or reference. On local verification, Vault values
 are omitted unless the operator sets `OCI_AGENT_VAULT_<VARIABLE_NAME>`; this
 override is never printed. The report identifies any omitted Vault variable.
 

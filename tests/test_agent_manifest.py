@@ -17,6 +17,7 @@ from scripts.agent_manifest import (
     ManifestError,
     load_manifest,
     resolve_runtime_environment,
+    runtime_report,
 )
 
 
@@ -635,3 +636,101 @@ def test_invalid_runtime_environment_is_rejected(entry: str, tmp_path: Path) -> 
     )
     with pytest.raises(ManifestError):
         load_manifest(str(manifest_path))
+
+
+def write_secret_manifest(tmp_path: Path) -> Path:
+    """Create a manifest whose API key comes from ``from_env``.
+
+    Args:
+        tmp_path: Temporary directory for the agent.
+
+    Returns:
+        Path to the created manifest.
+    """
+    manifest_path = write_manifest(tmp_path / "agent")
+    manifest_path.write_text(
+        manifest_path.read_text(encoding="utf-8").replace(
+            "verify: []",
+            "runtime: {env: [{name: GENAI_API_KEY, from_env: GENAI_API_KEY}]}\n"
+            "verify: []",
+        ),
+        encoding="utf-8",
+    )
+    return manifest_path
+
+
+@pytest.fixture(name="tool_env_file")
+def tool_env_file_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Select a temporary tool .env that holds an agent secret."""
+    path = tmp_path / "tool.env"
+    path.write_text(
+        "OCI_REGION=eu-frankfurt-1\nGENAI_API_KEY='file-secret-marker'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(path))
+    monkeypatch.delenv("GENAI_API_KEY", raising=False)
+    return path
+
+
+def test_from_env_uses_the_tool_env_file_and_hides_the_value(
+    tool_env_file: Path, tmp_path: Path
+) -> None:
+    """Without an exported value, the tool .env provides it; the report hides it."""
+    assert tool_env_file.is_file()
+    manifest = load_manifest(str(write_secret_manifest(tmp_path)))
+    resolved, _ = resolve_runtime_environment(manifest, local=False)
+    assert resolved == [
+        {"name": "GENAI_API_KEY", "type": "PLAINTEXT", "value": "file-secret-marker"}
+    ]
+    report = runtime_report(manifest, local=True)
+    assert "origin=tool .env value=<hidden>" in report
+    assert "file-secret-marker" not in report
+
+
+def test_from_env_prefers_the_environment(
+    monkeypatch: pytest.MonkeyPatch, tool_env_file: Path, tmp_path: Path
+) -> None:
+    """An exported value wins over the tool .env and is hidden too."""
+    assert tool_env_file.is_file()
+    monkeypatch.setenv("GENAI_API_KEY", "environment-secret-marker")
+    manifest = load_manifest(str(write_secret_manifest(tmp_path)))
+    resolved, _ = resolve_runtime_environment(manifest, local=False)
+    assert resolved[0]["value"] == "environment-secret-marker"
+    report = runtime_report(manifest, local=False)
+    assert "origin=environment value=<hidden>" in report
+    assert "secret-marker" not in report
+
+
+def test_from_env_missing_everywhere_names_both_places(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The error explains where the value can be provided."""
+    path = tmp_path / "tool.env"
+    path.write_text("OCI_REGION=eu-frankfurt-1\n", encoding="utf-8")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(path))
+    monkeypatch.delenv("GENAI_API_KEY", raising=False)
+    manifest = load_manifest(str(write_secret_manifest(tmp_path)))
+    with pytest.raises(ManifestError, match="GENAI_API_KEY.*tool .env file"):
+        resolve_runtime_environment(manifest, local=False)
+
+
+def test_tenancy_settings_never_export_agent_secrets(tool_env_file: Path) -> None:
+    """Only the four tenancy keys leave the .env file as environment settings."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).resolve().parents[1] / "scripts/tool_config.py"),
+            "env",
+            "--keys",
+            "OCI_REGION",
+        ],
+        env={
+            **{key: value for key, value in os.environ.items() if key != "OCI_REGION"},
+            "OCI_AGENT_ENV_FILE": str(tool_env_file),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "OCI_REGION=eu-frankfurt-1\n"

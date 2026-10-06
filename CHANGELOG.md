@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-10-06
+
+Spec-first agent creation and Resource Principal. See the
+[release notes](docs/releases/v0.6.0.md).
+
 * 2026-10-06: Support Resource Principal for agents that call OCI Generative
   AI (`GENAI_AUTH_MODE=resource_principal`, `GENAI_PROJECT_ID`, library
   `oci-genai-auth`), verified live; API-key mode stays the default. Update the
@@ -11,8 +16,8 @@
 * 2026-10-06: Agent secrets such as `GENAI_API_KEY` can live in the tool's
   `.env`: `from_env` reads the operator environment first, then the tool's
   `.env`, without adding the secret to the tenancy settings exported by the
-  scripts. Runtime reports now
-  show `from_env` values as `value=<hidden>` with their origin.
+  scripts. Runtime reports now show `from_env` values as `value=<hidden>`
+  with their origin.
 
 * 2026-10-05: `oci-agent-new` now starts from a specification. Without a
   specification file, it drafts `agent-spec.md` from the request, beginning

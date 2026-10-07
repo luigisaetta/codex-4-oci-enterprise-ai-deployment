@@ -17,7 +17,9 @@ Install the skills once, then use them from the repository of any agent: Codex
 creates the agent, builds and publishes its image, deploys it, and verifies
 the release, asking for your approval before every change in OCI.
 
-**New here?** Start with the [Quickstart](docs/quickstart.md).
+**New here?** Start with [Getting started](docs/getting-started.md), from an
+empty workstation to your first agent; then use the
+[Quickstart](docs/quickstart.md) for new versions and rollback.
 
 ## Why use it
 
@@ -104,82 +106,25 @@ All cases and their exact names:
 
 ## Setup
 
-Do this once per workstation. This checkout is the **tool home**: the
-installed skills point to it, so keep it where it is.
+Follow **[Getting started](docs/getting-started.md)**, once per workstation.
+It takes you, with commands to copy, from an empty workstation to your first
+agent on OCI:
 
-**1. Install the prerequisites**
+1. the basic tools: Git, Anaconda, Docker Desktop (or Rancher Desktop), and
+   Codex;
+2. this project, cloned in a stable folder: it is the **tool home**, keep it
+   where it is;
+3. the Python environment and its libraries;
+4. the OCI CLI profile;
+5. the tool's `.env`;
+6. the skills;
+7. the setup check;
+8. the fixes for what fails;
+9. a test release of the example agent;
+10. your first agent.
 
-* The Conda environment `codex-4-oci-enterprise-ai-deployment`, with
-  `requirements-dev.txt` installed. It provides Python, PyYAML, and OCI CLI.
-* A container engine: Docker with Buildx and curl on macOS, Linux, or WSL2;
-  Docker Desktop or Podman with PowerShell 7.4+ on Windows.
-* OCI CLI authentication, configured outside this repository.
-* IAM policies for your group and for the Hosted Applications, set up once by
-  a tenancy administrator: see [IAM policies](docs/iam-policies.md).
-
-**2. Configure the tenancy**
-
-Copy `.env.example` to `.env` (ignored by Git) and set the tenancy values; the
-scripts read the file themselves:
-
-```dotenv
-OCI_REGION=eu-frankfurt-1
-OCI_COMPARTMENT_NAME=<target-compartment-name>
-OCIR_TENANCY_NAMESPACE=<object-storage-namespace>
-OCIR_USERNAME=<complete-ocir-login-username>
-```
-
-The same file can hold the secrets your agents need, for example
-`GENAI_API_KEY=<your-key>` for an agent that calls an LLM. The tool uses it
-only to fill `from_env` entries of agent manifests, and during a deploy to mask
-it in error messages; it never adds it to your shell or prints it. Once a secret is in `.env`, never share or commit the file.
-
-**3. Install the skills**
-
-```bash
-scripts/install_skills.sh
-```
-
-It links each skill into `~/.agents/skills` and never overwrites an existing
-entry; `--dry-run` previews and `--uninstall` removes only this checkout's
-links. On Windows, use `scripts/install_skills.ps1`. Start a new Codex session
-afterwards.
-
-**4. Check the setup**
-
-```bash
-scripts/check_setup.sh
-```
-
-It runs the existing read-only checks (tenancy file, Docker build environment,
-OCI CLI and region, installed skills) and reports each one as `PASS` or
-`FAIL`. Add `--manifest ./agent.yaml` from an agent folder to also check its
-manifest, compartment, and OCIR repository, and `--skills-target DIR` for
-skills installed elsewhere, for example `~/.claude/skills`. On Windows, use
-`scripts/check_setup.ps1`.
-
-<details>
-<summary>Optional settings</summary>
-
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `OCI_AGENT_ENV_FILE` | Path of the tenancy file. | `.env` in the tool home. |
-| `OCI_AGENT_PYTHON` | Python interpreter used by the scripts; it must provide PyYAML. | `python` |
-| `OCI_AGENT_ALLOWED_ROOTS` | Absolute folders that may contain manifests and build files. | The Git repository that contains the manifest, or the manifest's folder outside Git. |
-
-Opening this repository itself in Codex also works without installation: its
-`.agents/skills` link makes the skills available inside it.
-
-</details>
-
-<details>
-<summary>Windows and remote Linux builds</summary>
-
-* Windows: [native PowerShell 7](notes/windows-powershell-native.md) or
-  [Rancher Desktop with WSL2](notes/windows-rancher-desktop-wsl2.md).
-* Remote Linux builds: [Linux build machine over SSH](notes/linux-build-machine-over-ssh.md).
-
-</details>
+Your tenancy administrator prepares the compartment and the IAM policies once:
+see [For the administrator](docs/getting-started.md#for-the-administrator).
 
 ## The agent manifest
 
@@ -241,6 +186,7 @@ release. Every field, with complete examples for both access modes, is in the
 
 | Read | To |
 | --- | --- |
+| [Getting started](docs/getting-started.md) | Prepare a workstation step by step and create your first agent. |
 | [Quickstart](docs/quickstart.md) | Publish, update, and roll back an agent with plain-language requests. |
 | [Step-by-step guide](docs/using-oci-agent-skills.md) | Understand each step, its inputs, and its outputs. |
 | [Agent manifest reference](docs/agent-manifest-reference.md) | Write `agent.yaml`. |

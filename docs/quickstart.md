@@ -10,19 +10,12 @@ For the details behind each step, see the
 
 ## Before you start
 
-Someone must have prepared your workstation once, following the
-[Setup section of the README](../README.md#setup):
+Your workstation must be prepared once, following
+[Getting started](getting-started.md) (steps 1 to 8), and your tenancy
+administrator must have set up the compartment and the IAM policies
+([For the administrator](getting-started.md#for-the-administrator)).
 
-* the tools are installed (Conda environment, Docker, OCI CLI);
-* the tenancy file (`.env`) is configured;
-* the skills are installed with `scripts/install_skills.sh`.
-
-A tenancy administrator must also have set up the IAM policies once: your
-group needs permission to publish images and create Hosted Applications, and
-the applications need permission to pull the image. See
-[IAM policies](iam-policies.md).
-
-To check the workstation, run `scripts/check_setup.sh` from the tool checkout
+To check the workstation, run `scripts/check_setup.sh` from the tool home
 (`scripts/check_setup.ps1` on Windows): every line must say `PASS`.
 
 To check the skills, open Codex and type `$`: the list must include

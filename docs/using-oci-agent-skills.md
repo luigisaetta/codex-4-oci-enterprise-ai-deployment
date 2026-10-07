@@ -50,40 +50,16 @@ manifest folder.
 
 ## One-time workstation preparation
 
-1. Install the skills at user scope with `scripts/install_skills.sh`, then open
-   the agent repository as the Codex workspace; alternatively, open this
-   repository, whose `.agents/skills` link remains available.
-2. Create the Conda environment named
-   `codex-4-oci-enterprise-ai-deployment` and install the project development
-   requirements.
-3. Ensure a container engine and OCI CLI are available. On macOS, Linux, and
-   WSL2: Docker, Docker Buildx, and curl. On Windows with PowerShell 7.4+:
-   Docker Desktop or Podman. The engine must run Linux containers and support
-   the required `linux/amd64` platform. See
-   [Windows workstations](#windows-workstations) for the two Windows paths.
-4. The scripts read the tenancy file themselves from `OCI_AGENT_ENV_FILE`,
-   defaulting to `<tool home>/.env`; never source it or print its contents. Copy
-   `.env.example` to the ignored `.env` and set the tenancy-wide values:
+Prepare the workstation once with [Getting started](getting-started.md):
+tools, Conda environment, OCI CLI profile, the tool's `.env`, the skills, and
+the setup check. The tenancy prerequisites are in
+[For the administrator](getting-started.md#for-the-administrator) and
+[IAM policies](iam-policies.md).
 
-   ```dotenv
-   OCI_REGION=eu-frankfurt-1
-   OCI_COMPARTMENT_NAME=<target-compartment-name>
-   OCIR_TENANCY_NAMESPACE=<object-storage-namespace>
-   OCIR_USERNAME=<complete-ocir-login-username>
-   ```
-
-   The same file may also hold agent secrets, such as `GENAI_API_KEY`. They
-   are used only to resolve `from_env` entries of agent manifests (and, during a
-   deploy, to mask them in error messages), are never added to your shell or
-   printed, and make the file private: never share or commit it.
-
-5. Configure OCI CLI authentication outside the repository. Do not put an OCI
-   API private key, auth token, Docker password, or endpoint override in
-   `.env` or `agent.yaml`.
-
-Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
-(activated, or `conda run --no-capture-output -n
-codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`.
+The scripts run inside the Conda environment
+`codex-4-oci-enterprise-ai-deployment` (activated, or `conda run
+--no-capture-output -n codex-4-oci-enterprise-ai-deployment ...`), or with the
+interpreter set in `OCI_AGENT_PYTHON`.
 
 ## Creating a new agent repository
 

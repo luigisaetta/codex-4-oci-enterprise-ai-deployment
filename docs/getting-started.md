@@ -331,6 +331,27 @@ statements are explained in [IAM policies](iam-policies.md).
 If a group or dynamic group is in an identity domain other than `Default`,
 write its name as `'<domain-name>'/'<group-name>'`.
 
+## Advanced settings
+
+You do not need these for a standard setup.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `OCI_AGENT_ENV_FILE` | Path of the tool's settings file. | `.env` in the tool home. |
+| `OCI_AGENT_PYTHON` | Python interpreter used by the scripts; it must provide PyYAML. | `python` |
+| `OCI_AGENT_ALLOWED_ROOTS` | Absolute folders that may contain manifests and build files. | The Git repository that contains the manifest, or the manifest's folder outside Git. |
+
+* `scripts/install_skills.sh` accepts `--dry-run` (preview), `--uninstall`
+  (remove only this checkout's links), and `--target DIR`, for example
+  `--target ~/.claude/skills` for Claude Code.
+* `scripts/check_setup.sh` accepts `--manifest ./agent.yaml`, run from an
+  agent folder, to also check its manifest, compartment, and OCIR repository,
+  and `--skills-target DIR` for skills installed elsewhere.
+* Opening the tool home itself in Codex also works without installing the
+  skills: its `.agents/skills` link makes them available inside it.
+* Builds on a remote Linux machine:
+  [Linux build machine over SSH](../notes/linux-build-machine-over-ssh.md).
+
 ## Windows
 
 Use **PowerShell 7.4 or later** (`pwsh`) with Docker Desktop or Podman, or

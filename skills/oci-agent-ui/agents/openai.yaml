@@ -1,0 +1,5 @@
+interface:
+  display_name: "OCI Agent UI"
+  short_description: "Create a local end-user demo UI for a Hosted Application agent"
+policy:
+  allow_implicit_invocation: true

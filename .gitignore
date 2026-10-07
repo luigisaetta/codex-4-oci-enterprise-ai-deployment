@@ -8,3 +8,6 @@ htmlcov/
 .venv/
 .conda/
 .DS_Store
+
+# Private working notes, never pushed
+piano-miglioramenti.md

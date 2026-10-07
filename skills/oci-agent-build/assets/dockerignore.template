@@ -19,3 +19,5 @@ pyproject.toml
 .dockerignore
 .gitignore
 .DS_Store
+ui
+**/node_modules

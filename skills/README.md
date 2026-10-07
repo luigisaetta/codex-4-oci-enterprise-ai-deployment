@@ -19,6 +19,7 @@ in the operator's shell.
 | Skill | Purpose | Status |
 | --- | --- | --- |
 | [oci-agent-new](oci-agent-new/SKILL.md) | Draft an agent specification, then create the agent repository from it: `agent.yaml`, `Dockerfile`, a FastAPI agent, and functional checks. | Implemented; agents created with it were released and verified on OCI; see [Spec 011](../specs/011-skill-oci-agent-new.md). |
+| [oci-agent-ui](oci-agent-ui/SKILL.md) | Draft a demo UI specification from the agent's specification, then create a local, end-user Next.js demo page in `ui/`. | Implemented; template built and its bridge tested locally; see [Spec 018](../specs/018-skill-oci-agent-ui.md). |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
 | [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Implemented in Bash; PowerShell execution and live reliable-wait acceptance pending; see [Spec 012](../specs/012-reliable-deploy-wait.md). |

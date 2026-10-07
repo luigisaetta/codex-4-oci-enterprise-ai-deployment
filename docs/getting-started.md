@@ -177,7 +177,7 @@ never paste it into the chat. The tool reads it for you.
 
 ## 6. Install the skills
 
-This makes the five skills available to Codex in every project, as links to
+This makes the skills available to Codex in every project, as links to
 the tool home:
 
 ```bash
@@ -187,8 +187,8 @@ scripts/install_skills.sh
 Expected: one `created:` line per skill. Then **start a new Codex session**
 (close and reopen the Codex CLI, or reload VS Code), so that Codex discovers
 them. To check, type `$` in Codex: the list must include `oci-agent-new`,
-`oci-agent-build`, `oci-agent-push`, `oci-agent-deploy`, and
-`oci-agent-verify-deployment`.
+`oci-agent-build`, `oci-agent-push`, `oci-agent-deploy`,
+`oci-agent-verify-deployment`, and `oci-agent-ui`.
 
 ## 7. Check the setup
 
@@ -282,6 +282,43 @@ Release version 0.1.0 of this agent on OCI Hosted Applications.
 
 For new versions, rollback, and checks, continue with the
 [Quickstart](quickstart.md).
+
+## 11. Show the agent with a demo page (optional)
+
+A local web page lets you show the agent to its users or to management, in
+business language, without JSON. It needs **Node.js 20.9 or later**. The
+simplest way to get it, with the environment active:
+
+```bash
+conda install -c conda-forge nodejs -y
+```
+
+```bash
+node --version
+```
+
+(On Windows, install the LTS version from the Node.js website instead.)
+
+In the agent's Codex session, ask:
+
+```text
+Create a demo UI for this agent, for its users.
+```
+
+The `oci-agent-ui` skill writes a short page specification, `ui/ui-spec.md`,
+and stops: check that the texts speak the language of the users. After your
+approval it creates the `ui` folder, asks whether the page talks to the local
+container or to the deployed agent, and builds it. Then start the page:
+
+```bash
+cd ui
+```
+
+```bash
+npm run dev
+```
+
+Open <http://127.0.0.1:3000>.
 
 ## For the administrator
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* 2026-10-07: Add the `oci-agent-ui` skill (Spec 018): from the agent's
+  specification it drafts `ui/ui-spec.md`, then, after approval, creates a
+  local Next.js demo page for the agent's users, in business language, with
+  example requests and no technical data; the browser calls the agent only
+  through a local server route. Agent images now exclude `ui` and
+  `node_modules`, and the agent specification template has an optional
+  "Demo" section.
+
 * 2026-10-06: `oci-agent-new` treats agents that call OCI Generative AI as
   supported: it follows its guidelines without asking whether to proceed, and
   its closing message reminds the API-key or Resource Principal prerequisites

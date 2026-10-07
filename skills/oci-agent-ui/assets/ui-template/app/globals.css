@@ -1,0 +1,176 @@
+:root {
+  --ink: #1f2933;
+  --muted: #5f6b7a;
+  --line: #d9dee5;
+  --paper: #ffffff;
+  --background: #f4f5f7;
+  --accent: #c74634;
+  --success: #2f7d4f;
+  --warning: #b26a00;
+  --info: #2b6cb0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: var(--background);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 2.2rem;
+}
+
+.hero p {
+  margin: 0 0 28px;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+form label {
+  display: block;
+  margin-bottom: 16px;
+}
+
+form label span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+textarea,
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+button.example {
+  border: 1px solid var(--line);
+  background: var(--background);
+  padding: 6px 14px;
+}
+
+button.primary {
+  border: none;
+  background: var(--accent);
+  color: #ffffff;
+  padding: 12px 28px;
+  font-weight: 600;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.outcome {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.outcome.success {
+  background: var(--success);
+}
+
+.outcome.warning {
+  background: var(--warning);
+}
+
+.outcome.info {
+  background: var(--info);
+}
+
+.message {
+  font-size: 1.15rem;
+  margin: 0 0 16px;
+}
+
+.result-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.result-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.result-field .label {
+  color: var(--muted);
+}
+
+.result-field .value {
+  font-weight: 600;
+  text-align: right;
+}
+
+.result-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.result-list th,
+.result-list td {
+  text-align: left;
+  border-top: 1px solid var(--line);
+  padding: 8px 6px;
+}
+
+.notice.warning {
+  border-left: 6px solid var(--warning);
+}
+
+.technical {
+  margin-top: 16px;
+  color: var(--muted);
+}
+
+.technical pre {
+  overflow-x: auto;
+  background: var(--background);
+  padding: 12px;
+  border-radius: 8px;
+}

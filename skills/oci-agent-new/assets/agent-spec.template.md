@@ -54,6 +54,12 @@ Request → expected response, for at least one deterministic case.
 * Deployment region: the tool's `OCI_REGION` (`.env`)
 * Access: `public-noauth`
 
+## Demo (optional)
+
+* Who watches the demo, and what they should remember.
+* The story to show, in two or three steps, with example requests.
+* What the result must make visible to the persona.
+
 ## Open questions
 
 Points the first request did not answer.

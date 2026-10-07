@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" font-family="Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Calibri, 'Helvetica Neue', Helvetica, Arial, sans-serif">
   <defs>
     <style>
       .title { font-family: Cambria, Georgia, 'Times New Roman', serif; font-weight: 700; fill: #FFFFFF; }
@@ -14,157 +14,151 @@
   </defs>
 
   <!-- background -->
-  <rect width="1600" height="1000" fill="#1F2933"/>
+  <rect width="1600" height="900" fill="#1F2933"/>
 
   <!-- header -->
-  <text x="95" y="82" class="title" font-size="40">Shipping AI agents to OCI Enterprise AI</text>
-  <text x="95" y="118" class="lt" font-size="19">Five Codex skills take an agent from a prompt to a verified Hosted Application release; a sixth shows it to its users. One approval for every remote change.</text>
-  <text x="1505" y="82" text-anchor="end" fill="#F9A8A0" font-size="17" font-weight="700">Codex Skills for OCI Enterprise AI Deployment</text>
+  <text x="50" y="82" class="title" font-size="40">Shipping AI agents to OCI Enterprise AI</text>
+  <text x="50" y="118" class="lt" font-size="19">Six Codex skills: from a prompt to a verified Hosted Application release, then a demo page for its users. One approval for every remote change.</text>
+  <text x="1552" y="82" text-anchor="end" fill="#F9A8A0" font-size="17" font-weight="700">Codex Skills for OCI Enterprise AI Deployment</text>
 
-  <!-- ===== pipeline: five cards, 258 wide, 30 apart ===== -->
-  <line x1="224" y1="200" x2="1376" y2="200" stroke="#3B4756" stroke-width="3"/>
+  <!-- ===== pipeline: six cards, 232 wide, 22 apart ===== -->
+  <line x1="166" y1="200" x2="1182" y2="200" stroke="#3B4756" stroke-width="3"/>
+  <line x1="1182" y1="200" x2="1436" y2="200" stroke="#3B4756" stroke-width="3" stroke-dasharray="8 6"/>
 
   <!-- card 1: new -->
-  <g transform="translate(95 200)">
-    <rect x="0" y="0" width="258" height="300" rx="16" class="card"/>
-    <circle cx="129" cy="0" r="36" fill="#C74634"/>
-    <!-- sparkle icon -->
-    <g class="ico" transform="translate(129 0)">
+  <g transform="translate(50 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
       <path d="M0 -15 L4 -4 L15 0 L4 4 L0 15 L-4 4 L-15 0 L-4 -4 Z"/>
     </g>
-    <text x="18" y="64" class="mono red" font-size="12">1 $oci-agent-new</text>
-    <text x="18" y="96" class="h" font-size="21">Create the agent</text>
-    <text x="18" y="134" class="b" font-size="14">•  from a prompt or a spec file</text>
-    <text x="18" y="160" class="b" font-size="14">•  agent.yaml, Dockerfile, FastAPI</text>
-    <text x="18" y="186" class="b" font-size="14">•  checks .env, never overwrites</text>
-    <rect x="18" y="238" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="129" y="261" text-anchor="middle" class="m" font-size="13">Writes local files only</text>
+    <text x="16" y="64" class="mono red" font-size="11">1 $oci-agent-new</text>
+    <text x="16" y="96" class="h" font-size="21">Create the agent</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  from a prompt or a spec</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  agent.yaml, Dockerfile, app</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  checks .env, no overwrites</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">Writes local files only</text>
   </g>
 
   <!-- card 2: build -->
-  <g transform="translate(383 200)">
-    <rect x="0" y="0" width="258" height="300" rx="16" class="card"/>
-    <circle cx="129" cy="0" r="36" fill="#C74634"/>
-    <!-- box icon -->
-    <g class="ico" transform="translate(129 0)">
+  <g transform="translate(304 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
       <path d="M-14 -8 L0 -16 L14 -8 L14 8 L0 16 L-14 8 Z"/>
       <path d="M-14 -8 L0 0 L14 -8 M0 0 L0 16"/>
     </g>
-    <text x="18" y="64" class="mono red" font-size="12">2 $oci-agent-build</text>
-    <text x="18" y="96" class="h" font-size="21">Build locally</text>
-    <text x="18" y="134" class="b" font-size="14">•  linux/amd64 image with buildx</text>
-    <text x="18" y="160" class="b" font-size="14">•  read-only run, tmpfs on /tmp</text>
-    <text x="18" y="186" class="b" font-size="14">•  probes and functional checks</text>
-    <rect x="18" y="238" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="129" y="261" text-anchor="middle" class="m" font-size="13">Changes local Docker only</text>
+    <text x="16" y="64" class="mono red" font-size="11">2 $oci-agent-build</text>
+    <text x="16" y="96" class="h" font-size="21">Build locally</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  linux/amd64 with buildx</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  read-only run, tmpfs /tmp</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  probes, functional checks</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">Changes local Docker only</text>
   </g>
 
   <!-- card 3: push -->
-  <g transform="translate(671 200)">
-    <rect x="0" y="0" width="258" height="300" rx="16" class="card"/>
-    <circle cx="129" cy="0" r="36" fill="#C74634"/>
-    <!-- cloud upload icon -->
-    <g class="ico" transform="translate(129 0)">
+  <g transform="translate(558 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
       <path d="M-10 10 H-13 A9 9 0 0 1 -12 -8 A13 13 0 0 1 13 -6 A8 8 0 0 1 12 10 H10"/>
       <path d="M0 14 V-2 M-6 4 L0 -2 L6 4"/>
     </g>
-    <text x="18" y="64" class="mono red" font-size="12">3 $oci-agent-push</text>
-    <text x="18" y="96" class="h" font-size="21">Publish to OCIR</text>
-    <text x="18" y="134" class="b" font-size="14">•  registry from OCI_REGION</text>
-    <text x="18" y="160" class="b" font-size="14">•  creates a missing repository</text>
-    <text x="18" y="186" class="b" font-size="14">•  pushes, reports the digest</text>
-    <rect x="18" y="238" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="129" y="261" text-anchor="middle" class="m" font-size="13">Each remote write approved</text>
+    <text x="16" y="64" class="mono red" font-size="11">3 $oci-agent-push</text>
+    <text x="16" y="96" class="h" font-size="21">Publish to OCIR</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  registry from OCI_REGION</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  creates missing repository</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  pushes, reports the digest</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">Each remote write approved</text>
   </g>
 
   <!-- card 4: deploy -->
-  <g transform="translate(959 200)">
-    <rect x="0" y="0" width="258" height="300" rx="16" class="card"/>
-    <circle cx="129" cy="0" r="36" fill="#C74634"/>
-    <!-- cloud icon -->
-    <g class="ico" transform="translate(129 0)">
+  <g transform="translate(812 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
       <path d="M-11 12 A10 10 0 0 1 -12 -8 A13 13 0 0 1 13 -6 A9 9 0 0 1 12 12 Z"/>
     </g>
-    <text x="18" y="64" class="mono red" font-size="12">4 $oci-agent-deploy</text>
-    <text x="18" y="96" class="h" font-size="21">Plan, then deploy</text>
-    <text x="18" y="134" class="b" font-size="14">•  read-only plan first</text>
-    <text x="18" y="160" class="b" font-size="14">•  release, new version, rollback</text>
-    <text x="18" y="186" class="b" font-size="14">•  waits until ACTIVE or FAILED</text>
-    <rect x="18" y="238" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="129" y="261" text-anchor="middle" class="m" font-size="13">OCI changes only with --apply</text>
+    <text x="16" y="64" class="mono red" font-size="11">4 $oci-agent-deploy</text>
+    <text x="16" y="96" class="h" font-size="21">Plan, then deploy</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  read-only plan first</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  release, upgrade, rollback</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  waits for ACTIVE or FAILED</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">OCI changes only with --apply</text>
   </g>
 
   <!-- card 5: verify -->
-  <g transform="translate(1247 200)">
-    <rect x="0" y="0" width="258" height="300" rx="16" class="card"/>
-    <circle cx="129" cy="0" r="36" fill="#C74634"/>
-    <!-- check circle icon -->
-    <g class="ico" transform="translate(129 0)">
+  <g transform="translate(1066 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
       <path d="M15 -3 A15 15 0 1 1 6 -13"/>
       <path d="M-6 0 L0 6 L16 -10"/>
     </g>
-    <text x="18" y="64" class="mono red" font-size="12">5 $oci-agent-verify-deployment</text>
-    <text x="18" y="96" class="h" font-size="21">Verify the release</text>
-    <text x="18" y="134" class="b" font-size="14">•  app and deployment ACTIVE</text>
-    <text x="18" y="160" class="b" font-size="14">•  active tag equals the release</text>
-    <text x="18" y="186" class="b" font-size="14">•  /health, /ready, functional checks</text>
-    <rect x="18" y="238" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="129" y="261" text-anchor="middle" class="m" font-size="13">Read-only OCI, approved calls</text>
+    <text x="16" y="64" class="mono red" font-size="11">5 $oci-agent-verify-deployment</text>
+    <text x="16" y="96" class="h" font-size="21">Verify the release</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  app, deployment ACTIVE</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  active tag is the release</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  probes, functional checks</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">Read-only OCI, approved calls</text>
   </g>
 
-  <!-- chevrons between cards -->
-  <g fill="#C74634">
-    <path d="M358 340 L376 355 L358 370 Z"/>
-    <path d="M646 340 L664 355 L646 370 Z"/>
-    <path d="M934 340 L952 355 L934 370 Z"/>
-    <path d="M1222 340 L1240 355 L1222 370 Z"/>
-  </g>
-
-  <!-- ===== optional step: demo UI ===== -->
-  <line x1="1376" y1="500" x2="1376" y2="530" stroke="#C74634" stroke-width="3" stroke-dasharray="6 5"/>
-  <g transform="translate(95 530)">
-    <rect x="0" y="0" width="1410" height="90" rx="16" fill="#2B3646" stroke="#C74634" stroke-width="2" stroke-dasharray="8 6"/>
-    <circle cx="56" cy="45" r="30" fill="#C74634"/>
-    <!-- monitor icon -->
-    <g class="ico" transform="translate(56 43)">
-      <rect x="-14" y="-11" width="28" height="19" rx="2"/>
-      <path d="M0 8 V13 M-7 13 H7"/>
+  <!-- card 6: ui -->
+  <g transform="translate(1320 200)">
+    <rect x="0" y="0" width="232" height="300" rx="16" class="card"/>
+    <circle cx="116" cy="0" r="36" fill="#C74634"/>
+    <g class="ico" transform="translate(116 0)">
+      <rect x="-15" y="-12" width="30" height="20" rx="2"/>
+      <path d="M0 8 V14 M-8 14 H8"/>
     </g>
-    <text x="104" y="35" class="mono" fill="#F9A8A0" font-size="12">6 $oci-agent-ui  ·  optional</text>
-    <text x="104" y="64" fill="#FFFFFF" font-weight="700" font-size="21">Show the agent to its users</text>
-    <text x="470" y="38" class="lt" font-size="14">•  local Next.js demo page, in business language</text>
-    <text x="470" y="64" class="lt" font-size="14">•  drafted from the agent spec, approved first</text>
-    <text x="830" y="38" class="lt" font-size="14">•  example requests, errors in plain words</text>
-    <text x="830" y="64" class="lt" font-size="14">•  local container or deployed agent</text>
-    <rect x="1168" y="27" width="222" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
-    <text x="1279" y="50" text-anchor="middle" class="m" font-size="13">Runs on your computer only</text>
+    <text x="16" y="64" class="mono red" font-size="11">6 $oci-agent-ui · optional</text>
+    <text x="16" y="96" class="h" font-size="21">Show it to users</text>
+    <text x="16" y="134" class="b" font-size="13.5">•  local Next.js demo page</text>
+    <text x="16" y="160" class="b" font-size="13.5">•  business language, examples</text>
+    <text x="16" y="186" class="b" font-size="13.5">•  drafted from the agent spec</text>
+    <rect x="16" y="238" width="200" height="36" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+    <text x="116" y="261" text-anchor="middle" class="m" font-size="13">Runs on your computer only</text>
   </g>
+
+  <!-- chevrons between cards; the last one is hollow: the UI step is optional -->
+  <g fill="#C74634">
+    <path d="M286 340 L300 355 L286 370 Z"/>
+    <path d="M540 340 L554 355 L540 370 Z"/>
+    <path d="M794 340 L808 355 L794 370 Z"/>
+    <path d="M1048 340 L1062 355 L1048 370 Z"/>
+  </g>
+  <path d="M1302 340 L1316 355 L1302 370 Z" fill="none" stroke="#C74634" stroke-width="2"/>
 
   <!-- ===== lower row ===== -->
   <!-- inputs panel -->
-  <g transform="translate(95 650)">
-    <rect x="0" y="0" width="560" height="255" rx="16" fill="#2B3646"/>
+  <g transform="translate(50 550)">
+    <rect x="0" y="0" width="600" height="255" rx="16" fill="#2B3646"/>
     <text x="24" y="38" fill="#FFFFFF" font-weight="700" font-size="20">Three inputs, three lifecycles</text>
 
-    <rect x="24" y="60" width="512" height="52" rx="10" fill="#1F2933"/>
+    <rect x="24" y="60" width="552" height="52" rx="10" fill="#1F2933"/>
     <text x="40" y="92" class="mono" fill="#F9A8A0" font-size="16" font-weight="700">.env</text>
     <text x="150" y="86" class="lt" font-size="14">Tenancy: region, compartment, OCIR namespace and user;</text>
     <text x="150" y="104" class="lt" font-size="14">optional agent secrets (GENAI_API_KEY). Ignored by git.</text>
 
-    <rect x="24" y="120" width="512" height="52" rx="10" fill="#1F2933"/>
+    <rect x="24" y="120" width="552" height="52" rx="10" fill="#1F2933"/>
     <text x="40" y="152" class="mono" fill="#F9A8A0" font-size="16" font-weight="700">agent.yaml</text>
     <text x="150" y="146" class="lt" font-size="14">Agent: build, publish, deploy, runtime env, functional checks.</text>
     <text x="150" y="164" class="lt" font-size="14">Lives next to the code. Changes with the agent contract.</text>
 
-    <rect x="24" y="180" width="512" height="52" rx="10" fill="#1F2933"/>
+    <rect x="24" y="180" width="552" height="52" rx="10" fill="#1F2933"/>
     <text x="40" y="212" class="mono" fill="#F9A8A0" font-size="16" font-weight="700">--tag</text>
     <text x="150" y="206" class="lt" font-size="14">Release: one explicit semantic version, never inferred,</text>
     <text x="150" y="224" class="lt" font-size="14">never latest. Changes on every release.</text>
   </g>
 
   <!-- target panel -->
-  <g transform="translate(685 650)">
-    <rect x="0" y="0" width="820" height="255" rx="16" class="card"/>
+  <g transform="translate(680 550)">
+    <rect x="0" y="0" width="872" height="255" rx="16" class="card"/>
     <text x="24" y="38" class="h" font-size="20">The target: a Hosted Application, its deployment and versions</text>
 
     <!-- application box -->
@@ -199,5 +193,5 @@
   </g>
 
   <!-- footer band -->
-  <text x="800" y="958" text-anchor="middle" class="lt" font-size="16">Plan first, apply only with explicit approval  ·  No secrets in agent.yaml, commands or chat  ·  A green local build is not proof that OCI can run the image</text>
+  <text x="800" y="858" text-anchor="middle" class="lt" font-size="16">Plan first, apply only with explicit approval  ·  No secrets in agent.yaml, commands or chat  ·  A green local build is not proof that OCI can run the image</text>
 </svg>

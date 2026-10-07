@@ -124,7 +124,8 @@ agent on OCI:
 7. the setup check;
 8. the fixes for what fails;
 9. a test release of the example agent;
-10. your first agent.
+10. your first agent;
+11. optionally, a demo page for its users.
 
 Your tenancy administrator prepares the compartment and the IAM policies once:
 see [For the administrator](docs/getting-started.md#for-the-administrator).

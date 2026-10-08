@@ -1,10 +1,30 @@
 # Spec 012: reliable waiting in deploy, and replacement of a failed deployment
 
-Status: implemented (Bash; PowerShell unexecuted); live first release verified;
-live resume and replacement pending.
+Status: implemented in Bash and PowerShell; Windows PowerShell update of an
+existing Hosted Application verified on 2026-10-08. First-application creation
+with the corrected networking argument, live resume, and replacement remain
+pending.
 Date: 2026-10-02.
 
 ## Problem
+
+On 2026-10-08, a PowerShell first-release attempt on Windows exited during
+Hosted Application creation with `status=unknown; code=unknown; message=unknown`.
+Read-only inspection found no application. The PowerShell twin discarded
+unrecognized OCI CLI errors, preventing diagnosis.
+Local argument inspection then found that an inline `+` expression in the
+PowerShell array passed the networking JSON as two arguments. The CLI printed
+usage and did not send the create request. Keep the networking JSON in one
+array element and prefer an `Error:` line over `Usage:` when summarizing a
+non-ServiceError CLI failure.
+
+The Windows twin must include a bounded, redacted CLI error summary when the
+response is not a parseable `ServiceError`. It must inspect both native stdout
+and stderr, remove manifest runtime values from the summary, and leave remote
+retry under operator control. Acceptance: a non-ServiceError CLI failure reports
+an actionable line without printing runtime values; a failed create does not
+trigger another create automatically. Verify with a local PowerShell failure
+fixture and a read-only check of the target application after failure.
 
 Two first releases on 2026-10-01 (`word-count` and `order_processing`)
 showed that the deploy script cannot be fully trusted while OCI creates a

@@ -113,8 +113,8 @@ Follow **[Getting started](docs/getting-started.md)**, once per workstation.
 It takes you, with commands to copy, from an empty workstation to your first
 agent on OCI:
 
-1. the basic tools: Git, Anaconda, Docker Desktop (or Rancher Desktop), and
-   Codex;
+1. the basic tools: Git, Anaconda, a supported container engine (Docker
+   Desktop, Podman, or Rancher Desktop through WSL2), and Codex;
 2. this project, cloned in a stable folder: it is the **tool home**, keep it
    where it is;
 3. the Python environment and its libraries;
@@ -172,8 +172,9 @@ release. Every field, with complete examples for both access modes, is in the
 > Never put a secret in `agent.yaml`, in a command argument, or in the chat.
 > Agent secrets such as `GENAI_API_KEY` go only in your shell or in the tool's
 > `.env`, which is never shared or committed. Never put an OCI auth token, OCI
-> API private key, or Docker credential in `.env`: type the Docker login token
-> only at Docker's password prompt.
+> API private key, or registry login credential in `.env`: type the OCIR auth
+> token only at the selected engine's `docker login` or `podman login`
+> password prompt.
 
 * For `public-idcs`, store only the non-secret domain URL, audience, and scope
   in the manifest; export the client ID and secret only in the shell that runs

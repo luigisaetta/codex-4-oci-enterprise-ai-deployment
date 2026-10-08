@@ -173,7 +173,7 @@ repository (see Prerequisites).
 | --- | --- | --- |
 | `agent.yaml` | `skills/oci-agent-build/assets/agent.yaml.template` | `schema_version: 2`, `context: .`, `profile: public-noauth`, the values above, and one `verify` check. |
 | `Dockerfile` | `skills/oci-agent-build/assets/Dockerfile.template` | `{{REQUIREMENTS_PATH}}` = `requirements.txt`, `{{PACKAGE_DIR}}` = the package folder, `{{APP_MODULE}}` = `<package>.app:app`. |
-| `.dockerignore` | `skills/oci-agent-build/assets/dockerignore.template` | Copied unchanged. |
+| `.dockerignore` | `skills/oci-agent-build/assets/dockerignore.template` | Same text as the template; generated files use LF line endings, including on Windows. |
 | `.gitignore` | Fixed content from the helper, only when the file does not exist | The required entries: `__pycache__/`, `*.py[cod]`, `.pytest_cache/`, `.venv/`, `.env`, `.env.*`. An existing file is kept and checked (see Target folder). |
 | `requirements.txt` | Written by Codex within C7 | `fastapi`, `pydantic`, `uvicorn`, and only the packages the agent needs. |
 | `<package>/__init__.py` | Written by Codex | Module header only. |
@@ -526,3 +526,24 @@ No new ambiguity or scope deviation was identified. Verification remains
 offline/static; real-session authoring and end-to-end build execution remain
 pending. No installation, generated agent, Docker, OCI, or network operation
 was performed.
+
+### 2026-10-08 — Windows PowerShell pilot
+
+In the named Conda environment on Windows, `tests/test_new_agent.py` passed
+78/78 tests after its `.dockerignore` assertion compared decoded template
+text instead of raw checkout bytes. Git's Windows CRLF conversion had caused
+three false failures although the helper wrote the intended LF text. A
+read-only `new_agent.py plan` from a separate local Git folder resolved the
+Windows target path, derived package and repository names, and listed all
+files without writing them. `check-env` found the tool configuration without
+revealing values. The draft specification was created for review; actual
+agent-code authoring in that folder was pending approval at this point.
+
+After the participant approved the specification, the Windows plan and render
+completed in the separate agent folder. The generated manifest, Dockerfile,
+ignore files, runtime requirements, and Python package passed syntax and
+manifest checks. Local HTTP checks confirmed the configured successful
+classification and invalid-input response. No image build or OCI deployment
+was attempted for this generated agent. Running three `conda run` checks
+concurrently collided on a temporary file; sequential checks using the
+environment's Python interpreter passed.

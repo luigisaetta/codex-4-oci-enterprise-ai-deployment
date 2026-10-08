@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-10-08
 License: MIT
 Description: Exercise PowerShell tenancy configuration outside the tool home.
 """
@@ -150,9 +150,13 @@ def test_nested_resolver_uses_parent_imported_region(tmp_path: Path) -> None:
     """The resolver can reload a value after a parent imports it from a file."""
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    fake_oci = fake_bin / "oci"
-    fake_oci.write_text("#!/usr/bin/env bash\nprintf 'FRA\\n'\n", encoding="utf-8")
-    fake_oci.chmod(0o755)
+    if os.name == "nt":
+        fake_oci = fake_bin / "oci.cmd"
+        fake_oci.write_text("@echo off\necho FRA\n", encoding="utf-8")
+    else:
+        fake_oci = fake_bin / "oci"
+        fake_oci.write_text("#!/usr/bin/env bash\nprintf 'FRA\\n'\n", encoding="utf-8")
+        fake_oci.chmod(0o755)
     configuration = tmp_path / "tenancy.env"
     configuration.write_text("OCI_REGION=eu-frankfurt-1\n", encoding="utf-8")
     environment = base_environment()

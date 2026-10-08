@@ -30,8 +30,10 @@ Open the folder of your agent as the Codex workspace, in a new session. The
 folder must contain the agent's code and four files: `Dockerfile`,
 `requirements.txt`, `.dockerignore`, and `agent.yaml`.
 
-No agent yet? Create an empty folder, run `git init` in it, open it in a new
-Codex session, and describe the agent, for example:
+No agent yet? Create an empty folder outside the tool home, run `git init` in
+it, open it in a new Codex session, and describe the agent. On native Windows,
+use PowerShell 7.4+; [Getting Started step 10](getting-started.md#10-create-your-first-agent)
+has a copyable folder command. For example:
 
 ```text
 Create a new OCI agent. It is for the support team of an online shop, which
@@ -75,9 +77,9 @@ deploying. Read what it shows before you say yes:
 * the endpoint is **public and without authentication**: anyone who knows the
   address can call it.
 
-If Docker asks you to log in to the registry, Codex shows the complete
-`docker login` command. Run it yourself and type your OCI auth token only at
-Docker's password prompt, never in the chat.
+If the selected container engine asks you to log in to the registry, Codex
+shows the complete `docker login` or `podman login` command. Run it yourself
+and type your OCI auth token only at the password prompt, never in the chat.
 
 At the end, Codex reports that the agent is healthy and ready. Keep the
 **application OCID** it prints: it identifies your agent in OCI.
@@ -167,7 +169,7 @@ application (up to 20); only inactive ones can be removed, from the Console.
 | --- | --- |
 | Codex asks "Which agent manifest should I use?" | Answer `./agent.yaml`, or the path of your agent's manifest. |
 | Codex talks about "AI Data Platform" or "AI DP" | Say "OCI Hosted Applications" explicitly in your request; those are different skills. |
-| The registry refuses the push, or asks to log in | Your Docker login expired: run the `docker login` command that Codex shows. |
+| The registry refuses the push, or asks to log in | Your registry login may have expired: run the `docker login` or `podman login` command that Codex shows for the selected engine. |
 | An OCI command fails with `NotAuthorizedOrNotFound` | The resource may be missing or permission may be missing; send the message and [IAM policies](iam-policies.md) to your administrator. |
 | `Creation in progress` | The deployment already exists; approve its plan to resume waiting without another create. |
 | `Application creation in progress` | Approve its plan to wait for the application, check its configuration, and create the first deployment when ready. |

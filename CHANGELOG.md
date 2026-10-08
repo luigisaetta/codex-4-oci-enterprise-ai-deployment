@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+* 2026-10-08: Make PowerShell test fixtures executable on native Windows,
+  preserve fake OCI JSON arguments, and skip POSIX-only Bash scenarios there.
+  Confirm skill discovery from a separate agent workspace.
+
+* 2026-10-08: Align Windows quickstart, skill catalog, operator guide, and
+  native PowerShell note with the pilot's tested manifest workflow and
+  first-agent generation. Distinguish completed local checks from untested
+  first-application creation and agent container build.
+
+* 2026-10-08: Add native Windows instructions for creating the first agent's
+  separate local Git folder, clarify Podman login in the example release, and
+  compare generated template text independently of Windows checkout line endings.
+
+* 2026-10-08: Pass Hosted Application networking JSON as one PowerShell
+  argument and report a bounded, redacted OCI CLI error when a mutation fails
+  without a parseable ServiceError.
+
+* 2026-10-08: Add reversible Conda activation hooks for OCI CLI under native
+  PowerShell 7 and guard a standard Conda initialization block in the current
+  user's Windows PowerShell profile when needed. Document installation and
+  removal behavior.
+
+* 2026-10-08: Add Windows troubleshooting for OCI CLI permission checks that
+  inherit incompatible PowerShell 7 module paths, with a read-only connection
+  check through directly started Windows PowerShell.
+
+* 2026-10-08: Document reuse of OCI CLI profiles and signing keys in Getting
+  Started step 4, with explicit profile selection and connection checks from
+  the project Conda environment on Windows or macOS/Linux.
+
+* 2026-10-08: Document Conda environment reuse, Python executable checks,
+  and PowerShell shell initialisation when activation leaves global Python
+  active; use `python -m pip` for project dependency installation.
+
+* 2026-10-08: Update Getting Started steps 1 and 2 with macOS/Linux and native
+  Windows checks, PowerShell 7.4+, Podman support, reuse of installed tools,
+  recovery guidance for an unreachable container engine, and Windows clone
+  commands with reuse of an existing checkout.
+
 * 2026-10-07: Add the `oci-agent-ui` skill (Spec 018): from the agent's
   specification it drafts `ui/ui-spec.md`, then, after approval, creates a
   local Next.js demo page for the agent's users, in business language, with

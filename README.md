@@ -17,9 +17,11 @@ Install the skills once, then use them from the repository of any agent: Codex
 creates the agent, builds and publishes its image, deploys it, and verifies
 the release, asking for your approval before every change in OCI.
 
-**New here?** Start with [Getting started](docs/getting-started.md), from an
-empty workstation to your first agent; then use the
-[Quickstart](docs/quickstart.md) for new versions and rollback.
+**New here?** Start with Getting started for
+[macOS and Linux](docs/getting-started-macos-linux.md) or
+[Windows](docs/getting-started-windows.md), from an empty workstation to your
+first agent; then use the [Quickstart](docs/quickstart.md) for new versions and
+rollback.
 
 ## Why use it
 
@@ -109,12 +111,14 @@ All cases and their exact names:
 
 ## Setup
 
-Follow **[Getting started](docs/getting-started.md)**, once per workstation.
-It takes you, with commands to copy, from an empty workstation to your first
+Follow the guide for your operating system, once per workstation:
+**[macOS and Linux](docs/getting-started-macos-linux.md)** (also Windows
+inside WSL2) or **[Windows](docs/getting-started-windows.md)** (PowerShell 7).
+Each takes you, with commands to copy, from an empty workstation to your first
 agent on OCI:
 
-1. the basic tools: Git, Anaconda, a supported container engine (Docker
-   Desktop, Podman, or Rancher Desktop through WSL2), and Codex;
+1. the basic tools: Git, Anaconda, a container engine (Docker Desktop, Rancher
+   Desktop, or on Windows Podman), and Codex;
 2. this project, cloned in a stable folder: it is the **tool home**, keep it
    where it is;
 3. the Python environment and its libraries;
@@ -128,7 +132,7 @@ agent on OCI:
 11. optionally, a demo page for its users.
 
 Your tenancy administrator prepares the compartment and the IAM policies once:
-see [For the administrator](docs/getting-started.md#for-the-administrator).
+see [Setup for the administrator](docs/iam-policies.md#setup-for-the-administrator).
 
 ## The agent manifest
 
@@ -191,7 +195,7 @@ release. Every field, with complete examples for both access modes, is in the
 
 | Read | To |
 | --- | --- |
-| [Getting started](docs/getting-started.md) | Prepare a workstation step by step and create your first agent. |
+| Getting started for [macOS and Linux](docs/getting-started-macos-linux.md) or [Windows](docs/getting-started-windows.md) | Prepare a workstation step by step and create your first agent. |
 | [Quickstart](docs/quickstart.md) | Publish, update, and roll back an agent with plain-language requests. |
 | [Step-by-step guide](docs/using-oci-agent-skills.md) | Understand each step, its inputs, and its outputs. |
 | [Agent manifest reference](docs/agent-manifest-reference.md) | Write `agent.yaml`. |

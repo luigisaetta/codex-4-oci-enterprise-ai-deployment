@@ -10,10 +10,11 @@ For the details behind each step, see the
 
 ## Before you start
 
-Your workstation must be prepared once, following
-[Getting started](getting-started.md) (steps 1 to 8), and your tenancy
+Your workstation must be prepared once, following Getting started for
+[macOS and Linux](getting-started-macos-linux.md) or
+[Windows](getting-started-windows.md) (steps 1 to 8), and your tenancy
 administrator must have set up the compartment and the IAM policies
-([For the administrator](getting-started.md#for-the-administrator)).
+([Setup for the administrator](iam-policies.md#setup-for-the-administrator)).
 
 To check the workstation, run `scripts/check_setup.sh` from the tool home
 (`scripts/check_setup.ps1` on Windows): every line must say `PASS`.
@@ -31,9 +32,10 @@ folder must contain the agent's code and four files: `Dockerfile`,
 `requirements.txt`, `.dockerignore`, and `agent.yaml`.
 
 No agent yet? Create an empty folder outside the tool home, run `git init` in
-it, open it in a new Codex session, and describe the agent. On native Windows,
-use PowerShell 7.4+; [Getting Started step 10](getting-started.md#10-create-your-first-agent)
-has a copyable folder command. For example:
+it, open it in a new Codex session, and describe the agent (step 10 of
+Getting started for [macOS and Linux](getting-started-macos-linux.md#10-create-your-first-agent)
+or [Windows](getting-started-windows.md#10-create-your-first-agent) has the
+commands). For example:
 
 ```text
 Create a new OCI agent. It is for the support team of an online shop, which

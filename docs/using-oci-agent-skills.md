@@ -51,11 +51,12 @@ manifest folder.
 
 ## One-time workstation preparation
 
-Prepare the workstation once with [Getting started](getting-started.md):
-tools, Conda environment, OCI CLI profile, the tool's `.env`, the skills, and
-the setup check. The tenancy prerequisites are in
-[For the administrator](getting-started.md#for-the-administrator) and
-[IAM policies](iam-policies.md).
+Prepare the workstation once with Getting started for
+[macOS and Linux](getting-started-macos-linux.md) or
+[Windows](getting-started-windows.md): tools, Conda environment, OCI CLI
+profile, the tool's `.env`, the skills, and the setup check. The tenancy
+prerequisites are in [IAM policies](iam-policies.md), starting with
+[Setup for the administrator](iam-policies.md#setup-for-the-administrator).
 
 The scripts run inside the Conda environment
 `codex-4-oci-enterprise-ai-deployment` (activated, or `conda run
@@ -66,9 +67,10 @@ interpreter set in `OCI_AGENT_PYTHON`.
 
 The recommended way is the `oci-agent-new` skill: open an empty folder outside
 the tool home in a new Codex session and describe the agent. The folder may
-sit beside the tool home under one parent project folder. On native Windows,
-create it with the PowerShell command in
-[Getting Started step 10](getting-started.md#10-create-your-first-agent).
+sit beside the tool home under one parent project folder; step 10 of
+Getting started for [macOS and Linux](getting-started-macos-linux.md#10-create-your-first-agent)
+or [Windows](getting-started-windows.md#10-create-your-first-agent) has the
+commands.
 The skill drafts a specification
 (`agent-spec.md`, starting with the customer persona, use case, and expected
 outcomes), stops for your review, and after your approval creates the files

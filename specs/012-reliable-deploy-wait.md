@@ -8,24 +8,6 @@ Date: 2026-10-02.
 
 ## Problem
 
-On 2026-10-08, a PowerShell first-release attempt on Windows exited during
-Hosted Application creation with `status=unknown; code=unknown; message=unknown`.
-Read-only inspection found no application. The PowerShell twin discarded
-unrecognized OCI CLI errors, preventing diagnosis.
-Local argument inspection then found that an inline `+` expression in the
-PowerShell array passed the networking JSON as two arguments. The CLI printed
-usage and did not send the create request. Keep the networking JSON in one
-array element and prefer an `Error:` line over `Usage:` when summarizing a
-non-ServiceError CLI failure.
-
-The Windows twin must include a bounded, redacted CLI error summary when the
-response is not a parseable `ServiceError`. It must inspect both native stdout
-and stderr, remove manifest runtime values from the summary, and leave remote
-retry under operator control. Acceptance: a non-ServiceError CLI failure reports
-an actionable line without printing runtime values; a failed create does not
-trigger another create automatically. Verify with a local PowerShell failure
-fixture and a read-only check of the target application after failure.
-
 Two first releases on 2026-10-01 (`word-count` and `order_processing`)
 showed that the deploy script cannot be fully trusted while OCI creates a
 deployment:
@@ -325,3 +307,20 @@ Bash and PowerShell, with the same report lines and exit codes.
 * Criteria 2 and 5 passed. Criterion 3 (resume after exit 26) and criterion 4
   (replacement of a `FAILED` deployment) remain pending.
 
+### Windows PowerShell first release — 2026-10-08
+
+* A PowerShell first-release attempt on Windows exited during Hosted
+  Application creation with `status=unknown; code=unknown; message=unknown`.
+  Read-only inspection found no application: the PowerShell twin discarded
+  OCI CLI errors that are not a `ServiceError`.
+* Cause: in the PowerShell argument array, an inline `+` expression passed the
+  networking JSON as two arguments, so the CLI printed its usage and sent no
+  create request. Fix: the networking JSON is one array element.
+* Change: when the response is not a parseable `ServiceError`, the PowerShell
+  twin reports a bounded (500 characters), redacted summary from stdout and
+  stderr, preferring an `Error:` line over `Usage:`, with manifest runtime
+  values masked. A failed create never triggers another create.
+* Verified: the update of an existing Hosted Application and its verification
+  passed on Windows with Podman (see Spec 007). A first creation with the
+  corrected argument was blocked by the tenancy's application limit and
+  remains unverified; no offline failure fixture was added for the summary.

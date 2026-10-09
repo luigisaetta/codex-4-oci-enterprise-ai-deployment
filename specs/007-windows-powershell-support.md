@@ -12,70 +12,18 @@ Supersedes the draft submitted as pull request #1; delivered by pull request #3.
 
 ## Problem
 
-### PowerShell 7 and OCI CLI activation (2026-10-08)
-
-On Windows, OCI CLI starts Windows PowerShell 5.1 for its local file-permission
-check. When launched through Python from PowerShell 7, the child can inherit
-PowerShell 7 module paths and fail to load `Microsoft.PowerShell.Security`.
-The pilot reproduced the module error. Removing `PSModulePath` manually made
-one normal `oci os ns get` call succeed, but removing it automatically on
-Conda activation failed in a fresh participant session. Supplying the actual
-Windows PowerShell module path let a Python child load the security module.
-Both OCI files' ACLs contained only the current
-user, SYSTEM, and Administrators. The environment is shared with other local
-projects, so changes must be reversible on Conda deactivation.
-
-Scope: provide PowerShell activation/deactivation hooks and an explicit
-installer for the named Conda environment. Do not change OCI credentials,
-file ACLs, machine-wide PowerShell profiles, or Bash behavior. Activation sets a
-Windows PowerShell-compatible module path only in the current shell; deactivation restores its
-previous value. The installer must reject a different environment and refuse
-to overwrite unrelated hooks. Acceptance: activate from a fresh PowerShell
-7.4+ shell, run `oci os ns get` without `Get-Acl` errors, deactivate, and
-confirm the original module path is restored. Verify the installation script
-without OCI calls before asking the participant to run it.
-
-Pilot correction: the OCI child also loads the current user's Windows
-PowerShell 5.1 profile. Its Conda initialization can conflict with an already
-active inherited Conda environment. This participant's profile may be guarded
-to skip that initialization only while this project environment is active.
-Save a backup before changing it and restore the original on rollback. This
-local profile change is performed by the installer only when it finds exactly
-one standard Conda initialization block; customized profiles require manual
-review. The project hook sets and restores a marker for that guard alongside
-the module path. The installer remains idempotent when the guard is present.
-
-References verified on 2026-10-08:
-[Microsoft module-path inheritance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6),
-[Conda activation scripts](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html),
-and [OCI CLI issue #655](https://github.com/oracle/oci-cli/issues/655).
-
-Local verification on 2026-10-08: all three PowerShell scripts parsed. A
-direct hook round trip removed and restored the process module path, including
-repeated activation. That initial implementation did not pass the participant's
-OCI check and has been revised to set a compatible module path. The installer
-copied both hooks into the already existing
-named environment without replacing other activation scripts. An isolated
-PowerShell 7 session then activated the environment, selected its Python
-executable, and resolved `Get-Acl`. A participant run of `oci os ns get` after
-fresh activation remains the final acceptance check.
-
-2026-10-08 verification update: the participant's fresh activation still
-produced Get-Acl warnings after the module path revision. The remaining cause
-was the Conda initialization block in the Windows PowerShell 5.1 user profile.
-The original profile was backed up and the block was guarded using the hook's
-temporary marker. With the installed hooks and guarded profile, an isolated
-PowerShell 7 activation and full read-only `oci os ns get` returned namespace
-JSON without warnings. Deactivation restored the previous module path and
-removed the marker. The installer was rerun with `-Update` and did not create
-another profile backup. The participant's own terminal has not yet rerun the
-final combination.
-
 The repository's operational interfaces are Bash scripts. They run on macOS
 and, on Windows, only inside WSL2 (see
 [Windows with Rancher Desktop and WSL2](../notes/windows-rancher-desktop-wsl2.md)).
 Windows workstations that have PowerShell 7, a container engine, Conda, and
 OCI CLI installed natively had no documented path.
+
+A pilot on 2026-10-08 found a second problem: on Windows, the OCI CLI starts
+Windows PowerShell 5.1 to check the permissions of its key files. Started from
+PowerShell 7, that child inherits PowerShell 7 module paths, fails to load
+`Microsoft.PowerShell.Security`, and prints `Get-Acl` errors, although the OCI
+request itself succeeds. The child also loads the user's Windows PowerShell
+profile, whose Conda initialization can conflict with the active environment.
 
 ## Scope
 
@@ -163,6 +111,32 @@ documentation on 2026-09-23:
   check `$LASTEXITCODE` explicitly, so their behaviour does not depend on a
   user profile changing that 7.4 preference.
 
+### OCI CLI under PowerShell 7 (added 2026-10-08)
+
+An explicit installer, `scripts/install_oci_powershell_hook.ps1`, copies an
+activation and a deactivation hook into the named Conda environment. The
+environment can be shared with other projects, so every change is reversible:
+
+* activation sets a Windows PowerShell-compatible module path in the current
+  shell only, and deactivation restores the previous value;
+* the installer rejects any other environment and refuses to replace a hook
+  that differs from the project's unless `-Update` is passed;
+* if the user's Windows PowerShell profile contains exactly one standard
+  Conda initialization block, the installer saves a backup and guards the
+  block so that it is skipped while this environment is active; customized
+  profiles need manual review;
+* it never changes OCI credentials, file ACLs, machine-wide profiles, or Bash
+  behavior.
+
+Acceptance: from a fresh PowerShell 7.4+ shell, activate the environment, run
+`oci os ns get` without `Get-Acl` errors, deactivate, and confirm the original
+module path is restored.
+
+References verified on 2026-10-08:
+[Microsoft module-path inheritance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6),
+[Conda activation scripts](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html),
+and [OCI CLI issue #655](https://github.com/oracle/oci-cli/issues/655).
+
 ### Safety boundaries
 
 Unchanged from the Bash scripts. `-Create`, `-Push`, and `-Apply` are the
@@ -241,6 +215,29 @@ PowerShell 7.4+, using at least one of Docker Desktop or Podman. Record the
 PowerShell, engine, OCI CLI, and Python versions, the release tag, and the
 observed report lines here when done.
 
+### 2026-10-08, Windows, OCI CLI activation hooks
+
+All three PowerShell scripts parsed. A
+direct hook round trip removed and restored the process module path, including
+repeated activation. That initial implementation did not pass the participant's
+OCI check and has been revised to set a compatible module path. The installer
+copied both hooks into the already existing
+named environment without replacing other activation scripts. An isolated
+PowerShell 7 session then activated the environment, selected its Python
+executable, and resolved `Get-Acl`. A participant run of `oci os ns get` after
+fresh activation remains the final acceptance check.
+
+2026-10-08 verification update: the participant's fresh activation still
+produced Get-Acl warnings after the module path revision. The remaining cause
+was the Conda initialization block in the Windows PowerShell 5.1 user profile.
+The original profile was backed up and the block was guarded using the hook's
+temporary marker. With the installed hooks and guarded profile, an isolated
+PowerShell 7 activation and full read-only `oci os ns get` returned namespace
+JSON without warnings. Deactivation restored the previous module path and
+removed the marker. The installer was rerun with `-Update` and did not create
+another profile backup. The participant's own terminal has not yet rerun the
+final combination.
+
 ### 2026-10-08, manifest-based Podman release
 
 PowerShell 7.6.5 with Podman 5.8.2 built and locally verified the manifest
@@ -263,6 +260,11 @@ Black and Pylint passed for the edited Python tests. See the pilot record
 for the test environment qualification.
 
 ### 2026-10-08, beginner setup documentation scope
+
+Superseded on 2026-10-09: Getting started is now split into one complete guide
+per operating system (`docs/getting-started-macos-linux.md` and
+`docs/getting-started-windows.md`); the Windows guide carries the content
+below.
 
 The Windows usability pilot starts at Getting Started, step 1. That step
 currently assumes Docker and defers Windows instructions to the end of the
@@ -311,6 +313,6 @@ workaround and the module-path inheritance cause described by
 reviewed on 2026-10-08. Later in the pilot, the participant confirmed that
 direct `oci os ns get` worked without warnings after the Conda activation
 hook and profile adjustment described in
-[Getting Started](../docs/getting-started.md#windows-prepare-oci-cli-for-powershell-7).
+[Getting started on Windows](../docs/getting-started-windows.md#3-create-the-python-environment-and-install-the-libraries).
 See the pilot log for observed paste issues and the limits of offline
 permission-check diagnostics.

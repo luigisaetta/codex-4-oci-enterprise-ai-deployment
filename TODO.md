@@ -12,6 +12,7 @@ follow the numbers unless a dependency says otherwise.
 
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
+| 16 | [Stop on missing runtime permissions](#16-stop-on-missing-runtime-permissions) (issue found 2026-10-09) | — | Low-medium | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
 | 3 | [Compatibility check and pre-release smoke test](#3-compatibility-check-and-pre-release-smoke-test) | — | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
@@ -43,6 +44,26 @@ IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
 agents created with `oci-agent-new`, and the pre-flight check (10) all need correct policies,
 described in [IAM policies](docs/iam-policies.md). Items 5 and 7 confirm its
 statements live; the automated check (10) comes only after those results.
+
+## 16. Stop on missing runtime permissions
+
+**Issue found (2026-10-09).** An operator's first releases into their own
+compartment failed because the runtime dynamic group did not cover that
+compartment, so the Hosted Deployment could not read its image from OCIR. The
+deployment ended in `NEEDS_ATTENTION`, and the deploy script did not show the
+OCI error. Codex then investigated outside the skills and changed the
+tenancy IAM itself (a shared dynamic group and a new policy), which only the
+tenancy administrator should do.
+
+Fix, specified in
+[Spec 019](specs/019-stop-on-missing-runtime-permissions.md): the deploy
+script reports the OCI error also for `NEEDS_ATTENTION`, recognizes the
+image-access case, and stops with exit 27 and a fixed message for the
+administrator; the deploy skill tells Codex to report it and never change
+IAM. Recovery of a `NEEDS_ATTENTION` deployment is out of scope.
+
+Related: item 10 (IAM pre-flight check) and item 11 (diagnostics for a failed
+deployment).
 
 ## 2. Verify PowerShell parity
 

@@ -11,6 +11,62 @@ Two kinds of principals need permissions:
 | **Operator** | The OCI user (in an IAM group) whose OCI CLI profile runs the skills. | Find the compartment, manage the OCIR repository, create and update Hosted Applications and Deployments, read their state. |
 | **Runtime** | The Hosted Application and its deployments, as members of a dynamic group. | Pull the image from OCIR; optionally read Vault secrets and call OCI services such as Generative AI. |
 
+## Setup for the administrator
+
+Do this once per tenancy, then once for each new compartment. Replace the
+placeholders; the statements are explained in the rest of this page.
+
+1. **Compartment**: Identity & Security → Compartments → **Create compartment**.
+2. **Operator group**: put the users of the skills in a group, and add a policy
+   attached to the tenancy (root compartment):
+
+   ```text
+   allow group <operator-group> to inspect compartments in tenancy
+   allow group <operator-group> to manage repos in compartment <compartment-name>
+   allow group <operator-group> to manage generative-ai-hosted-application in compartment <compartment-name>
+   allow group <operator-group> to manage generativeaihosteddeployment in compartment <compartment-name>
+   allow group <operator-group> to read generative-ai-work-request in compartment <compartment-name>
+   ```
+
+3. **Runtime dynamic group**, so that Hosted Applications can pull their image:
+   create a dynamic group with this matching rule, and allow it to read the
+   registry:
+
+   ```text
+   any {resource.type='generativeaihostedapplication', resource.type='generativeaihostedapplicationiam', resource.type='generativeaihosteddeployment'}
+   ```
+
+   ```text
+   allow dynamic-group <runtime-dynamic-group> to read repos in compartment <compartment-name>
+   ```
+
+4. **Agents that call an LLM**, depending on the choice:
+   * with an **API key**:
+
+     ```text
+     allow any-user to use generative-ai-family in compartment <compartment-name> where ALL {request.principal.type='generativeaiapikey'}
+     ```
+
+   * with **Resource Principal**: create a Generative AI project in the
+     compartment (in the region of the model), give its OCID to the users, and
+     add:
+
+     ```text
+     allow dynamic-group <runtime-dynamic-group> to use generative-ai-family in compartment <compartment-name>
+     allow dynamic-group <runtime-dynamic-group> to use generative-ai-project in compartment <compartment-name>
+     ```
+
+If a group or dynamic group is in an identity domain other than `Default`,
+write its name as `'<domain-name>'/'<group-name>'`.
+
+**A new compartment** (for example one per user) needs the statements of
+steps 2 to 4 for that compartment. If the runtime dynamic group lists
+compartments in its rules instead of using the tenancy-wide rule of step 3,
+add the new compartment to it too. Without this, the first deployment in the
+new compartment fails with "the container image could not be accessed or
+validated". IAM changes are made by the administrator: operators and Codex
+never create or change dynamic groups or policies.
+
 ## How to read the status column
 
 | Status | Meaning |

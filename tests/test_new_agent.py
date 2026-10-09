@@ -308,9 +308,9 @@ def test_render_only_fixed_files_and_validate(tmp_path: Path, name: str) -> None
     assert sorted(path.name for path in tmp_path.iterdir()) == sorted(FILES[:4])
     for filename in FILES[:4]:
         assert "{{" not in (tmp_path / filename).read_text(encoding="utf-8")
-    assert (tmp_path / ".dockerignore").read_bytes() == (
+    assert (tmp_path / ".dockerignore").read_text(encoding="utf-8") == (
         new_agent.ASSETS / "dockerignore.template"
-    ).read_bytes()
+    ).read_text(encoding="utf-8")
     assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == (
         "__pycache__/\n*.py[cod]\n.pytest_cache/\n.venv/\n.env\n.env.*\n"
     )

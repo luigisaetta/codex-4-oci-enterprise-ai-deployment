@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-02
+Date last modified: 2026-10-08
 License: MIT
 Description: Test reliable deployment waits and failed deployment replacement offline.
 """
@@ -27,7 +27,13 @@ from test_deploy_release_cases import (
 @pytest.fixture(
     name="release_runner",
     params=[
-        pytest.param((SCRIPT, [shutil.which("bash") or "/bin/bash"]), id="bash"),
+        pytest.param(
+            (SCRIPT, [shutil.which("bash") or "/bin/bash"]),
+            id="bash",
+            marks=pytest.mark.skipif(
+                os.name == "nt", reason="Bash fixtures use POSIX paths."
+            ),
+        ),
         pytest.param(
             (POWERSHELL_SCRIPT, [PWSH, "-NoProfile", "-File"]),
             id="powershell",

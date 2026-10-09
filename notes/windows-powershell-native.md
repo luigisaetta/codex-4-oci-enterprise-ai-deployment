@@ -131,11 +131,16 @@ sets aligned.
 
 ## Status
 
-The native PowerShell path was verified end to end on Windows for the
-environment-driven scripts that preceded the agent manifests (PowerShell 7.6.5,
-Podman 5.8.2). The manifest-based scripts in this repository passed static
-review and the parity tests but have not yet been executed on Windows. See the
-verification record in [Spec 007](../specs/007-windows-powershell-support.md).
+The native PowerShell path was verified on Windows with PowerShell 7.6.5,
+Podman 5.8.2, OCI CLI 3.94.0, and Python 3.11.16. The manifest-based build,
+local verification, OCIR push, update of an existing Hosted Application, remote
+health/readiness checks, and functional POST passed. A first Hosted Application
+creation was blocked by the tenancy's application limit, so that case remains
+unverified in this pilot. The `oci-agent-new` plan and render also succeeded
+on Windows for a separate agent folder; its generated code passed local syntax,
+manifest, and HTTP checks, but was not built or deployed. See
+[Spec 007](../specs/007-windows-powershell-support.md) and the
+[pilot record](../docs/windows-ace-pilot.md).
 
 ## References
 

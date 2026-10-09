@@ -1,7 +1,8 @@
 # Spec 007: Windows PowerShell workflow support
 
-Status: implemented; static parity checks pass; Windows execution of the
-manifest-based scripts pending.
+Status: implemented; static parity checks pass; Windows build, local image
+verification, OCIR push, Hosted Deployment update, HTTP health/readiness, and
+the example's functional remote check executed on 2026-10-08.
 Date: 2026-09-23.
 Supersedes the draft submitted as pull request #1; delivered by pull request #3.
 
@@ -10,6 +11,65 @@ Supersedes the draft submitted as pull request #1; delivered by pull request #3.
 > interpreter selection and tenancy loading.
 
 ## Problem
+
+### PowerShell 7 and OCI CLI activation (2026-10-08)
+
+On Windows, OCI CLI starts Windows PowerShell 5.1 for its local file-permission
+check. When launched through Python from PowerShell 7, the child can inherit
+PowerShell 7 module paths and fail to load `Microsoft.PowerShell.Security`.
+The pilot reproduced the module error. Removing `PSModulePath` manually made
+one normal `oci os ns get` call succeed, but removing it automatically on
+Conda activation failed in a fresh participant session. Supplying the actual
+Windows PowerShell module path let a Python child load the security module.
+Both OCI files' ACLs contained only the current
+user, SYSTEM, and Administrators. The environment is shared with other local
+projects, so changes must be reversible on Conda deactivation.
+
+Scope: provide PowerShell activation/deactivation hooks and an explicit
+installer for the named Conda environment. Do not change OCI credentials,
+file ACLs, machine-wide PowerShell profiles, or Bash behavior. Activation sets a
+Windows PowerShell-compatible module path only in the current shell; deactivation restores its
+previous value. The installer must reject a different environment and refuse
+to overwrite unrelated hooks. Acceptance: activate from a fresh PowerShell
+7.4+ shell, run `oci os ns get` without `Get-Acl` errors, deactivate, and
+confirm the original module path is restored. Verify the installation script
+without OCI calls before asking the participant to run it.
+
+Pilot correction: the OCI child also loads the current user's Windows
+PowerShell 5.1 profile. Its Conda initialization can conflict with an already
+active inherited Conda environment. This participant's profile may be guarded
+to skip that initialization only while this project environment is active.
+Save a backup before changing it and restore the original on rollback. This
+local profile change is performed by the installer only when it finds exactly
+one standard Conda initialization block; customized profiles require manual
+review. The project hook sets and restores a marker for that guard alongside
+the module path. The installer remains idempotent when the guard is present.
+
+References verified on 2026-10-08:
+[Microsoft module-path inheritance](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6),
+[Conda activation scripts](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html),
+and [OCI CLI issue #655](https://github.com/oracle/oci-cli/issues/655).
+
+Local verification on 2026-10-08: all three PowerShell scripts parsed. A
+direct hook round trip removed and restored the process module path, including
+repeated activation. That initial implementation did not pass the participant's
+OCI check and has been revised to set a compatible module path. The installer
+copied both hooks into the already existing
+named environment without replacing other activation scripts. An isolated
+PowerShell 7 session then activated the environment, selected its Python
+executable, and resolved `Get-Acl`. A participant run of `oci os ns get` after
+fresh activation remains the final acceptance check.
+
+2026-10-08 verification update: the participant's fresh activation still
+produced Get-Acl warnings after the module path revision. The remaining cause
+was the Conda initialization block in the Windows PowerShell 5.1 user profile.
+The original profile was backed up and the block was guarded using the hook's
+temporary marker. With the installed hooks and guarded profile, an isolated
+PowerShell 7 activation and full read-only `oci os ns get` returned namespace
+JSON without warnings. Deactivation restored the previous module path and
+removed the marker. The installer was rerun with `-Update` and did not create
+another profile backup. The participant's own terminal has not yet rerun the
+final combination.
 
 The repository's operational interfaces are Bash scripts. They run on macOS
 and, on Windows, only inside WSL2 (see
@@ -174,9 +234,83 @@ parameters delivered here.
 * Docker Desktop and Rancher Desktop through the `docker` CLI were not
   acceptance-tested.
 
-### Pending
+### Pending as of 2026-09-23
 
 Criteria 2 to 7 for the manifest-based scripts on a Windows workstation with
 PowerShell 7.4+, using at least one of Docker Desktop or Podman. Record the
 PowerShell, engine, OCI CLI, and Python versions, the release tag, and the
 observed report lines here when done.
+
+### 2026-10-08, manifest-based Podman release
+
+PowerShell 7.6.5 with Podman 5.8.2 built and locally verified the manifest
+example as `linux/amd64`; the Windows OCIR push, Hosted Deployment update,
+read-only state verification, public health/readiness checks, and the
+manifest's functional POST all passed. OCI CLI was 3.94.0 and the named Conda
+environment used Python 3.11.16. See the sanitized
+  [pilot record](../docs/windows-ace-pilot.md) for the quota obstacle and
+PowerShell CLI-argument fix. Docker Desktop, WSL2, a first Hosted Application
+creation, and a fresh workstation
+remain untested; the Bash twins were not rerun on Windows.
+
+The subsequent local Windows handoff run confirmed skill discovery from a
+separate agent workspace. Test fixtures were adjusted so the PowerShell
+scenarios use a Windows-executable fake OCI command that preserves JSON
+arguments, while POSIX Bash scenarios are skipped on native Windows. The
+focused PowerShell deploy tests passed (37), the PowerShell wait/recovery
+tests passed (82), and the agent/PowerShell baseline suite passed (110).
+Black and Pylint passed for the edited Python tests. See the pilot record
+for the test environment qualification.
+
+### 2026-10-08, beginner setup documentation scope
+
+The Windows usability pilot starts at Getting Started, step 1. That step
+currently assumes Docker and defers Windows instructions to the end of the
+guide. Update only the basic-tools section and its introductory navigation:
+show macOS/Linux and native Windows shell choices, PowerShell 7.4+, Docker or
+Podman checks, reuse of existing installations, expected results, and recovery
+from an unavailable container engine. Keep later setup steps for subsequent
+pilot sessions. No lifecycle script or remote resource changes are included.
+
+Acceptance: both shell paths have actionable basic-tool checks; Podman users
+are not required to install Docker; an installed client is distinguished from
+a reachable engine; checks in Codex's shell do not prove that the user's own
+terminal has the same tools. Review links, Markdown, and consistency with the
+current scripts. Record local observations in
+[the Windows pilot log](../docs/windows-ace-pilot.md); manifest-based build and
+deployment acceptance remains pending.
+
+Authoritative references reviewed on 2026-10-08:
+
+* [Git installation](https://git-scm.com/install/).
+* [Conda installation](https://docs.conda.io/projects/conda/en/stable/user-guide/install/index.html).
+* [PowerShell installation on Windows](https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-windows).
+* [Docker Desktop](https://docs.docker.com/desktop/) and
+  [Windows installation](https://docs.docker.com/desktop/setup/install/windows-install/).
+* [Podman Desktop on Windows](https://podman-desktop.io/docs/installation/windows-install),
+  [Podman info](https://docs.podman.io/en/latest/markdown/podman-info.1.html),
+  [machine listing](https://docs.podman.io/en/latest/markdown/podman-machine-list.1.html),
+  and [machine start](https://docs.podman.io/en/latest/markdown/podman-machine-start.1.html).
+* [Official OpenAI quickstart](https://learn.chatgpt.com/docs/quickstart)
+  for desktop installation and sign-in.
+
+Documentation verification: `git diff --check` passed; Markdown code fences
+are balanced and relative file links resolve in the edited guide, this
+specification, and the pilot log. The instructions were reviewed against the
+existing shell-selection rules. No lifecycle scripts changed. Step 1 local
+acceptance passed: the participant confirmed PowerShell, Git, Conda, and
+Podman engine connectivity in their own terminal. See the pilot log for
+versions and the resolved engine connection failure. This does not establish
+manifest-based build or deployment acceptance.
+
+2026-10-08 follow-up: ordinary Conda activation selected Python 3.11.16.
+The participant verified a namespace read without warnings through directly
+started Windows PowerShell. Getting Started now documents this connection
+workaround and the module-path inheritance cause described by
+[Microsoft](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.6),
+reviewed on 2026-10-08. Later in the pilot, the participant confirmed that
+direct `oci os ns get` worked without warnings after the Conda activation
+hook and profile adjustment described in
+[Getting Started](../docs/getting-started.md#windows-prepare-oci-cli-for-powershell-7).
+See the pilot log for observed paste issues and the limits of offline
+permission-check diagnostics.

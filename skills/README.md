@@ -22,7 +22,7 @@ in the operator's shell.
 | [oci-agent-ui](oci-agent-ui/SKILL.md) | Draft a demo UI specification from the agent's specification, then create a local, end-user Next.js demo page in `ui/`. | Implemented; template built and its bridge tested locally; see [Spec 018](../specs/018-skill-oci-agent-ui.md). |
 | [oci-agent-build](oci-agent-build/SKILL.md) | Build and verify a `linux/amd64` agent image without pushing or deploying. | Implemented; see [Spec 001](../specs/001-skill-oci-agent-build.md) for verification evidence. |
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
-| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Implemented in Bash; PowerShell execution and live reliable-wait acceptance pending; see [Spec 012](../specs/012-reliable-deploy-wait.md). |
+| [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Bash and PowerShell implemented; a Podman-backed Windows release and verification passed for an existing Hosted Application. See [Spec 007](../specs/007-windows-powershell-support.md) and [Spec 012](../specs/012-reliable-deploy-wait.md). |
 | [oci-agent-verify-deployment](oci-agent-verify-deployment/SKILL.md) | Verify an active Hosted Application release with OCI state checks and health/readiness probes. | Implemented; static and live Frankfurt verification passed for `hello-world:0.2.0`; see [Spec 005](../specs/005-skill-oci-agent-verify-deployment.md). |
 
 ## Choosing Bash or PowerShell
@@ -69,8 +69,10 @@ Alternatively, the installer links each skill into `$HOME/.agents/skills`, so a
 separate agent repository can be the Codex workspace. Each skill needs a
 directory containing `SKILL.md`.
 
-Repository-scope discovery remains available. User-scope discovery from another
-repository is pending step 8 verification in [Spec 008](../specs/008-user-scope-skills.md).
+Repository-scope discovery remains available. The Windows pilot confirmed
+that all six installed skills appeared in the skill picker from a new Codex
+session opened in the separate agent folder; see
+[the pilot record](../docs/windows-ace-pilot.md).
 Every skill can be selected from a natural request. Push and deploy still ask
 for approval before each remote change.
 

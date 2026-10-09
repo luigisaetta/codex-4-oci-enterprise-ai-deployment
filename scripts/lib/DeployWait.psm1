@@ -59,6 +59,15 @@ function Write-HostedServiceError {
     $status = if ($null -ne $errorObject) { [string]$errorObject.status } else { 'unknown' }
     $code = if ($errorObject.code) { [string]$errorObject.code } else { 'unknown' }
     $message = if ($errorObject.message) { [string]$errorObject.message } else { 'unknown' }
+    if ($null -eq $errorObject) {
+        $lines = @($OutputText -split "`r?`n" | Where-Object { $_.Trim() })
+        $cliError = @($lines | Where-Object { $_ -match '^\s*(Error:|Exception:|Invalid value)' } | Select-Object -First 1)
+        if ($cliError.Count -eq 0) {
+            $cliError = @($lines | Where-Object { $_ -match '^\s*Usage:' } | Select-Object -First 1)
+        }
+        if ($cliError.Count -eq 0) { $cliError = @($lines | Select-Object -First 1) }
+        if ($cliError.Count -gt 0) { $message = [string]$cliError[0] }
+    }
     try { $runtime = @((($env:OCI_DEPLOY_RUNTIME_JSON | ConvertFrom-Json -ErrorAction Stop))) }
     catch { $runtime = @() }
     foreach ($variable in $runtime) {
@@ -68,6 +77,7 @@ function Write-HostedServiceError {
             $message = $message.Replace([string]$variable.value, '[REDACTED]')
         }
     }
+    if ($message.Length -gt 500) { $message = $message.Substring(0, 500) + '…' }
     [Console]::Error.WriteLine("$Kind request failed: status=$status; code=$code; message=$message.")
 }
 

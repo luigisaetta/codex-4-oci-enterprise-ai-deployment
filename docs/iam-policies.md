@@ -141,8 +141,8 @@ Notes:
   generative-ai-family in compartment <compartment-name>` covers the hosted
   resource types and work requests, but also every other Generative AI
   resource. Oracle recommends it only for administrators or sandbox groups.
-* **Docker login**: pushing also needs the operator's OCI auth token, typed
-  only at Docker's password prompt; see the
+* **Registry login**: pushing also needs the operator's OCI auth token, typed
+  only at the selected engine's `docker login` or `podman login` password prompt; see the
   [OCIR authentication reference](../skills/oci-agent-push/references/ocir-authentication.md).
   It is a credential, not a policy.
 

@@ -64,8 +64,12 @@ interpreter set in `OCI_AGENT_PYTHON`.
 
 ## Creating a new agent repository
 
-The recommended way is the `oci-agent-new` skill: open an empty folder in
-Codex and describe the agent. The skill drafts a specification
+The recommended way is the `oci-agent-new` skill: open an empty folder outside
+the tool home in a new Codex session and describe the agent. The folder may
+sit beside the tool home under one parent project folder. On native Windows,
+create it with the PowerShell command in
+[Getting Started step 10](getting-started.md#10-create-your-first-agent).
+The skill drafts a specification
 (`agent-spec.md`, starting with the customer persona, use case, and expected
 outcomes), stops for your review, and after your approval creates the files
 below from it. See the [skill](../skills/oci-agent-new/SKILL.md) and the
@@ -156,7 +160,7 @@ omitted locally unless the operator explicitly supplies the documented local
 override; the override is never displayed.
 
 Expected outcome: a locally verified image named `<manifest name>:<tag>`. This
-step changes only local Docker state; it does not contact OCIR or OCI.
+step changes only local container-engine state; it does not contact OCIR or OCI.
 
 Stop and correct the agent or its manifest if this step fails. Do not push an
 unverified image.
@@ -176,7 +180,8 @@ references. It then inspects the target repository.
 
 If the repository is missing, the skill asks for authorization to create the
 one private, mutable repository. Separately, the operator must run interactive
-Docker login and enter the OCI auth token only at the password prompt. The
+`docker login` or `podman login`, matching the selected engine, and enter
+the OCI auth token only at the password prompt. The
 skill then asks again for authorization before tagging and pushing the image.
 
 Expected outcome: the fully qualified OCIR image reference and registry digest.

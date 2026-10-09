@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-02
+Date last modified: 2026-10-08
 License: MIT
 Description: Exercise Hosted Application release cases with a scenario-driven OCI CLI.
 """
@@ -71,7 +71,7 @@ def write_fake_oci(directory: Path) -> Path:
     Returns:
         Path to the fake OCI executable.
     """
-    executable = directory / "oci"
+    executable = directory / ("oci.py" if os.name == "nt" else "oci")
     executable.write_text(
         """#!/usr/bin/env python3
 import json
@@ -286,6 +286,14 @@ else:
 """,
         encoding="utf-8",
     )
+    if os.name == "nt":
+        launcher = directory / "oci.ps1"
+        launcher.write_text(
+            "& $env:OCI_AGENT_PYTHON (Join-Path $PSScriptRoot 'oci.py') @args\n"
+            "exit $LASTEXITCODE\n",
+            encoding="utf-8",
+        )
+        return launcher
     executable.chmod(0o755)
     return executable
 
@@ -625,7 +633,13 @@ def run_release(
 @pytest.fixture(
     name="release_runner",
     params=[
-        pytest.param((SCRIPT, [shutil.which("bash") or "/bin/bash"]), id="bash"),
+        pytest.param(
+            (SCRIPT, [shutil.which("bash") or "/bin/bash"]),
+            id="bash",
+            marks=pytest.mark.skipif(
+                os.name == "nt", reason="Bash fixtures use POSIX paths."
+            ),
+        ),
         pytest.param(
             (POWERSHELL_SCRIPT, [PWSH, "-NoProfile", "-File"]),
             id="powershell",
@@ -938,6 +952,8 @@ def test_failed_update_reports_unknown_work_request_status(
 def test_release_cases_work_with_bash_3_when_available(tmp_path: Path) -> None:
     """The release workflow avoids Bash features unavailable in macOS Bash 3.x."""
     bash32 = Path("/bin/bash")
+    if not bash32.is_file():
+        pytest.skip("/bin/bash is unavailable.")
     version = subprocess.run(
         [str(bash32), "--version"], capture_output=True, text=True, check=False
     )

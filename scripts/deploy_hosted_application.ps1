@@ -68,7 +68,8 @@ function Invoke-OciMutation {
         Remove-Item -LiteralPath $errorPath -Force -ErrorAction SilentlyContinue
     }
     if ($exitCode -ne 0) {
-        Write-HostedServiceError -Kind $Kind -OutputText $errorText
+        $failureOutput = ((@($output) | ForEach-Object { "$_" }) -join "`n") + "`n" + $errorText
+        Write-HostedServiceError -Kind $Kind -OutputText $failureOutput
         exit 1
     }
     return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
@@ -221,8 +222,8 @@ function New-HostedApplication {
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'create',
         '--display-name', $applicationName, '--compartment-id', $compartmentId, '--inbound-auth-config',
         $inboundAuthJson, '--networking-config',
-        '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":' +
-        '{"networkMode":"MANAGED"}}', '--environment-variables', $environmentJson
+        '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":{"networkMode":"MANAGED"}}',
+        '--environment-variables', $environmentJson
     )
     $script:applicationId = Resolve-MutationId 'Hosted Application' $applicationOutput
     $script:applicationWorkRequestId = Get-MutationWorkRequestId -Response $applicationOutput

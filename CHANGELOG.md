@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+* 2026-10-09: IAM policies: verified live that the runtime needs only
+  `read repos` to pull its image; vulnerability-scanning statements are not
+  needed.
+
+* 2026-10-09: Release the existing `hello_world` image version `0.1.0` on OCI
+  Hosted Applications in Frankfurt; record active resource state, successful
+  creation work request, and public health/readiness verification in
+  [the demo specification](specs/hello_world.md).
+
 * 2026-10-09: Split Getting started into two complete guides,
   [macOS and Linux](docs/getting-started-macos-linux.md) and
   [Windows](docs/getting-started-windows.md); `docs/getting-started.md` now

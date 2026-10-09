@@ -115,7 +115,7 @@ non-goals); keeping the rule is harmless and follows the documentation.
 
 | Purpose | Statement | Needed when | Status |
 | --- | --- | --- | --- |
-| Pull the image from OCIR | `allow dynamic-group <runtime-dynamic-group> to read repos in compartment <compartment-name>` | Always | Documented |
+| Pull the image from OCIR | `allow dynamic-group <runtime-dynamic-group> to read repos in compartment <compartment-name>` | Always | Documented; verified live (2026-10-09) as the only runtime statement needed for the image |
 | Read Vault secrets passed as runtime variables | `allow dynamic-group <runtime-dynamic-group> to read secret-bundles in compartment <vault-compartment-name>` | The manifest uses `vault_secret_id` | Derived |
 | Call Generative AI with Resource Principal (`GENAI_AUTH_MODE=resource_principal`) | `allow dynamic-group <runtime-dynamic-group> to use generative-ai-family in compartment <genai-compartment-name>` and `allow dynamic-group <runtime-dynamic-group> to use generative-ai-project in compartment <genai-compartment-name>` | The agent uses Resource Principal | Verified live (2026-10-06, Spec 016), through an equivalent broader statement; see the notes |
 | Call Generative AI with an API key (`GENAI_AUTH_MODE=api_key`, the default) | `allow any-user to use generative-ai-family in compartment <genai-compartment-name> where ALL {request.principal.type='generativeaiapikey'}` | The agent uses `GENAI_API_KEY` | Observed (2026-10-06) in a tenancy where API-key calls work, with the `manage` verb |
@@ -125,6 +125,15 @@ Notes:
 
 * **OCIR**: the repository must be in a compartment covered by the statement.
   The skills create it in `OCI_COMPARTMENT_NAME`.
+* **No vulnerability-scanning statements.** Older setups also grant
+  `vulnerability-scanning-service` `read repos` and `read compartments`, and
+  the runtime dynamic group `read vss-family`. They are not needed: on
+  2026-10-09 a first release (application and deployment created) succeeded
+  in a compartment after these three statements were removed, with only
+  `read repos` for the runtime. Deployment artifacts report
+  `is-vulnerability-scan-required: false`. The OCI error "the container image
+  could not be accessed or validated" mentions scan results, but in the
+  observed case its cause was the missing `read repos` coverage.
 * **Vault**: reading the value of a secret (`GetSecretBundle`) requires
   `SECRET_BUNDLE_READ`, which the `read` verb grants on `secret-bundles`.
   The Generative AI documentation does not state this policy for Hosted

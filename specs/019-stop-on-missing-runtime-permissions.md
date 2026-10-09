@@ -72,7 +72,7 @@ they gave Codex neither the cause nor an instruction to stop.
 | F1 | A failed deployment creation can leave the deployment in `NEEDS_ATTENTION`, not `FAILED`, with the artifact `FAILED`. | `hosted-deployment get` on both deployments. |
 | F2 | `work-request list --compartment-id … --resource-id <deployment-ocid> --status FAILED --all` returns the `CREATE_HOSTED_DEPLOYMENT` work request of a `NEEDS_ATTENTION` deployment. | Read-only call. |
 | F3 | Its `work-request-error list` returns code `500` and the message quoted in the Problem. | Read-only call. |
-| F4 | The failing artifact reports `is-vulnerability-scan-required: false`; image scanning was not required. The message's mention of scan results is generic. | `hosted-deployment get`. |
+| F4 | The failing artifact reports `is-vulnerability-scan-required: false`; image scanning was not required. The message's mention of scan results is generic. Confirmed live the same day: a first release succeeded after the vulnerability-scanning statements were removed from the administrator's compartment, with only the runtime `read repos` statement. | `hosted-deployment get`; first release of `hello-world`, 2026-10-09. |
 | F5 | `artifacts container image list` accepts `--compartment-id`, `--repository-name`, `--image-version`, and `--all`; the operator's `manage repos` permission covers it. | CLI 3.94.0 help; `docs/iam-policies.md`. |
 | F6 | Exit codes in use by the deploy script: 0, 1, 20, 26, 64, 65. | `oci-agent-deploy/SKILL.md`, Exit codes. |
 

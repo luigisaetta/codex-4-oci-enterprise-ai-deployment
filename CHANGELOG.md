@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-12: New guide [Logging in to OCIR](docs/ocir-login.md): registry
+  address, username built from the Console's Profile menu (with the identity
+  domain when shown), auth token generation, login with Docker or Podman, and
+  common errors. Linked from Getting started steps 5 and 9 and the README.
+
 * 2026-10-12: The customer-name rule of Spec 020 now also lives in each agent
   repository's `AGENTS.md`, which Codex reads in every session, with or
   without a skill. `oci-agent-new` and `oci-agent-ui` add it; for existing

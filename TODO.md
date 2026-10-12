@@ -110,6 +110,11 @@ the Console shows it, with a federated-user example, and consider deriving the
 value automatically from the OCI CLI profile (setup check or a setup script).
 Verify the Console path before documenting it.
 
+Done on 2026-10-12, documentation part: [Logging in to OCIR](docs/ocir-login.md)
+(username from the Console's Profile menu, auth token, login, errors), linked
+from Getting started steps 5 and 9. Still open: deriving the value
+automatically.
+
 ## 2. Verify PowerShell parity
 
 Parity between `scripts/*.sh` and `scripts/*.ps1` is declared but has never

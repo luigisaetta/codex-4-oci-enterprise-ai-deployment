@@ -68,6 +68,10 @@ OCI Console/IAM. The PowerShell twins `resolve_ocir_registry.ps1`,
 `ensure_ocir_repository.ps1 -Repository ... [-Create]`, and
 `push_ocir_image.ps1 [-Push]` follow the same rules and exit codes.
 
+For users, the step-by-step guide is
+[Logging in to OCIR](../../../docs/ocir-login.md): it explains the username,
+the auth token, and common login errors.
+
 Sources:
 
 * [Pushing Images Using the Docker CLI](https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypushingimagesusingthedockercli.htm)

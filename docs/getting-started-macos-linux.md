@@ -213,7 +213,7 @@ Open `.env` in a text editor and replace the four values:
 | `OCI_REGION` | The region, for example `eu-frankfurt-1`. |
 | `OCI_COMPARTMENT_NAME` | The compartment name given by your administrator. |
 | `OCIR_TENANCY_NAMESPACE` | The namespace printed by `oci os ns get` in step 4. |
-| `OCIR_USERNAME` | Your container registry user: `<namespace>/<your-username>`, or `<namespace>/<identity-domain>/<your-username>` if your user is not in the `Default` identity domain. Your username is usually your email address. |
+| `OCIR_USERNAME` | Your container registry user: the namespace, a `/`, and exactly what the Console's **Profile** menu shows at the top, for example `<namespace>/jdoe@acme.com` or `<namespace>/oracleidentitycloudservice/jdoe@acme.com`. Step by step: [Logging in to OCIR](ocir-login.md#2-build-the-username). |
 
 **Optional, for agents that call an LLM with an API key:** create a Generative
 AI API key in the OCI Console (Generative AI → **API keys** → **Create API
@@ -285,9 +285,11 @@ project. It calls no LLM, so if it works, your workstation, OCI access, and
 policies are ready.
 
 You need an **auth token** for the container registry (OCIR): OCI Console →
-your profile icon → **My profile** → **Auth tokens** (in some tenancies under
-**Tokens and keys**) → **Generate token** → copy it (it appears only once).
-Keep it at hand; you type it once, when Docker asks for a password.
+**Profile** menu (top right) → **User settings** (or **My profile**) →
+**Tokens and keys** → **Auth tokens** → **Generate token** → copy it (it is
+shown only once). Keep it at hand; you type it once, when Docker asks for a
+password. Step by step, with the username and common errors:
+[Logging in to OCIR](ocir-login.md).
 
 Open the **tool home** in Codex (a new session) and ask:
 

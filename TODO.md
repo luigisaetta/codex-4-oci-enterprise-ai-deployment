@@ -13,6 +13,8 @@ follow the numbers unless a dependency says otherwise.
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
 | 16 | [Stop on missing runtime permissions](#16-stop-on-missing-runtime-permissions) (issue found 2026-10-09) | — | Low-medium | Now |
+| 17 | [Local LLM test for Resource Principal agents](#17-local-llm-test-for-resource-principal-agents) (issue found 2026-10-09) | — | Low-medium | Now |
+| 18 | [Clearer OCIR username](#18-clearer-ocir-username) (user feedback 2026-10-12) | — | Low | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
 | 3 | [Compatibility check and pre-release smoke test](#3-compatibility-check-and-pre-release-smoke-test) | — | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
@@ -64,6 +66,49 @@ IAM. Recovery of a `NEEDS_ATTENTION` deployment is out of scope.
 
 Related: item 10 (IAM pre-flight check) and item 11 (diagnostics for a failed
 deployment).
+
+## 17. Local LLM test for Resource Principal agents
+
+**Issue found (2026-10-09).** The demo `multimodal-extraction` (an agent that
+uses Resource Principal) needed three releases (0.1.0, 0.1.1, 0.1.2) of the
+same deployment. Each OCI operation succeeded; the two extra releases fixed
+agent bugs that the local verification could not see. With
+`GENAI_AUTH_MODE=resource_principal`, local LLM calls answer 502 by design
+(guideline Q4 of `oci-agent-new`), because the Resource Principal exists only
+in OCI. So the build verification never exercises the LLM path, and every
+integration bug costs a release.
+
+Fix, to specify: when the user asks for Resource Principal, `oci-agent-new`
+also generates a local test mode that signs the LLM calls with the
+developer's OCI API key (the profile in `~/.oci/config`, through
+`OciUserPrincipalAuth` of `oci-genai-auth`). The deployed agent keeps
+Resource Principal; the local mode is never set in the manifest. To decide in
+the specification: how the mode is selected (for example
+`GENAI_AUTH_MODE=user_principal` only for local runs), how the build
+verification uses it (the `~/.oci` files must not enter the image), and the
+permissions the developer's user needs.
+
+Two other findings of the same test, for the agent guidelines
+(`skills/oci-agent-new/references/agent-guidelines.md`):
+
+* **Conversation history** (verified): the OCI Responses API rejects previous
+  assistant turns sent as plain text ("Invalid value: 'input_text'. Supported
+  values are: 'output_text' and 'refusal'"). Replay them as assistant messages
+  with `output_text` content.
+* **POST with an empty body** (cause not established): `POST /sessions` with
+  body `{}` and a request model with `extra="forbid"` answered 400 on OCI and
+  200 locally; reading the body by hand, and accepting an empty body, fixed
+  it. Confirm the cause with a small test before writing a rule.
+
+## 18. Clearer OCIR username
+
+User feedback (2026-10-12): step 5 of Getting started asks for
+`OCIR_USERNAME` as `<namespace>/<your-username>` or
+`<namespace>/<identity-domain>/<your-username>`, but users outside the
+`Default` identity domain do not know how to find their domain. Explain where
+the Console shows it, with a federated-user example, and consider deriving the
+value automatically from the OCI CLI profile (setup check or a setup script).
+Verify the Console path before documenting it.
 
 ## 2. Verify PowerShell parity
 

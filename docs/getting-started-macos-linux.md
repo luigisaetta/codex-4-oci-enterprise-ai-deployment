@@ -3,24 +3,35 @@
 This guide takes you from an empty workstation to your first agent running on
 OCI Enterprise AI Hosted Applications. Follow the steps in order; each one says
 what it does, the command to copy, what you should see, and what to do if it
-does not work. You do not need to know Python: Codex writes the code, and the
-skills run the tools for you.
+does not work. Codex writes the code, and the skills run the tools for you.
 
 All commands run in **Terminal**. On Windows inside WSL2, use this guide too,
 in the WSL2 shell. For Windows with PowerShell, use
 [Getting started on Windows](getting-started-windows.md).
 
+## Who this guide is for
+
+You need to know how to use OCI: an **active OCI tenancy**, access to the
+**OCI Console**, and how to create a compartment there. You do not need
+experience with AI, Python, Docker, or the container registry. IAM policies
+are set by your tenancy administrator: if you are not the administrator, ask
+them (see below).
+
+**How to read the commands:** a block with a command runs in **Terminal**; a
+block with an English sentence (for example "Release version 0.1.0 …") is a
+request that you type in Codex.
+
 ## Before you start: what you need and who provides it
 
 | Who | What | When |
 | --- | --- | --- |
-| **Your tenancy administrator** | A compartment for your agents, and the IAM policies. Send them [Setup for the administrator](iam-policies.md#setup-for-the-administrator). | Once, before step 9 |
-| **You** | An OCI user account in that tenancy, able to create an API signing key and an auth token for yourself. | Before step 4 |
+| **Your tenancy administrator** | The IAM policies for your compartment (and the compartment itself, if you do not create it). Send them [Setup for the administrator](iam-policies.md#setup-for-the-administrator). | Once, before step 9 |
+| **You** | An OCI user in an active tenancy, with access to the OCI Console and able to create an API signing key and an auth token for yourself. | Before step 4 |
 | **You** | A workstation where you can install software. | Now |
 
 Ask the administrator for:
 
-* the **name of the compartment** to use;
+* the **name of the compartment** to use, if you do not create it yourself;
 * the **identity domain** of your user, if it is not `Default`;
 * whether your agents will call an LLM with an **API key** (simplest) or with
   **Resource Principal** (no key; needs a Generative AI project).
@@ -135,6 +146,13 @@ Expected: the command ends without errors. Check the OCI CLI:
 ```bash
 oci --version
 ```
+
+**Prefer venv or pyenv?** This guide uses Conda, but any Python 3.11 or later
+environment works. Create and activate it as described in the
+[venv](https://docs.python.org/3/library/venv.html) or
+[pyenv](https://github.com/pyenv/pyenv) documentation, then run the same
+`python -m pip install -r requirements-dev.txt` from the tool home. Activate
+it in every new terminal: the scripts use the active `python`.
 
 ## 4. Connect the OCI CLI to your tenancy
 

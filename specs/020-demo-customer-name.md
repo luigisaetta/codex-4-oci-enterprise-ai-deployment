@@ -1,7 +1,7 @@
 # Spec 020: approved demo customer name
 
 Status: implemented (amended 2026-10-12 with `AGENTS.md`); offline checks
-passed; real-session acceptance pending.
+passed; operator end-to-end test passed.
 Date: 2026-10-12.
 Amends [Spec 011](011-skill-oci-agent-new.md) (no network use, except the
 online searches below) and [Spec 018](018-skill-oci-agent-ui.md).
@@ -173,3 +173,10 @@ the workspace's `AGENTS.md` in every session.
   Black and Pylint (10.00/10) passed.
 * Pending: acceptance criterion 3 in both forms (new agent; edit of an
   existing agent without a skill).
+
+### 2026-10-12, operator end-to-end test
+
+* Criterion 3: after the amendment, the operator ran an end-to-end test and
+  reported that it works: the real customer name stayed out of the files.
+  The session details (which of the two forms, files checked) were not
+  recorded here.

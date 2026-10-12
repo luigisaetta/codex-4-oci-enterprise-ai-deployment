@@ -1,6 +1,7 @@
 # Spec 020: approved demo customer name
 
-Status: implemented; offline checks passed; real-session acceptance pending.
+Status: implemented (amended 2026-10-12 with `AGENTS.md`); offline checks
+passed; real-session acceptance pending.
 Date: 2026-10-12.
 Amends [Spec 011](011-skill-oci-agent-new.md) (no network use, except the
 online searches below) and [Spec 018](018-skill-oci-agent-ui.md).
@@ -13,6 +14,16 @@ must never appear in what is shown during a demo, nor in any file on disk.
 The legal office has approved one name for demos: **Supremo**. Today nothing
 in `oci-agent-new` or `oci-agent-ui` keeps the real name out of the generated
 files.
+
+### Issue found (2026-10-12)
+
+The first version put the rule only inside the two skills. In an existing
+demo repository the developer asked Codex to change the customer to the real
+one and to add a language selector. Codex treated it as an edit of existing
+files: no skill was loaded, and it wrote the real name into `agent-spec.md`
+and `ui/ui-spec.md`. A rule that must always apply cannot live only in
+skills, because Codex loads a skill only for matching requests. Codex reads
+the workspace's `AGENTS.md` in every session.
 
 ## Scope
 
@@ -36,7 +47,6 @@ files.
 * Codex's own conversation transcripts, which Codex stores on the local disk
   (for example under `~/.codex/sessions`): they are outside the control of
   the skills. See "Known limits".
-* Existing repositories: the rule applies to files generated from now on.
 
 ## Intended behavior
 
@@ -75,6 +85,22 @@ files.
    check is skipped.
 6. **No real name given.** The files use the demo name wherever a customer is
    named; the skill never asks for the real name.
+7. **`AGENTS.md` in the agent repository.** The same rules are written into a
+   marked block of the agent repository's `AGENTS.md`, so that they apply in
+   every later Codex session, with or without a skill:
+
+   ```bash
+   python "$TOOL_HOME/scripts/agent_instructions.py" ensure --target <agent-folder>
+   ```
+
+   The command creates `AGENTS.md`, appends the block to an existing file, or
+   refreshes only the block (prints `created`, `appended`, `updated`, or
+   `unchanged`); it never changes content outside the block and exits 64 for
+   a missing folder or an unbalanced marker. The block text lives in
+   `skills/oci-agent-new/assets/agent-instructions.md`. `oci-agent-new` runs
+   it after render, `oci-agent-ui` after copying the template, and the
+   developer runs it once for agent folders created earlier (Getting started,
+   step 5). `.dockerignore` already excludes `**/*.md` from the image.
 
 ## Configuration
 
@@ -91,14 +117,20 @@ files.
   real name, it is in that transcript, outside the repository. To keep it off
   the disk entirely, do not type it.
 * The final check finds the name only in the forms Codex searches for.
+* `AGENTS.md` is an instruction, not a technical block: Codex follows it, but
+  nothing prevents a write. The final search reduces the risk; it does not
+  remove it.
 
 ## Tests (offline)
 
 * `tests/test_tool_config.py`: `demo-customer` prints the value from the environment, then from `.env`,
   then `Supremo`; it never prints another `.env` entry, including a secret
   placed in the same file.
-* `tests/test_skills.py`: both skills state the rule, link the helper, and
-  include the final check; the agent specification template names the
+* `tests/test_agent_instructions.py`: create, append keeping existing
+  content, idempotent rerun, refresh of a stale block only, and exit 64 for a
+  missing folder or an unbalanced marker without writing.
+* `tests/test_skills.py`: both skills state the rule, link the helper, run
+  `agent_instructions.py ensure`, and include the final check; the agent specification template names the
   customer with the demo name.
 
 ## Acceptance criteria
@@ -106,7 +138,8 @@ files.
 1. The offline tests pass, with Black, Pylint, and pytest.
 2. A static review confirms that both skills, their guidelines, and the
    templates agree with this specification.
-3. A real session: the developer names a real customer; `agent-spec.md`,
+3. A real session: the developer names a real customer, both when creating an
+   agent and when editing an existing one without a skill; `agent-spec.md`,
    the agent files, `ui/ui-spec.md`, and the UI show only the demo name, and
    a local search of the repository for the real name finds nothing.
 
@@ -124,3 +157,19 @@ files.
   and one in `tests/test_skills.py`. Full suite: 356 passed, 132 skipped (all
   `pwsh is unavailable`). Black and Pylint (10.00/10) passed.
 * Pending: acceptance criterion 3, a real Codex session.
+
+### 2026-10-12, issue found and amendment
+
+* Real session in an existing demo repository: no skill was loaded and the
+  real name reached `agent-spec.md` and `ui/ui-spec.md` (see "Issue found").
+  Both files were corrected by hand to the demo name; a case-insensitive
+  local search of the repository then found no match.
+* Amendment: `scripts/agent_instructions.py`, the instruction block asset,
+  the `ensure` step in both skills, Getting started step 5, and four tests in
+  `tests/test_agent_instructions.py`.
+* `express_order_rp` received its `AGENTS.md` with `ensure` (`created`; a
+  second run printed `unchanged`).
+* Offline: full suite 360 passed, 132 skipped (all `pwsh is unavailable`);
+  Black and Pylint (10.00/10) passed.
+* Pending: acceptance criterion 3 in both forms (new agent; edit of an
+  existing agent without a skill).

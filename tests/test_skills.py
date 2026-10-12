@@ -200,6 +200,7 @@ def test_customer_facing_skills_keep_the_real_customer_name_off_disk() -> None:
         assert '"$TOOL_HOME/scripts/tool_config.py" demo-customer' in content
         assert "Never write the real name to disk" in content
         assert "Run the customer-name check" in content
+        assert '"$TOOL_HOME/scripts/agent_instructions.py" ensure --target .' in content
         assert "{{DEMO_CUSTOMER_NAME}}" in (SKILLS / skill / template).read_text(
             encoding="utf-8"
         )

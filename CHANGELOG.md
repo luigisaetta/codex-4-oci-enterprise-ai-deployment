@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-12: The customer-name rule of Spec 020 now also lives in each agent
+  repository's `AGENTS.md`, which Codex reads in every session, with or
+  without a skill. `oci-agent-new` and `oci-agent-ui` add it; for existing
+  agent folders run `scripts/agent_instructions.py ensure --target <folder>`.
+
 * 2026-10-12: Approved demo customer name (Spec 020). `oci-agent-new` and
   `oci-agent-ui` name the customer only with the demo name, `Supremo` unless
   `DEMO_CUSTOMER_NAME` is set in the tool's `.env`; the real customer's name

@@ -78,6 +78,9 @@ python "$TOOL_HOME/scripts/tool_config.py" demo-customer
   and its obvious variants, case-insensitively, with a local search (for
   example `grep -ril`). Replace every match with the demo name and report the
   fix without the name. Skip this check when no real name was given.
+* Make sure the agent repository's `AGENTS.md` carries the same rules, which
+  Codex reads in every later session, with or without a skill (workflow
+  step 4).
 
 ## Inputs
 
@@ -113,7 +116,13 @@ Never invent business content: what the specification does not say goes under
    Replace `{{UI_NAME}}` in `ui/package.json` (the agent name, lowercase,
    hyphens only) and `{{UI_TITLE}}` in `ui/README.md`. Write
    `ui/app/demo-config.js` from the approved UI specification (guideline T1).
-   Do not change `ui/app/api/agent/route.js` (T2).
+   Do not change `ui/app/api/agent/route.js` (T2). Then add or refresh the
+   customer-name rules in the agent repository's `AGENTS.md`; it never changes
+   other content:
+
+   ```bash
+   python "$TOOL_HOME/scripts/agent_instructions.py" ensure --target .
+   ```
 5. Ask whether the UI must talk to the local container or to the deployed
    agent (and, for the deployed agent, the Hosted Application OCID and the
    region). Copy `ui/.env.local.example` to `ui/.env.local` and set

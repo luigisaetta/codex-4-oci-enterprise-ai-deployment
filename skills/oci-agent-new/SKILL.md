@@ -102,6 +102,8 @@ sets `DEMO_CUSTOMER_NAME`):
   and its obvious variants, case-insensitively, with a local search (for
   example `grep -ril`). Replace every match with the demo name and report the
   fix without the name. Skip this check when no real name was given.
+* The same rules go into the agent repository's `AGENTS.md` (workflow step 6),
+  so that they also apply when the files are changed later without a skill.
 
 ## Inputs
 
@@ -205,7 +207,16 @@ message.
    only when absent. A regular-file `.gitignore` is kept byte-for-byte; a
    directory or symlink is a conflict. On exit 30, list conflicts and stop.
    On a failed render, report the original error and any cleanup error naming
-   remaining files; do not proceed to authoring.
+   remaining files; do not proceed to authoring. Then add the customer-name
+   rules to the repository's `AGENTS.md`, which Codex reads in every later
+   session, with or without a skill:
+
+   ```bash
+   "$AGENT_PYTHON" "$TOOL_HOME/scripts/agent_instructions.py" ensure --target .
+   ```
+
+   It creates the file, appends the marked block to an existing file, or
+   refreshes only that block; it never changes other content.
 7. Edit only the new `agent.yaml` created in this session: replace `verify: []`
    with the confirmed functional check. Add `runtime` only for requested
    variables, using the [manifest reference](../../docs/agent-manifest-reference.md).

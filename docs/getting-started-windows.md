@@ -288,6 +288,14 @@ never paste it into the chat. The tool reads it for you.
 approved for demos, in every file and on the demo page. You may tell Codex the
 real customer's name to give it context, but it never writes that name to any
 file. To use another approved name, add `DEMO_CUSTOMER_NAME=<name>` to `.env`.
+The rule is written into each agent folder's `AGENTS.md`, which Codex reads
+in every session, also when you change the files without a skill. Agents
+created with `oci-agent-new` get it automatically; for an agent folder created
+earlier, run this once from the tool home:
+
+```powershell
+python scripts/agent_instructions.py ensure --target "$HOME\Projects\<agent-folder>"
+```
 
 ## 6. Install the skills
 

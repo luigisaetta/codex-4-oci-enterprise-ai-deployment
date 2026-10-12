@@ -284,6 +284,11 @@ GENAI_API_KEY=<your-key>
 From now on `.env` contains a secret: never share it, never commit it, and
 never paste it into the chat. The tool reads it for you.
 
+**Customer name in demos:** the skills name the customer **Supremo**, the name
+approved for demos, in every file and on the demo page. You may tell Codex the
+real customer's name to give it context, but it never writes that name to any
+file. To use another approved name, add `DEMO_CUSTOMER_NAME=<name>` to `.env`.
+
 ## 6. Install the skills
 
 This makes the skills available to Codex in every project, as links to

@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-06
+Date last modified: 2026-10-12
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -185,6 +185,24 @@ def test_new_skill_documents_helper_and_llm_support() -> None:
     assert "references/agent-guidelines.md" in links
     for phrase in ("work in progress", "first iteration", "no oci service calls"):
         assert phrase not in content.lower()
+
+
+def test_customer_facing_skills_keep_the_real_customer_name_off_disk() -> None:
+    """Both skills read the demo name, forbid the real one on disk, and check."""
+    templates = {
+        "oci-agent-new": "assets/agent-spec.template.md",
+        "oci-agent-ui": "assets/ui-spec.template.md",
+    }
+    for skill, template in templates.items():
+        content = (SKILLS / skill / "SKILL.md").read_text(encoding="utf-8")
+        assert "## Customer name" in content
+        assert "../../specs/020-demo-customer-name.md" in MARKDOWN_LINK.findall(content)
+        assert '"$TOOL_HOME/scripts/tool_config.py" demo-customer' in content
+        assert "Never write the real name to disk" in content
+        assert "Run the customer-name check" in content
+        assert "{{DEMO_CUSTOMER_NAME}}" in (SKILLS / skill / template).read_text(
+            encoding="utf-8"
+        )
 
 
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:

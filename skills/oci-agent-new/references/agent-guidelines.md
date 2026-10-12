@@ -59,6 +59,12 @@ agent package, for example `<package>/data/`, and are read relative to the
 module; they are read-only. Simulated state that changes is kept in memory and
 documented as lost on restart and not shared across replicas.
 
+**B7. Demo customer name.** The specification, code, LLM instructions,
+examples, data, and checks name the customer only with the name approved for
+demos (`tool_config.py demo-customer`, default `Supremo`). The real
+customer's name stays in the conversation and never reaches a file (Spec 020).
+*Why:* the files are shown during demos and may be shared.
+
 ## Code-quality rules (into the code)
 
 **Q1. LLM calls.** Use the OCI OpenAI-compatible endpoint

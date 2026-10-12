@@ -5,6 +5,8 @@ every section, then ask Codex to continue. Write in any language. -->
 
 ## Business context
 
+* Customer: {{DEMO_CUSTOMER_NAME}} (the name approved for demos; never write
+  the real customer name in this file).
 * Customer persona: who the agent is for (role, team, company; the customer
   can be internal).
 * Use case: the situation the agent addresses.

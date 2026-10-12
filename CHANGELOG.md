@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-12: Approved demo customer name (Spec 020). `oci-agent-new` and
+  `oci-agent-ui` name the customer only with the demo name, `Supremo` unless
+  `DEMO_CUSTOMER_NAME` is set in the tool's `.env`; the real customer's name
+  stays in the conversation, never reaches a file, and a final check looks for
+  it in the generated files. New `tool_config.py demo-customer` helper.
+
 * 2026-10-09: IAM policies: verified live that the runtime needs only
   `read repos` to pull its image; vulnerability-scanning statements are not
   needed.

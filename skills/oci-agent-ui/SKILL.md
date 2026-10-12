@@ -50,6 +50,35 @@ Before running commands, confirm this is the developer's target. If the request
 concerns another platform or the target is unclear, stop and ask; never switch
 silently.
 
+## Customer name
+
+Contract: [Spec 020](../../specs/020-demo-customer-name.md). Before drafting,
+read the customer name approved for demos (`Supremo` unless the tool's `.env`
+sets `DEMO_CUSTOMER_NAME`); the helper prints only that value:
+
+```bash
+python "$TOOL_HOME/scripts/tool_config.py" demo-customer
+```
+
+* The page and every file of `ui/` (`ui-spec.md`, `app/demo-config.js`:
+  titles, story, labels, example requests, messages) name the customer only
+  with the demo name.
+* If the developer names the real customer, keep that name only in the
+  conversation. Reply once, without repeating it: "In every file and in the
+  demo the customer is called <demo name>." Never ask for the real name.
+* If `agent-spec.md` names a customer other than the demo name, ask whether it
+  is the real customer; if so, never copy it, and suggest replacing it in
+  `agent-spec.md` too.
+* Never write the real name to disk in any form: full name, abbreviation,
+  domain, or e-mail address. It may be used in online searches only when they
+  help to understand the customer's business; never copy from the results
+  product names, brands, people, addresses, or figures that identify the real
+  customer.
+* Before the closing message, search the files you wrote for the real name
+  and its obvious variants, case-insensitively, with a local search (for
+  example `grep -ril`). Replace every match with the demo name and report the
+  fix without the name. Skip this check when no real name was given.
+
 ## Inputs
 
 * The developer's request, which may add wishes for the page.
@@ -69,7 +98,8 @@ Never invent business content: what the specification does not say goes under
    supported yet), or if the agent has no single JSON business endpoint.
 3. Read the [UI guidelines](references/ui-guidelines.md). Copy
    [the UI specification template](assets/ui-spec.template.md) to
-   `ui/ui-spec.md`, replace `{{AGENT_NAME}}`, and fill it from the agent
+   `ui/ui-spec.md`, replace `{{AGENT_NAME}}` and `{{DEMO_CUSTOMER_NAME}}`, and
+   fill it from the agent
    specification, in its language, following the end-user rules. Stop and ask
    the developer to review it. Until approval, change only `ui/ui-spec.md`
    (the developer may edit it by hand or ask for changes in the chat).
@@ -106,11 +136,12 @@ Never invent business content: what the specification does not say goes under
 7. If the agent's `.dockerignore` does not exclude `ui` and
    `**/node_modules`, show the two lines to add and add them only after the
    developer's confirmation; the UI must never be sent to the image build.
-8. Print the closing message.
+8. Run the customer-name check of [Customer name](#customer-name), then print
+   the closing message.
 
 ## Constraints on the generated UI
 
-The end-user rules E1–E6 and the template rules T1–T5 of the
+The end-user rules E1–E7 and the template rules T1–T5 of the
 [UI guidelines](references/ui-guidelines.md) apply. In short: business
 language for the persona; outcome first; no JSON, HTTP status, latency, OCIDs,
 or model names unless explicitly requested; plain-language errors; example

@@ -35,6 +35,11 @@ each with a short label, so a presenter can show the agent in one click.
 **E6. Explicit exceptions only.** Set `technicalView: true` (a collapsed
 "Technical details" panel) only when the developer asks for it explicitly.
 
+**E7. Demo customer name.** The page names the customer only with the name
+approved for demos (`tool_config.py demo-customer`, default `Supremo`), never
+with the real customer's name, abbreviation, or brands (Spec 020).
+*Example:* "Supremo order desk", not the real company name.
+
 ## Template rules
 
 **T1. Configuration first.** Generate `app/demo-config.js` from the approved

@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-29
+Date last modified: 2026-10-12
 License: MIT
 Description: Unit tests for non-secret OCI tenancy configuration loading.
 """
@@ -24,6 +24,7 @@ def clear_configuration_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OCI_COMPARTMENT_NAME", raising=False)
     monkeypatch.delenv("OCIR_TENANCY_NAMESPACE", raising=False)
     monkeypatch.delenv("OCIR_USERNAME", raising=False)
+    monkeypatch.delenv("DEMO_CUSTOMER_NAME", raising=False)
 
 
 def run_tool_config(*keys: str) -> subprocess.CompletedProcess[str]:
@@ -166,3 +167,63 @@ def test_non_utf8_configuration_file_is_rejected(
     assert result.returncode == 64
     assert str(configuration) in result.stderr
     assert "UTF-8" in result.stderr
+
+
+def run_demo_customer() -> subprocess.CompletedProcess[str]:
+    """Run the demo customer command with the current isolated environment.
+
+    Returns:
+        Completed process containing output and exit status.
+    """
+    return subprocess.run(
+        [sys.executable, str(TOOL_CONFIG), "demo-customer"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_demo_customer_defaults_to_supremo(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Without a configured name, the legal-approved default is printed."""
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(tmp_path / "missing.env"))
+
+    result = run_demo_customer()
+
+    assert result.returncode == 0
+    assert result.stdout == "Supremo\n"
+
+
+def test_demo_customer_reads_env_file_and_prints_nothing_else(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The .env value is used, and no other entry, including a secret, is printed."""
+    configuration = tmp_path / "tool.env"
+    configuration.write_text(
+        "OCI_REGION=eu-frankfurt-1\nGENAI_API_KEY=secret-value\n"
+        "DEMO_CUSTOMER_NAME='Approved Name'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+
+    result = run_demo_customer()
+
+    assert result.returncode == 0
+    assert result.stdout == "Approved Name\n"
+    assert "secret-value" not in result.stdout + result.stderr
+
+
+def test_demo_customer_environment_takes_precedence(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An exported name overrides the .env value; an empty one falls back."""
+    configuration = tmp_path / "tool.env"
+    configuration.write_text("DEMO_CUSTOMER_NAME=File Name\n", encoding="utf-8")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+    monkeypatch.setenv("DEMO_CUSTOMER_NAME", "Exported Name")
+
+    assert run_demo_customer().stdout == "Exported Name\n"
+
+    monkeypatch.setenv("DEMO_CUSTOMER_NAME", "  ")
+    assert run_demo_customer().stdout == "File Name\n"

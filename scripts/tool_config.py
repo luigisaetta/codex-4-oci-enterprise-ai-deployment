@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-10-06
+Date last modified: 2026-10-12
 License: MIT
-Description: Read tenancy settings and agent secrets from the tool's .env file.
+Description: Read tenancy settings, agent secrets, and the approved demo customer
+name from the tool's .env file.
 """
 
 import argparse
@@ -17,6 +18,8 @@ ALLOWED_KEYS = {
     "OCIR_TENANCY_NAMESPACE",
     "OCIR_USERNAME",
 }
+DEMO_CUSTOMER_KEY = "DEMO_CUSTOMER_NAME"
+DEFAULT_DEMO_CUSTOMER = "Supremo"
 
 
 def configuration_file() -> Path:
@@ -96,6 +99,21 @@ def configured_value(key: str) -> str:
     return read_all_entries(configuration_file()).get(key, "")
 
 
+def demo_customer_name() -> str:
+    """Return the customer name approved for demos (Spec 020).
+
+    The environment takes precedence over the tool's .env file; when neither
+    sets a value, the legal-approved default is used.
+
+    Returns:
+        The demo customer name.
+    """
+    value = os.environ.get(DEMO_CUSTOMER_KEY, "").strip()
+    if not value:
+        value = configured_value(DEMO_CUSTOMER_KEY).strip()
+    return value or DEFAULT_DEMO_CUSTOMER
+
+
 def configuration_issues(file_values: dict[str, str]) -> tuple[list[str], list[str]]:
     """Identify incomplete effective tenancy settings without exposing values.
 
@@ -165,7 +183,13 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     environment_parser = subparsers.add_parser("env")
     environment_parser.add_argument("--keys", nargs="+", required=True)
+    subparsers.add_parser(
+        "demo-customer", help="Print only the approved demo customer name."
+    )
     args = parser.parse_args()
+    if args.command == "demo-customer":
+        print(demo_customer_name())
+        return 0
     return emit_environment(args.keys)
 
 

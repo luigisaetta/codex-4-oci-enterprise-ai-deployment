@@ -5,7 +5,9 @@ section, then ask Codex to continue. Write in the language of the demo. -->
 
 ## Audience
 
-Who uses the page (the customer persona) and who watches the demo.
+* Customer: {{DEMO_CUSTOMER_NAME}} (the name approved for demos; never write
+  the real customer name in this file or in the page).
+* Who uses the page (the customer persona) and who watches the demo.
 
 ## Story
 

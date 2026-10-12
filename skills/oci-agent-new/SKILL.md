@@ -13,7 +13,8 @@ amended by [Spec 017](../../specs/017-oci-agent-new-llm-agents-supported.md).
 Create a new Python agent repository from the developer's requirements, ready
 for the build skill. Author the FastAPI API, agent logic, runtime requirements,
 and manifest; use the helper for deterministic files and offline checks.
-Run no build, push, deploy, Docker, OCI command, or network request.
+Run no build, push, deploy, Docker, OCI command, or network request, except
+the online searches allowed in [Customer name](#customer-name).
 
 ## Tool home and working directory
 
@@ -74,6 +75,34 @@ Create agents for OCI Generative AI Hosted Applications only. Before running
 commands, confirm this is the developer's target. If the request concerns
 another platform or the target is unclear, stop and ask; never switch silently.
 
+## Customer name
+
+Contract: [Spec 020](../../specs/020-demo-customer-name.md). Before drafting,
+read the customer name approved for demos (`Supremo` unless the tool's `.env`
+sets `DEMO_CUSTOMER_NAME`):
+
+```bash
+"$AGENT_PYTHON" "$TOOL_HOME/scripts/tool_config.py" demo-customer
+```
+
+* Every file uses only the demo name: `agent-spec.md` (replace
+  `{{DEMO_CUSTOMER_NAME}}` in the template), code, LLM instructions and
+  prompts, packaged data and examples, functional checks, `agent.yaml`
+  (application and repository names), and any proposed commit message.
+* If the developer names the real customer, keep that name only in the
+  conversation. Reply once, without repeating it: "In every file and in the
+  demo the customer is called <demo name>." Never ask for the real name.
+* Never write the real name to disk in any form: full name, abbreviation,
+  domain, or e-mail address.
+* The real name may be used in online searches only when they help to
+  understand the customer's business; these searches are the only network use
+  allowed. Never copy from the results product names, brands, people,
+  addresses, or figures that identify the real customer.
+* Before the closing message, search the files you wrote for the real name
+  and its obvious variants, case-insensitively, with a local search (for
+  example `grep -ril`). Replace every match with the demo name and report the
+  fix without the name. Skip this check when no real name was given.
+
 ## Inputs
 
 Read the required prompt and optional Markdown specification. The file is the
@@ -100,7 +129,8 @@ Customer concerns are optional: include them when given, and do not ask for
 them.
 When the developer gives no specification file, copy
 [the specification template](assets/agent-spec.template.md) to `agent-spec.md`
-in the workspace, replace `{{AGENT_NAME}}`, and fill in only what the prompt
+in the workspace, replace `{{AGENT_NAME}}` and `{{DEMO_CUSTOMER_NAME}}`, and
+fill in only what the prompt
 states. Write each applicable behavior default (B rules of the guidelines)
 into the draft, marked "(default)". List everything else under "Open
 questions"; never invent behavior.
@@ -223,7 +253,8 @@ message.
     `OCIR_USERNAME`, including `replace-with-` placeholders. Non-empty
     environment settings override file settings. Report only key names and
     the file path, never values; leave corrections to the developer.
-12. Print the closing message in the order below.
+12. Run the customer-name check of [Customer name](#customer-name), then print
+    the closing message in the order below.
 
 ## Constraints on the generated agent
 

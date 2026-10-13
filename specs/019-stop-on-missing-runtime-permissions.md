@@ -1,6 +1,6 @@
 # Spec 019: stop with clear instructions when runtime permissions are missing
 
-Status: implemented; offline checks passed; live acceptance pending.
+Status: implemented; offline checks and live acceptance (criterion 3) passed.
 Date: 2026-10-09; updated 2026-10-13.
 Origin: issue found on 2026-10-09 (TODO item 16).
 
@@ -234,3 +234,25 @@ families:
   own (a copy of `hello_world` outside the tool home). In the tool home Codex
   also edited `demos/hello_world/agent.yaml`, `specs/hello_world.md`, and
   `CHANGELOG.md`; those edits were not part of this specification.
+
+### 2026-10-13, live acceptance (criterion 3)
+
+* Agent: a copy of `hello_world` outside the tool home, `publish.repository:
+  agents/hello-spec019`, `deploy.application_name: hello-spec019`; tag
+  `0.1.0`; compartment `lsa-spec019` under `specialists-shared`, without
+  runtime `read repos`; macOS, Bash, a new Codex session in the agent folder.
+* The push created the repository in `lsa-spec019`; the application became
+  `ACTIVE`; the deployment ended `NEEDS_ATTENTION`. The deploy script exited
+  27 with the runtime permissions message ("The image exists: …/agents/
+  hello-spec019:0.1.0", "Cause: the runtime permissions for compartment
+  lsa-spec019 are missing").
+* Codex reported the message and stopped, citing the skill rule. Its session
+  log contains no IAM call (26 tool calls).
+* U1 confirmed: the phrase "container image could not be accessed" matched
+  the real error.
+* Observation: the root policy `ANY-USER … read repos in tenancy WHERE
+  request.principal.type='computecontainerinstance'` does not cover the Hosted
+  Deployment runtime, otherwise the pull would have succeeded.
+* Deviation: Codex reported the first five lines verbatim but summarized the
+  request for the administrator (the compartment OCID and the exact statement
+  were not repeated). The script output was complete.

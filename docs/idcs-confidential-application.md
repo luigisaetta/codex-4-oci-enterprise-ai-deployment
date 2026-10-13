@@ -59,10 +59,10 @@ The resource server part defines **what** the token gives access to.
    https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/
    ```
 
-   Replace `eu-frankfurt-1` with your region. Any value works, as long as the
-   same value goes into `agent.yaml`; existing applications in some tenancies
-   use, for example, `all`.
-4. **Add scopes**: add one scope, `invoke`.
+   Replace `eu-frankfurt-1` with your region. You may choose another value,
+   for example `all`: any value works, as long as you write the **same value,
+   exactly**, in `agent.yaml` (step 7). Write down the value you enter.
+4. **Add scopes**: add one scope, for example `invoke`, and write it down too.
 
 ## 3. Configure it as a client (client credentials)
 
@@ -99,11 +99,13 @@ https://idcs-<id>.identity.oraclecloud.com:443
 Before releasing the agent, check that the domain issues a token. Copy the
 script for your system into a file, write your values at the top, and run
 it. It joins the audience and the scope into the token scope, as the verifier
-does, and prints whether a token was issued and, for debugging, the **claims**
-inside it: issuer (`iss`), audience (`aud`), `scope`, client, and expiry
+does: the audience immediately followed by the scope, with nothing in between
+(`https://…/hostedApplications/` and `invoke` give `https://…/hostedApplications/invoke`;
+`all` and `invoke` give `allinvoke`). It prints whether a token was issued
+and, for debugging, the **claims** inside it: issuer (`iss`), audience (`aud`), `scope`, client, and expiry
 (`exp`, in seconds since 1970). It never prints the token itself: whoever has
-it can call the agent until it expires. You can
-keep the file and run it again whenever you change a value.
+it can call the agent until it expires. You can keep the file and run it
+again whenever you change a value.
 
 **The client secret.** Leave `CLIENT_SECRET` empty (recommended): the script
 asks for it when it runs and does not show it. If you write it in the file,
@@ -120,7 +122,8 @@ it.
 set -euo pipefail
 
 DOMAIN_URL='https://idcs-<id>.identity.oraclecloud.com:443'
-AUDIENCE='https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/'
+# Exactly the Primary audience of the confidential application (step 2).
+AUDIENCE='<primary-audience>'
 SCOPE='invoke'
 CLIENT_ID='<client-id>'
 # Leave empty to type the secret when the script runs (recommended).
@@ -173,7 +176,8 @@ chmod 600 test-idcs-token.sh
 # Prints whether a token was issued and its claims, never the token itself.
 
 $DomainUrl = 'https://idcs-<id>.identity.oraclecloud.com:443'
-$Audience = 'https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/'
+# Exactly the Primary audience of the confidential application (step 2).
+$Audience = '<primary-audience>'
 $Scope = 'invoke'
 $ClientId = '<client-id>'
 # Leave empty to type the secret when the script runs (recommended).
@@ -216,21 +220,31 @@ answers 401, compare `aud` and `scope` in the claims with `deploy.auth` in
 
 ## 7. Fill in `agent.yaml`
 
+Copy the three values **exactly as they are configured in the confidential
+application**, character by character. The audience in particular is
+whatever you entered as **Primary audience** in step 2: the URL suggested in
+step 2, or any other value you chose, for example `all`. A different value,
+or a missing or extra final `/`, makes every call to the agent fail with 401.
+
 ```yaml
 deploy:
   application_name: my-agent
   profile: public-idcs
   auth:
     domain_url: https://idcs-<id>.identity.oraclecloud.com:443
-    audience: https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/
-    scope: invoke
+    audience: <primary-audience>
+    scope: <scope>
 ```
 
-| `agent.yaml` | Confidential application |
+| `agent.yaml` | Copy it from |
 | --- | --- |
-| `domain_url` | Domain URL of step 5 |
-| `audience` | Primary audience of step 2, exactly, including a final `/` |
-| `scope` | Scope of step 2 |
+| `domain_url` | The **Domain URL** of the identity domain (step 5). |
+| `audience` | The **Primary audience** of the confidential application (step 2), exactly. |
+| `scope` | The **scope** of the confidential application (step 2), for example `invoke`. |
+
+To check the values before releasing, run the script of section 6 with the
+same audience and scope: if it issues a token, the claims show the `aud` and
+`scope` the agent will expect.
 
 These values are not secret and are committed with the agent. More details:
 [agent manifest reference](agent-manifest-reference.md).

@@ -105,6 +105,16 @@ print_plan() {
     printf '%s\n' 'Access: public unauthenticated endpoint.'
   fi
   printf 'Release case: %s\n' "$release_case"
+  if [[ -n "$scaling_json" ]]; then
+    printf 'Scaling: %s replicas\n' "$(printf '%s' "$scaling_json" | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+config = json.load(sys.stdin)
+print("{}-{}".format(config["minReplica"], config["maxReplica"]))
+')"
+  else
+    printf '%s\n' 'Scaling: platform default'
+  fi
   if [[ "$release_case" == 'Creation in progress' || "$release_case" == 'Application creation in progress' ]]; then
     printf '%s: %s (CREATING; age %s).\n' "$resource_kind" "$resource_id" "$resource_age"
     if [[ "$release_case" == 'Application creation in progress' ]]; then
@@ -175,6 +185,12 @@ check_application_configuration() {
     printf '%s\n' 'Existing Hosted Application runtime environment differs from the manifest.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
+  if ! printf '%s' "$current_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" scaling-matches --manifest "$manifest"; then
+    printf '%s%s\n' 'Existing Hosted Application scaling differs from the manifest; ' \
+      'changing it is not supported.' >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
 }
 
 # Resolve an accepted mutation without exposing its raw CLI output.
@@ -202,13 +218,19 @@ invoke_mutation() {
 
 create_hosted_application() {
   local application_output
+  local -a scaling_options=()
+  if [[ -n "$scaling_json" ]]; then
+    scaling_options=(--scaling-config "$scaling_json")
+  fi
   printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' "$profile"
+  # The ${array[@]+...} form keeps Bash 3.2 with set -u working when the array is empty.
   if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
     hosted-application create --display-name "$application_name" \
     --compartment-id "$compartment_id" --inbound-auth-config "$inbound_auth_json" \
     --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
 '"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
-    --environment-variables "$environment_variables_json"; then
+    --environment-variables "$environment_variables_json" \
+    ${scaling_options[@]+"${scaling_options[@]}"}; then
     report_service_error 'Hosted Application create' "$mutation_error"
     exit 1
   fi
@@ -380,6 +402,9 @@ profile="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" get \
   --manifest "$manifest" --field deploy.profile)"
 inbound_auth_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
   inbound-auth --manifest "$manifest")"
+# Spec 023: empty when the manifest has no deploy.scaling (platform default).
+scaling_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
+  scaling-config --manifest "$manifest")"
 domain_url=""
 audience=""
 scope=""

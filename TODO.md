@@ -208,7 +208,11 @@ OCI CLI 3.94.0 offer:
   (`targetCpuThreshold`, `targetMemoryThreshold`,
   `targetConcurrencyThreshold`, `targetRpsThreshold`).
 
-Step A, scaling at creation:
+Step A, scaling at creation: **done on 2026-10-13 for the number of
+replicas** ([Spec 023](specs/023-replica-scaling-at-creation.md):
+`deploy.scaling` with `min_replicas` and `max_replicas`, at creation only,
+platform-default metric). Still open from step A: the choice of the metric
+and its threshold, and zero replicas. Original plan:
 
 * an optional `deploy.scaling` section in `agent.yaml`, validated strictly:
   replica bounds, one scaling type, and only the matching threshold; without

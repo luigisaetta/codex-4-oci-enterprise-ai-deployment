@@ -136,6 +136,7 @@ listed in `OCI_AGENT_ALLOWED_ROOTS`.
 | `application_name` | yes | Hosted Application display name: starts with a letter or digit; letters, digits, `.`, `_`, `-`. | `text-stats` |
 | `profile` | yes | `public-noauth` or `public-idcs` (see [Choose the access mode first](#choose-the-access-mode-first)). | `public-idcs` |
 | `auth` | only with `public-idcs` | Identity-domain settings; rejected with `public-noauth`. | see below |
+| `scaling` | no | Number of replicas, set when the application is created. Without it, the platform default applies (1 to 3 replicas). | `{min_replicas: 1, max_replicas: 1}` |
 
 `deploy.auth`, for `public-idcs` only; all three fields are required, and
 the values must match the confidential application exactly:
@@ -149,6 +150,30 @@ the values must match the confidential application exactly:
 These three values are not secret: they are committed with the agent. The
 deploy checks only their format; the verification checks that a token can be
 obtained with them and that the endpoint accepts it.
+
+`deploy.scaling`, optional
+([Spec 023](../specs/023-replica-scaling-at-creation.md)):
+
+| Field | Rule |
+| --- | --- |
+| `min_replicas` | Integer, at least 1. |
+| `max_replicas` | Integer, at least `min_replicas`, at most 30. Equal to `min_replicas` disables autoscaling. |
+
+```yaml
+deploy:
+  application_name: my-agent
+  profile: public-noauth
+  scaling:
+    min_replicas: 1
+    max_replicas: 1
+```
+
+Use one replica (`max_replicas: 1`) for an agent that keeps state in memory,
+for example the jobs of an asynchronous agent: with more replicas, a request
+can reach a replica that does not have that state. The value is set only when
+the application is created; the deploy stops if an existing application has
+other replicas. The scaling metric stays the platform default (requests per
+second).
 
 ### `runtime` (optional)
 

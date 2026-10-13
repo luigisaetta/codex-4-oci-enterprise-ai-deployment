@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-10-06
+Date last modified: 2026-10-13
 License: MIT
 Description: Validate and expose the versioned agent deployment manifest.
 """
@@ -336,6 +336,85 @@ def validate_deploy_auth(value: Any) -> dict[str, str]:
     }
 
 
+MAX_REPLICAS = 30
+# Spec 023: the platform-default metric and threshold, so that only the
+# number of replicas changes.
+DEFAULT_SCALING_TYPE = "REQUESTS_PER_SECOND"
+DEFAULT_RPS_THRESHOLD = 50
+
+
+def validate_scaling(value: Any) -> dict[str, int]:
+    """Validate the optional number of replicas of the Hosted Application.
+
+    Args:
+        value: ``manifest.deploy.scaling`` object.
+
+    Returns:
+        The validated scaling object.
+
+    Raises:
+        ManifestError: If the replica bounds are missing, not integers, or out
+            of range.
+    """
+    scaling = require_object(value, "manifest.deploy.scaling")
+    fail_unknown_keys(
+        scaling, {"min_replicas", "max_replicas"}, "manifest.deploy.scaling"
+    )
+    for field in ("min_replicas", "max_replicas"):
+        number = scaling.get(field)
+        if isinstance(number, bool) or not isinstance(number, int):
+            raise ManifestError(f"manifest.deploy.scaling.{field} must be an integer.")
+    if not 1 <= scaling["min_replicas"] <= scaling["max_replicas"] <= MAX_REPLICAS:
+        raise ManifestError(
+            "manifest.deploy.scaling requires 1 <= min_replicas <= max_replicas "
+            f"<= {MAX_REPLICAS}."
+        )
+    return scaling
+
+
+def scaling_config(manifest: dict[str, Any]) -> dict[str, Any] | None:
+    """Build OCI scaling JSON from a validated manifest (Spec 023).
+
+    Args:
+        manifest: Validated agent manifest.
+
+    Returns:
+        The OCI scaling configuration, or None when the manifest has none.
+    """
+    scaling = manifest["deploy"].get("scaling")
+    if scaling is None:
+        return None
+    return {
+        "minReplica": scaling["min_replicas"],
+        "maxReplica": scaling["max_replicas"],
+        "scalingType": DEFAULT_SCALING_TYPE,
+        "targetRpsThreshold": DEFAULT_RPS_THRESHOLD,
+    }
+
+
+def scaling_matches(manifest: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """Compare the replicas of a Hosted Application with the manifest.
+
+    Args:
+        manifest: Validated agent manifest.
+        payload: Raw JSON returned by ``hosted-application get``.
+
+    Returns:
+        True when the manifest has no scaling or the replicas match.
+    """
+    scaling = manifest["deploy"].get("scaling")
+    if scaling is None:
+        return True
+    data = payload.get("data")
+    observed = data.get("scaling-config") if isinstance(data, dict) else None
+    if not isinstance(observed, dict):
+        return False
+    return (
+        observed.get("min-replica") == scaling["min_replicas"]
+        and observed.get("max-replica") == scaling["max_replicas"]
+    )
+
+
 def validate_deploy(value: Any) -> dict[str, Any]:
     """Validate deployment settings, including the selected public access profile.
 
@@ -350,8 +429,10 @@ def validate_deploy(value: Any) -> dict[str, Any]:
     """
     deploy = require_object(value, "manifest.deploy")
     fail_unknown_keys(
-        deploy, {"application_name", "profile", "auth"}, "manifest.deploy"
+        deploy, {"application_name", "profile", "auth", "scaling"}, "manifest.deploy"
     )
+    if "scaling" in deploy:
+        deploy["scaling"] = validate_scaling(deploy["scaling"])
     if not isinstance(deploy.get("application_name"), str) or not NAME.fullmatch(
         deploy["application_name"]
     ):
@@ -675,17 +756,27 @@ def print_runtime_environment(manifest: dict[str, Any], output_format: str) -> N
         print(runtime_report(manifest, local))
 
 
-def main() -> int:
-    """Run the manifest command-line interface."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the manifest command-line parser.
+
+    Returns:
+        The argument parser with every subcommand.
+    """
     parser = argparse.ArgumentParser(description="Validate an OCI agent manifest.")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    validate_parser = subparsers.add_parser("validate")
-    validate_parser.add_argument("--manifest", required=True)
+    for command in (
+        "validate",
+        "checks",
+        "runtime-matches",
+        "inbound-auth",
+        "inbound-auth-matches",
+        "scaling-config",
+        "scaling-matches",
+    ):
+        subparsers.add_parser(command).add_argument("--manifest", required=True)
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("--manifest", required=True)
     get_parser.add_argument("--field", required=True)
-    checks_parser = subparsers.add_parser("checks")
-    checks_parser.add_argument("--manifest", required=True)
     deployment_parser = subparsers.add_parser("deployment-name")
     deployment_parser.add_argument("--manifest", required=True)
     deployment_parser.add_argument("--tag", required=True)
@@ -696,13 +787,23 @@ def main() -> int:
         choices={"oci-json", "report", "local-json", "local-report"},
         required=True,
     )
-    matches_parser = subparsers.add_parser("runtime-matches")
-    matches_parser.add_argument("--manifest", required=True)
-    inbound_auth_parser = subparsers.add_parser("inbound-auth")
-    inbound_auth_parser.add_argument("--manifest", required=True)
-    inbound_matches_parser = subparsers.add_parser("inbound-auth-matches")
-    inbound_matches_parser.add_argument("--manifest", required=True)
-    args = parser.parse_args()
+    return parser
+
+
+MATCHERS = {
+    "runtime-matches": runtime_matches,
+    "inbound-auth-matches": inbound_auth_matches,
+    "scaling-matches": scaling_matches,
+}
+JSON_BUILDERS = {
+    "inbound-auth": inbound_auth_config,
+    "scaling-config": scaling_config,
+}
+
+
+def main() -> int:
+    """Run the manifest command-line interface."""
+    args = build_parser().parse_args()
     try:
         manifest = load_manifest(args.manifest)
         if args.command == "validate":
@@ -713,16 +814,14 @@ def main() -> int:
             print(json.dumps(manifest["verify"], separators=(",", ":")))
         elif args.command == "runtime-env":
             print_runtime_environment(manifest, args.format)
-        elif args.command in {"runtime-matches", "inbound-auth-matches"}:
-            matcher = (
-                runtime_matches
-                if args.command == "runtime-matches"
-                else inbound_auth_matches
-            )
-            if not matcher(manifest, json.load(sys.stdin)):
+        elif args.command in MATCHERS:
+            if not MATCHERS[args.command](manifest, json.load(sys.stdin)):
                 return 1
-        elif args.command == "inbound-auth":
-            print(json.dumps(inbound_auth_config(manifest), separators=(",", ":")))
+        elif args.command in JSON_BUILDERS:
+            # scaling-config prints nothing when the manifest has no scaling.
+            config = JSON_BUILDERS[args.command](manifest)
+            if config is not None:
+                print(json.dumps(config, separators=(",", ":")))
         else:
             if not SEMVER.fullmatch(args.tag):
                 raise ManifestError("Tag must be semantic (MAJOR.MINOR.PATCH).")

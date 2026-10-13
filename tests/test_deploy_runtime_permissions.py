@@ -129,7 +129,7 @@ def test_image_access_failure_stops_with_exit_27(
     next_step: str,
     release_runner: tuple[Path, list[str]],
 ) -> None:
-    """A first release whose runtime cannot read the image stops for the administrator."""
+    """A first release whose runtime cannot read the image stops for the admin."""
     result = run_release(tmp_path, case, True, release_runner)
 
     assert result.returncode == 27, result.stderr

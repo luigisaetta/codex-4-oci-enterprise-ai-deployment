@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-13: Number of replicas at creation (Spec 023). An optional
+  `deploy.scaling` section (`min_replicas`, `max_replicas`, 1 to 30) sets
+  the replicas when the Hosted Application is created; the plan shows them,
+  and the deploy stops if an existing application has other replicas. Use
+  one replica for agents that keep state in memory.
+
 * 2026-10-13: `public-idcs` verified live end to end (Specs 010 and 022):
   release, verification with functional checks, and the demo UI of a
   protected agent. TODO item 6 completed.

@@ -95,6 +95,12 @@ contain no whitespace. Its plan states `Access: public endpoint,
 identity-domain token required` and reports identity domain URL, audience, and
 scope.
 
+With `deploy.scaling`, the plan reports `Scaling: <min>-<max> replicas` and
+the creation sets them ([Spec 023](../../specs/023-replica-scaling-at-creation.md));
+without it, `Scaling: platform default`. If an existing application has other
+replicas than the manifest, the deploy stops with exit 20: changing the
+scaling of an existing application is not supported.
+
 Get these non-secret values from the identity-domain administrator; its
 confidential application may be new or reused. Use only
 `<identity-domain-url>`, `<audience-of-the-confidential-application>`, and

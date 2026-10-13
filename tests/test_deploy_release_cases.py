@@ -157,6 +157,7 @@ elif "hosted-application" in arguments and "get" in arguments:
                     "time-created": "2026-10-02T00:00:00Z",
                     "environment-variables": runtime,
                     "inbound-auth-config": auth,
+                    "scaling-config": scenario.get("scaling_config"),
                 }
             }
         )

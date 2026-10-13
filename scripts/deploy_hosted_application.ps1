@@ -127,6 +127,14 @@ function Test-ExistingApplicationConfiguration {
     if (-not (Test-ManifestRuntimeMatches -Manifest $Manifest -ApplicationJson $ApplicationJson)) {
         Fail $exitExistingResource 'Existing Hosted Application runtime environment differs from the manifest.'
     }
+    $ApplicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+        scaling-matches --manifest $Manifest | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Fail $exitExistingResource (
+            'Existing Hosted Application scaling differs from the manifest; ' +
+            'changing it is not supported.'
+        )
+    }
 }
 
 # Print the release case and the OCI state that selected it.
@@ -155,6 +163,12 @@ function Write-Plan {
         Write-Output 'Access: public unauthenticated endpoint.'
     }
     Write-Output "Release case: $releaseCase"
+    if ($scalingJson) {
+        $scaling = $scalingJson | ConvertFrom-Json
+        Write-Output "Scaling: $($scaling.minReplica)-$($scaling.maxReplica) replicas"
+    } else {
+        Write-Output 'Scaling: platform default'
+    }
     if ($releaseCase -in @('Creation in progress', 'Application creation in progress')) {
         Write-Output "${resourceKind}: $resourceId (CREATING; age $resourceAge)."
         if ($releaseCase -eq 'Application creation in progress') {
@@ -222,13 +236,15 @@ function Resolve-MutationId {
 
 function New-HostedApplication {
     Write-Output "Creating Hosted Application with $deployProfile and Oracle-managed networking."
-    $applicationOutput = Invoke-OciMutation -Kind 'Hosted Application create' -Arguments @(
+    $createArgs = @(
         '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application', 'create',
         '--display-name', $applicationName, '--compartment-id', $compartmentId, '--inbound-auth-config',
         $inboundAuthJson, '--networking-config',
         '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},"outboundNetworkingConfig":{"networkMode":"MANAGED"}}',
         '--environment-variables', $environmentJson
     )
+    if ($scalingJson) { $createArgs += @('--scaling-config', $scalingJson) }
+    $applicationOutput = Invoke-OciMutation -Kind 'Hosted Application create' -Arguments $createArgs
     $script:applicationId = Resolve-MutationId 'Hosted Application' $applicationOutput
     $script:applicationWorkRequestId = Get-MutationWorkRequestId -Response $applicationOutput
     Write-Output "Created Hosted Application: $applicationId"
@@ -378,6 +394,10 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $inboundAuthJson = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') inbound-auth --manifest $Manifest
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $inboundAuthJson = ((@($inboundAuthJson) | ForEach-Object { "$_" }) -join "`n").Trim()
+# Spec 023: empty when the manifest has no deploy.scaling (platform default).
+$scalingJson = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') scaling-config --manifest $Manifest
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$scalingJson = ((@($scalingJson) | ForEach-Object { "$_" }) -join "`n").Trim()
 $domainUrl = ''
 $audience = ''
 $scope = ''

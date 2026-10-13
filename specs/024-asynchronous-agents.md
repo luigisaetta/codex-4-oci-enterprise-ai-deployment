@@ -33,7 +33,7 @@ skills.
 * Persistent jobs (Object Storage, a database), or more than one replica.
 * Streaming responses.
 * Cancelling a job.
-* A specific demo: the acceptance agent is chosen later.
+* An LLM-based demo: the acceptance agent below simulates the steps.
 
 ## The contract
 
@@ -156,9 +156,29 @@ verify:
 ## Acceptance criteria
 
 1. The offline tests, Black, Pylint, and pytest pass; links resolve.
-2. Live, with an agent chosen later: an asynchronous agent created with
-   `oci-agent-new` passes the local verification and the remote verification
-   with a polling check, and its demo UI shows the steps and the result.
+2. Live, with the acceptance agent below: created with `oci-agent-new`, it
+   passes the local verification and the remote verification with a polling
+   check, its Hosted Application has one replica (Spec 023), and its demo UI
+   shows the steps and the result, and the business message of a failed job.
+
+## Acceptance agent
+
+A minimal asynchronous agent without LLM calls, so that a failure points to
+the asynchronous mechanics, the gateway, or the UI, not to a model:
+
+* Order check for Supremo's order desk: `POST /order-checks` with a customer
+  reference and order lines (part code, quantity) starts a job with three
+  steps, `validate`, `availability`, and `confirmation`.
+* Each step waits `STEP_DELAY_SECONDS` seconds (runtime variable, value 10),
+  so a job takes about 30 seconds.
+* The result reports the number of lines, the total quantity, and a
+  confirmation sentence, all deterministic, so the polling check can use
+  `expect_json`. A line with quantity 0 makes `availability` fail with a
+  business message.
+* Profile **`public-idcs`**, with the confidential application already used
+  for Specs 010 and 022: the polling check and the UI's status requests then
+  also exercise the bearer token on repeated GET requests.
+* `deploy.scaling` with one replica.
 
 ## Verification record
 

@@ -102,21 +102,28 @@ scope is the primary audience followed by the scope, for example
 These commands type the secret without showing it and print only whether a
 token was issued, never the token.
 
-macOS and Linux (Terminal):
+macOS and Linux (Terminal, zsh or bash). First store the two values in
+shell variables. Each command shows a prompt and waits for you to paste the
+value and press Enter; for the secret, nothing appears while you paste:
 
 ```bash
-read -r -p 'Client ID: ' OCI_AGENT_IDCS_CLIENT_ID
+printf 'Client ID: '; read -r OCI_AGENT_IDCS_CLIENT_ID; export OCI_AGENT_IDCS_CLIENT_ID
 ```
 
 ```bash
-read -r -s -p 'Client secret: ' OCI_AGENT_IDCS_CLIENT_SECRET; echo
+printf 'Client secret: '; stty -echo; read -r OCI_AGENT_IDCS_CLIENT_SECRET; stty echo; echo; export OCI_AGENT_IDCS_CLIENT_SECRET
 ```
+
+The variables exist only in this terminal window and disappear when you close
+it. Then request a token:
 
 ```bash
 curl -s -u "$OCI_AGENT_IDCS_CLIENT_ID:$OCI_AGENT_IDCS_CLIENT_SECRET" -d grant_type=client_credentials -d 'scope=<primary-audience>invoke' 'https://idcs-<id>.identity.oraclecloud.com:443/oauth2/v1/token' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("token issued" if d.get("access_token") else d)'
 ```
 
-Windows (PowerShell 7):
+Windows (PowerShell 7). The same steps: each `Read-Host` shows a prompt and
+waits for the value; `-MaskInput` hides the secret. The variables exist only
+in this PowerShell window:
 
 ```powershell
 $env:OCI_AGENT_IDCS_CLIENT_ID = Read-Host 'Client ID'
@@ -160,7 +167,8 @@ These values are not secret and are committed with the agent. More details:
 
 The release works as for any agent. The **verification** needs a token, so
 before it, set the client ID and secret **in the terminal that starts Codex**
-(steps of section 6), then start Codex from that terminal. The Codex
+(the first two commands of section 6), then start Codex from that terminal,
+for example with `codex`. The Codex
 extension for VS Code sees only the variables of the environment that
 started VS Code.
 

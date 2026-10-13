@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-13: `public-idcs` verified live end to end (Specs 010 and 022):
+  release, verification with functional checks, and the demo UI of a
+  protected agent. TODO item 6 completed.
+
 * 2026-10-13: First live `public-idcs` release (Spec 010). The service
   rejects a request without a token with 404: the verifier now accepts 401,
   403, or 404 as rejection, and the demo UI bridge refreshes its token after

@@ -1,6 +1,6 @@
 # Spec 022: identity-domain credentials for the demo UI and the verifier
 
-Status: implemented; offline checks passed; live acceptance pending (with TODO item 6).
+Status: implemented; offline checks and live acceptance passed (2026-10-13).
 Date: 2026-10-13.
 Amends [Spec 010](010-jwt-inbound-authentication.md) (credentials source) and
 [Spec 018](018-skill-oci-agent-ui.md) (`public-idcs` agents).
@@ -161,3 +161,10 @@ places. The values are never exported, printed, or written.
   Spec 010 verification record). The demo UI part is pending.
 * The UI bridge now also discards the token after 403 or 404, because the
   service answers 404 to a rejected token.
+
+### 2026-10-13, live acceptance (criterion 2, operator-reported)
+
+* The verifier passed with the credentials only in the tool's `.env`, and the
+  demo UI recreated with `oci-agent-ui` answered through the bridge with the
+  `IDCS_*` values in `ui/.env.local`. The operator reported that everything
+  worked; details of the UI session were not recorded here.

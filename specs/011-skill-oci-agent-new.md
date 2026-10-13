@@ -35,7 +35,7 @@ from the developer's requirements. It is documented as **work in progress**.
 
 * Calling OCI services other than OCI Generative AI (calls to OCI Generative
   AI are supported since Spec 017).
-* A test UI (TODO item 9).
+* A test UI (covered by Spec 018, `oci-agent-ui`).
 * The `public-idcs` profile: the generated manifest always uses
   `public-noauth`; the closing message explains how to switch later.
 * Runtime environment variables, unless the inputs name them explicitly.

@@ -12,15 +12,12 @@ follow the numbers unless a dependency says otherwise.
 
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
-| 16 | [Stop on missing runtime permissions](#16-stop-on-missing-runtime-permissions) (issue found 2026-10-09) | — | Low-medium | Now |
 | 17 | [Local LLM test for Resource Principal agents](#17-local-llm-test-for-resource-principal-agents) (issue found 2026-10-09) | — | Low-medium | Now |
 | 18 | [Clearer OCIR username](#18-clearer-ocir-username) (user feedback 2026-10-12) | — | Low | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
 | 3 | [Compatibility check and pre-release smoke test](#3-compatibility-check-and-pre-release-smoke-test) | — | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
-| 6 | [Live acceptance of `public-idcs`](#6-live-acceptance-of-public-idcs) | identity-domain credentials (external) | Low | Live session |
 | 7 | [Generative AI demo with resource principal](#7-generative-ai-demo-with-resource-principal) | 5 | Medium | Short term |
-| 9 | [Test UI for agents](#9-test-ui-for-agents) | 7 | Medium | Short term |
 | 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 5, 7 | Medium | Short term |
 | 11 | [Diagnostics for a failed deployment](#11-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
 | 12 | [Configuration drift and update: scaling and runtime environment](#12-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
@@ -32,9 +29,9 @@ Phases:
 
 1. **Now**: no live access needed. Cheap steps that add credibility.
 2. **Live session**: one session in eu-frankfurt-1, with explicit
-   authorization. Items 5 and 6 each need a new application, because runtime
-   variables and authentication are set only at creation. Keep them as two
-   separate applications so that a failure is easy to attribute.
+   authorization. Item 5 needs a new application, because runtime variables
+   are set only at creation. (Item 6, the live acceptance of `public-idcs`,
+   was completed on 2026-10-13; see Spec 010.)
 3. **Short term**: the main value step. The Codex workflow covers the whole
    path, from the developer's requirements to an agent that uses Generative
    AI, with a local UI to try it.
@@ -46,26 +43,6 @@ IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
 agents created with `oci-agent-new`, and the pre-flight check (10) all need correct policies,
 described in [IAM policies](docs/iam-policies.md). Items 5 and 7 confirm its
 statements live; the automated check (10) comes only after those results.
-
-## 16. Stop on missing runtime permissions
-
-**Issue found (2026-10-09).** An operator's first releases into their own
-compartment failed because the runtime dynamic group did not cover that
-compartment, so the Hosted Deployment could not read its image from OCIR. The
-deployment ended in `NEEDS_ATTENTION`, and the deploy script did not show the
-OCI error. Codex then investigated outside the skills and changed the
-tenancy IAM itself (a shared dynamic group and a new policy), which only the
-tenancy administrator should do.
-
-Fix, specified in
-[Spec 019](specs/019-stop-on-missing-runtime-permissions.md): the deploy
-script reports the OCI error also for `NEEDS_ATTENTION`, recognizes the
-image-access case, and stops with exit 27 and a fixed message for the
-administrator; the deploy skill tells Codex to report it and never change
-IAM. Recovery of a `NEEDS_ATTENTION` deployment is out of scope.
-
-Related: item 10 (IAM pre-flight check) and item 11 (diagnostics for a failed
-deployment).
 
 ## 17. Local LLM test for Resource Principal agents
 
@@ -170,34 +147,6 @@ To do:
 
 The known limit (variables are set only at creation) is handled by item 12.
 
-## 6. Live acceptance of `public-idcs`
-
-The `public-idcs` profile is implemented and tested offline
-([Spec 010](specs/010-jwt-inbound-authentication.md)). Until this item is
-done, the only verified profile is `public-noauth`, which is not a production
-security posture.
-
-Blocker: the test needs the domain URL, audience, scope, client ID, and client
-secret of a confidential application (new or reused) from the
-identity-domain administrator. Step-by-step creation:
-[Protecting an agent with JWT tokens](docs/idcs-confidential-application.md)
-(2026-10-13).
-
-Tests to do, in eu-frankfurt-1, with explicit authorization:
-
-* release a new application (for example `text-stats-idcs`) with the
-  `public-idcs` profile;
-* run the verifier with `--functional`: token request, authenticated health
-  and readiness, rejected unauthenticated `/health`, functional checks;
-* call the endpoint with a token for another audience or scope, and record
-  the status;
-* confirm or correct the assumptions U1–U6 of Spec 010 (endpoint host, bearer
-  header, protected probes, rejection status, token scope, HTTP Basic client
-  authentication);
-* check that no secret or token appears in any output, file, or command line;
-* record the results in Spec 010, and delete the test application when no
-  longer needed.
-
 ## 7. Generative AI demo with resource principal
 
 The project helps ship an agent, not write one. Add a demo (for example
@@ -213,50 +162,6 @@ profile locally. It extends the design of `hello_world`, which already has
   Generative AI statements in [IAM policies](docs/iam-policies.md).
 * Its patterns feed the guidelines of `oci-agent-new`
   (`skills/oci-agent-new/references/agent-guidelines.md`).
-
-## 9. Test UI for agents
-
-A UI that lets a developer try an agent interactively, locally against the
-container and remotely against the deployed endpoint. Codex develops it
-within constraints fixed in the documentation (for example
-`docs/test-ui-guidelines.md`), so that every generated UI is safe and
-predictable.
-
-Constraints to document and enforce:
-
-* **A test tool, not a product.** It runs only on the developer's machine,
-  bound to `127.0.0.1`. It is never part of the agent image and is never
-  deployed to the Hosted Application.
-* **Separate dependencies**, for example `ui/requirements.txt`, never in the
-  agent's `requirements.txt` or `Dockerfile`.
-* **One stack, server-side Python** (to choose in the specification, for
-  example Streamlit). The browser never receives a token or a secret.
-* **HTTP only.** The UI calls the agent through its public API, as the
-  functional checks do, and never imports agent code: it tests what is
-  actually deployed.
-* **Standard agent API.** A minimal contract defined in the specification (for
-  example a chat-style `POST` with a message and a session identifier), which
-  agents created with `oci-agent-new` implement. Agents with a different API declare it
-  in the manifest, or need a custom UI.
-* **Explicit target.** The developer chooses the local container or the
-  deployed endpoint; the UI shows which one is active. Calls to a deployed
-  endpoint follow the project rule: Codex asks for approval before starting
-  the UI against it.
-* **Authentication.** For `public-idcs`, the UI obtains the token through
-  `scripts/idcs_token.py`, with the client credentials exported only in the
-  shell that starts it. It never shows, logs, or stores the token or the
-  secret, and has no input field for them.
-* **What it shows**: request, response, HTTP status, and latency, plus the
-  `/health` and `/ready` state of the target.
-* **No persistence and no telemetry** by default: conversations are not saved.
-* **Project conventions**: English, module header, Black and Pylint, offline
-  tests with a mocked HTTP layer, and Bash and PowerShell launchers in parity
-  if a launcher script is added.
-
-Decide in the specification whether the UI is one generic tool in the tool
-home or a copy generated into each agent repository. The generic tool avoids
-drift; a generated copy can be customized per agent. Either way, the
-constraints above apply.
 
 ## 10. IAM pre-flight check (advisory)
 
@@ -359,3 +264,4 @@ blocks many enterprise uses. Verify what the service supports (VCN, subnet,
 private endpoint), then write a specification and add a `private` manifest
 profile. At minimum, document clearly what is unsupported and the workaround;
 this documentation-only step can be done earlier.
+

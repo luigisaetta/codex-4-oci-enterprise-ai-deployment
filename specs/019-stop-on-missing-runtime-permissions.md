@@ -2,7 +2,7 @@
 
 Status: implemented; offline checks and live acceptance (criterion 3) passed.
 Date: 2026-10-09; updated 2026-10-13.
-Origin: issue found on 2026-10-09 (TODO item 16).
+Origin: issue found on 2026-10-09 (TODO item 16, completed and removed).
 
 ## Problem
 

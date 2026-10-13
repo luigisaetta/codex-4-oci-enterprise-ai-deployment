@@ -1,7 +1,7 @@
 # Spec 010: JWT inbound authentication for Hosted Applications
 
-Status: implemented (Bash; PowerShell unexecuted); live release and protected
-probes verified on 2026-10-13; U4 corrected (404); functional checks pending.
+Status: implemented; live acceptance passed on 2026-10-13 (Bash); U4
+corrected (404); PowerShell unexecuted.
 Date: 2026-09-30.
 
 ## Problem
@@ -313,3 +313,13 @@ only in the shell that runs the verifier.
   because the `AGENTS.md` block said that read-only IAM inspection needs a
   user request; the block now states that the skills' compartment and region
   lookups are normal operation.
+
+### 2026-10-13, verification after the U4 correction (operator-reported)
+
+* The verification of `express-order-demo-rp-idcs` 0.2.0 with `--functional`
+  passed: token, protected `/health` and `/ready`, unauthenticated `/health`
+  rejected (404), and the functional checks with the token. The operator
+  reported that everything worked; the full report lines were not recorded
+  here.
+* Not run: a call with a token for another audience or scope (TODO item 6
+  listed it as optional evidence).

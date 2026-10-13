@@ -7,10 +7,11 @@ step by step, how to create and configure it, how to test a token, and how to
 fill in `agent.yaml`.
 
 > [!NOTE]
-> The `public-idcs` profile is implemented and tested offline; its first live
-> release with this project is still pending (TODO item 6). The steps below
-> follow the Oracle documentation listed at the end. Report anything that
-> differs in your tenancy.
+> Verified live on 2026-10-13: release, verification with functional checks,
+> and the demo UI of a `public-idcs` agent, with a confidential application
+> whose audience is not a URL. The Console steps follow the Oracle
+> documentation listed at the end; labels can differ between Console
+> versions.
 
 ## What you get at the end
 

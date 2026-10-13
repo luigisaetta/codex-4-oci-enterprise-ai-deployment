@@ -96,51 +96,97 @@ https://idcs-<id>.identity.oraclecloud.com:443
 
 ## 6. Test a token (optional, recommended)
 
-Before releasing the agent, check that the domain issues a token. The token
-scope is the primary audience followed by the scope, for example
-`https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/invoke`.
-These commands type the secret without showing it and print only whether a
-token was issued, never the token.
+Before releasing the agent, check that the domain issues a token. Copy the
+script for your system into a file, write your values at the top, and run
+it. It joins the audience and the scope into the token scope, as the verifier
+does, and prints only whether a token was issued, never the token. You can
+keep the file and run it again whenever you change a value.
 
-macOS and Linux (Terminal, zsh or bash). First store the two values in
-shell variables. Each command shows a prompt and waits for you to paste the
-value and press Enter; for the secret, nothing appears while you paste:
+**The client secret.** Leave `CLIENT_SECRET` empty (recommended): the script
+asks for it when it runs and does not show it. If you write it in the file,
+keep the file outside any repository, readable only by you, and never share
+it.
 
-```bash
-printf 'Client ID: '; read -r OCI_AGENT_IDCS_CLIENT_ID; export OCI_AGENT_IDCS_CLIENT_ID
-```
-
-```bash
-printf 'Client secret: '; stty -echo; read -r OCI_AGENT_IDCS_CLIENT_SECRET; stty echo; echo; export OCI_AGENT_IDCS_CLIENT_SECRET
-```
-
-The variables exist only in this terminal window and disappear when you close
-it. Then request a token:
+### macOS and Linux: `test-idcs-token.sh`
 
 ```bash
-curl -s -u "$OCI_AGENT_IDCS_CLIENT_ID:$OCI_AGENT_IDCS_CLIENT_SECRET" -d grant_type=client_credentials -d 'scope=<primary-audience>invoke' 'https://idcs-<id>.identity.oraclecloud.com:443/oauth2/v1/token' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("token issued" if d.get("access_token") else d)'
+#!/usr/bin/env bash
+# Test that the identity domain issues a token for the confidential application.
+# Edit the values below, then run: bash test-idcs-token.sh
+# Prints only whether a token was issued, never the token.
+set -euo pipefail
+
+DOMAIN_URL='https://idcs-<id>.identity.oraclecloud.com:443'
+AUDIENCE='https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/'
+SCOPE='invoke'
+CLIENT_ID='<client-id>'
+# Leave empty to type the secret when the script runs (recommended).
+CLIENT_SECRET=''
+
+if [[ -z "$CLIENT_SECRET" ]]; then
+  read -r -s -p 'Client secret: ' CLIENT_SECRET
+  echo
+fi
+TOKEN_SCOPE="${AUDIENCE}${SCOPE}"
+response="$(curl -sS -u "${CLIENT_ID}:${CLIENT_SECRET}" \
+  --data-urlencode 'grant_type=client_credentials' \
+  --data-urlencode "scope=${TOKEN_SCOPE}" \
+  "${DOMAIN_URL%/}/oauth2/v1/token")"
+case "$response" in
+  *'"access_token"'*) echo "Token issued for scope ${TOKEN_SCOPE}" ;;
+  *) echo "No token. Response: ${response}"; exit 1 ;;
+esac
 ```
 
-Windows (PowerShell 7). The same steps: each `Read-Host` shows a prompt and
-waits for the value; `-MaskInput` hides the secret. The variables exist only
-in this PowerShell window:
+Run it with `bash`, also on macOS where the default shell is zsh:
+
+```bash
+bash test-idcs-token.sh
+```
+
+If you wrote the secret in the file, make it readable only by you:
+
+```bash
+chmod 600 test-idcs-token.sh
+```
+
+### Windows: `test-idcs-token.ps1`
 
 ```powershell
-$env:OCI_AGENT_IDCS_CLIENT_ID = Read-Host 'Client ID'
+# Test that the identity domain issues a token for the confidential application.
+# Edit the values below, then run in PowerShell 7: ./test-idcs-token.ps1
+# Prints only whether a token was issued, never the token.
+
+$DomainUrl = 'https://idcs-<id>.identity.oraclecloud.com:443'
+$Audience = 'https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/'
+$Scope = 'invoke'
+$ClientId = '<client-id>'
+# Leave empty to type the secret when the script runs (recommended).
+$ClientSecret = ''
+
+if (-not $ClientSecret) { $ClientSecret = Read-Host 'Client secret' -MaskInput }
+$tokenScope = "$Audience$Scope"
+$basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("${ClientId}:${ClientSecret}"))
+try {
+    $response = Invoke-RestMethod -Method Post -Uri "$($DomainUrl.TrimEnd('/'))/oauth2/v1/token" `
+        -Headers @{ Authorization = "Basic $basic" } `
+        -Body @{ grant_type = 'client_credentials'; scope = $tokenScope }
+} catch {
+    Write-Output "No token. Response: $($_.ErrorDetails.Message)"
+    exit 1
+}
+if ($response.access_token) { "Token issued for scope $tokenScope" } else { 'No token in the response.'; exit 1 }
 ```
+
+Run it from the folder where you saved it:
 
 ```powershell
-$env:OCI_AGENT_IDCS_CLIENT_SECRET = Read-Host 'Client secret' -MaskInput
+./test-idcs-token.ps1
 ```
 
-```powershell
-$pair = "$($env:OCI_AGENT_IDCS_CLIENT_ID):$($env:OCI_AGENT_IDCS_CLIENT_SECRET)"
-$basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($pair))
-$response = Invoke-RestMethod -Method Post -Uri 'https://idcs-<id>.identity.oraclecloud.com:443/oauth2/v1/token' -Headers @{ Authorization = "Basic $basic" } -Body @{ grant_type = 'client_credentials'; scope = '<primary-audience>invoke' }
-if ($response.access_token) { 'token issued' }
-```
-
-Expected: `token issued`. Otherwise see [Troubleshooting](#troubleshooting).
+Expected: `Token issued for scope …`. Otherwise the script prints the domain's
+error, for example `invalid_client` or `invalid_scope`: see
+[Troubleshooting](#troubleshooting).
 
 ## 7. Fill in `agent.yaml`
 
@@ -166,9 +212,30 @@ These values are not secret and are committed with the agent. More details:
 ## 8. Release and verify
 
 The release works as for any agent. The **verification** needs a token, so
-before it, set the client ID and secret **in the terminal that starts Codex**
-(the first two commands of section 6), then start Codex from that terminal,
-for example with `codex`. The Codex
+before it, set the client ID and secret **in the terminal that starts Codex**,
+then start Codex from that terminal, for example with `codex`. In macOS or
+Linux (zsh or bash), each command shows a prompt and waits for the value; the
+secret is not shown while you paste it:
+
+```bash
+printf 'Client ID: '; read -r OCI_AGENT_IDCS_CLIENT_ID; export OCI_AGENT_IDCS_CLIENT_ID
+```
+
+```bash
+printf 'Client secret: '; stty -echo; read -r OCI_AGENT_IDCS_CLIENT_SECRET; stty echo; echo; export OCI_AGENT_IDCS_CLIENT_SECRET
+```
+
+In PowerShell 7:
+
+```powershell
+$env:OCI_AGENT_IDCS_CLIENT_ID = Read-Host 'Client ID'
+```
+
+```powershell
+$env:OCI_AGENT_IDCS_CLIENT_SECRET = Read-Host 'Client secret' -MaskInput
+```
+
+The variables exist only in that terminal window. The Codex
 extension for VS Code sees only the variables of the environment that
 started VS Code.
 
@@ -183,7 +250,8 @@ export OCI_AGENT_IDCS_TOKEN_SCOPE='<exact-token-scope>'
 The verifier calls `/health`, `/ready`, and the functional checks with the
 token, and checks that a call without a token is rejected.
 
-Callers of the deployed agent do the same: request a token as in section 6,
+Callers of the deployed agent do the same: request a token from the domain as
+the script of section 6 does,
 then send it in the `Authorization: Bearer <token>` header.
 
 ## Troubleshooting

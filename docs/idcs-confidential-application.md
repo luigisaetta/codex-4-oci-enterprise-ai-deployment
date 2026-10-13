@@ -99,7 +99,10 @@ https://idcs-<id>.identity.oraclecloud.com:443
 Before releasing the agent, check that the domain issues a token. Copy the
 script for your system into a file, write your values at the top, and run
 it. It joins the audience and the scope into the token scope, as the verifier
-does, and prints only whether a token was issued, never the token. You can
+does, and prints whether a token was issued and, for debugging, the **claims**
+inside it: issuer (`iss`), audience (`aud`), `scope`, client, and expiry
+(`exp`, in seconds since 1970). It never prints the token itself: whoever has
+it can call the agent until it expires. You can
 keep the file and run it again whenever you change a value.
 
 **The client secret.** Leave `CLIENT_SECRET` empty (recommended): the script
@@ -113,7 +116,7 @@ it.
 #!/usr/bin/env bash
 # Test that the identity domain issues a token for the confidential application.
 # Edit the values below, then run: bash test-idcs-token.sh
-# Prints only whether a token was issued, never the token.
+# Prints whether a token was issued and its claims, never the token itself.
 set -euo pipefail
 
 DOMAIN_URL='https://idcs-<id>.identity.oraclecloud.com:443'
@@ -122,6 +125,8 @@ SCOPE='invoke'
 CLIENT_ID='<client-id>'
 # Leave empty to type the secret when the script runs (recommended).
 CLIENT_SECRET=''
+# yes: also print the claims inside the token (never the token itself).
+SHOW_CLAIMS='yes'
 
 if [[ -z "$CLIENT_SECRET" ]]; then
   read -r -s -p 'Client secret: ' CLIENT_SECRET
@@ -132,10 +137,20 @@ response="$(curl -sS -u "${CLIENT_ID}:${CLIENT_SECRET}" \
   --data-urlencode 'grant_type=client_credentials' \
   --data-urlencode "scope=${TOKEN_SCOPE}" \
   "${DOMAIN_URL%/}/oauth2/v1/token")"
-case "$response" in
-  *'"access_token"'*) echo "Token issued for scope ${TOKEN_SCOPE}" ;;
-  *) echo "No token. Response: ${response}"; exit 1 ;;
-esac
+token="$(printf '%s' "$response" | sed -n 's/.*"access_token" *: *"\([^"]*\)".*/\1/p')"
+if [[ -z "$token" ]]; then
+  echo "No token. Response: ${response}"
+  exit 1
+fi
+echo "Token issued for scope ${TOKEN_SCOPE}"
+if [[ "$SHOW_CLAIMS" == 'yes' ]]; then
+  # The second part of a JWT holds the claims, base64url-encoded (not encrypted).
+  claims="$(printf '%s' "$token" | cut -d. -f2 | tr '_-' '/+')"
+  while (( ${#claims} % 4 )); do claims="${claims}="; done
+  echo 'Token claims (the token itself is not shown):'
+  printf '%s' "$claims" | base64 --decode
+  echo
+fi
 ```
 
 Run it with `bash`, also on macOS where the default shell is zsh:
@@ -155,7 +170,7 @@ chmod 600 test-idcs-token.sh
 ```powershell
 # Test that the identity domain issues a token for the confidential application.
 # Edit the values below, then run in PowerShell 7: ./test-idcs-token.ps1
-# Prints only whether a token was issued, never the token.
+# Prints whether a token was issued and its claims, never the token itself.
 
 $DomainUrl = 'https://idcs-<id>.identity.oraclecloud.com:443'
 $Audience = 'https://application.generativeai.eu-frankfurt-1.oci.oraclecloud.com/20251112/hostedApplications/'
@@ -163,6 +178,8 @@ $Scope = 'invoke'
 $ClientId = '<client-id>'
 # Leave empty to type the secret when the script runs (recommended).
 $ClientSecret = ''
+# $true: also print the claims inside the token (never the token itself).
+$ShowClaims = $true
 
 if (-not $ClientSecret) { $ClientSecret = Read-Host 'Client secret' -MaskInput }
 $tokenScope = "$Audience$Scope"
@@ -175,7 +192,15 @@ try {
     Write-Output "No token. Response: $($_.ErrorDetails.Message)"
     exit 1
 }
-if ($response.access_token) { "Token issued for scope $tokenScope" } else { 'No token in the response.'; exit 1 }
+if (-not $response.access_token) { 'No token in the response.'; exit 1 }
+"Token issued for scope $tokenScope"
+if ($ShowClaims) {
+    # The second part of a JWT holds the claims, base64url-encoded (not encrypted).
+    $claims = $response.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
+    while ($claims.Length % 4) { $claims += '=' }
+    'Token claims (the token itself is not shown):'
+    [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($claims)) | ConvertFrom-Json | ConvertTo-Json -Depth 5
+}
 ```
 
 Run it from the folder where you saved it:
@@ -184,8 +209,9 @@ Run it from the folder where you saved it:
 ./test-idcs-token.ps1
 ```
 
-Expected: `Token issued for scope …`. Otherwise the script prints the domain's
-error, for example `invalid_client` or `invalid_scope`: see
+Expected: `Token issued for scope …`, then the claims. When the agent later
+answers 401, compare `aud` and `scope` in the claims with `deploy.auth` in
+`agent.yaml`. Otherwise the script prints the domain's error, for example `invalid_client` or `invalid_scope`: see
 [Troubleshooting](#troubleshooting).
 
 ## 7. Fill in `agent.yaml`

@@ -128,6 +128,19 @@ function Get-HostedWorkRequestErrors {
     return $lines
 }
 
+# Holds the state and work request errors of the last failed wait (Spec 019).
+$script:LastFailure = @{ State = ''; Errors = @() }
+
+function Get-HostedLastFailure {
+    return $script:LastFailure
+}
+
+# Return true when work request errors say that the image could not be accessed.
+function Test-ImageAccessError {
+    param([string[]]$Lines)
+    return ((@($Lines) -join "`n") -match '(?i)container image could not be accessed')
+}
+
 function Wait-HostedResource {
     param([string]$Kind, [string]$ResourceId, [string]$Operation,
           [string]$Region, [string]$CompartmentId, [int]$TimeoutSeconds, [int]$PollInterval)
@@ -173,9 +186,11 @@ function Wait-HostedResource {
             Write-Host "${Kind}: $state (elapsed ${elapsed}s)"
             if ($Operation -eq 'delete' -and $state -eq 'DELETED') { return 0 }
             if ($Operation -ne 'delete' -and $state -eq 'ACTIVE') { return 0 }
-            if ($state -eq 'FAILED') {
-                [Console]::Error.WriteLine("$Kind $ResourceId is FAILED.")
-                foreach ($line in @(Get-HostedWorkRequestErrors -Region $Region -CompartmentId $CompartmentId -ResourceId $ResourceId)) {
+            if ($state -in @('FAILED', 'NEEDS_ATTENTION')) {
+                [Console]::Error.WriteLine("$Kind $ResourceId is $state.")
+                $errorLines = @(Get-HostedWorkRequestErrors -Region $Region -CompartmentId $CompartmentId -ResourceId $ResourceId)
+                $script:LastFailure = @{ State = $state; Errors = $errorLines }
+                foreach ($line in $errorLines) {
                     [Console]::Error.WriteLine($line)
                 }
                 return 1
@@ -192,4 +207,4 @@ function Wait-HostedResource {
         Start-Sleep -Seconds $PollInterval
     }
 }
-Export-ModuleMember -Function Get-MutationId, Get-MutationWorkRequestId, Find-MutatedResource, Get-HostedServiceError, Write-HostedServiceError, Get-HostedWorkRequestErrors, Wait-HostedResource
+Export-ModuleMember -Function Get-MutationId, Get-MutationWorkRequestId, Find-MutatedResource, Get-HostedServiceError, Write-HostedServiceError, Get-HostedWorkRequestErrors, Get-HostedLastFailure, Test-ImageAccessError, Wait-HostedResource

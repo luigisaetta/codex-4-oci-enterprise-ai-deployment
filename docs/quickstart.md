@@ -172,6 +172,7 @@ application (up to 20); only inactive ones can be removed, from the Console.
 | Codex asks "Which agent manifest should I use?" | Answer `./agent.yaml`, or the path of your agent's manifest. |
 | Codex talks about "AI Data Platform" or "AI DP" | Say "OCI Hosted Applications" explicitly in your request; those are different skills. |
 | The registry refuses the push, or asks to log in | Your registry login may have expired: run the `docker login` or `podman login` command that Codex shows for the selected engine. |
+| The deploy stops with "Release stopped: the Hosted Deployment cannot read its image from OCIR" (exit 27) | The runtime permissions of your compartment are missing. Send the message to your tenancy administrator; do not change IAM yourself. See [IAM policies](iam-policies.md#setup-for-the-administrator). |
 | An OCI command fails with `NotAuthorizedOrNotFound` | The resource may be missing or permission may be missing; send the message and [IAM policies](iam-policies.md) to your administrator. |
 | `Creation in progress` | The deployment already exists; approve its plan to resume waiting without another create. |
 | `Application creation in progress` | Approve its plan to wait for the application, check its configuration, and create the first deployment when ready. |

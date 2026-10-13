@@ -11,6 +11,9 @@ activates artifacts in place, or explicitly replaces a FAILED deployment.
 OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
 Usage: deploy_hosted_application.ps1 [-Plan|-Apply] -Manifest PATH -Tag TAG
   [-TimeoutSeconds SECONDS] [-ReplaceFailed].
+Exit codes: 0 success, 1 OCI or tool failure, 20 state requiring review, 26 still in
+progress, 27 runtime cannot read the image (missing runtime permissions), 64 invalid
+input, 65 OCI region not found.
 #>
 [CmdletBinding()]
 param(
@@ -27,6 +30,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $exitInvalidInput = 64
 $exitExistingResource = 20
+$exitRuntimePermissions = 27
 $waitSeconds = 1200
 $artifactLimit = 20
 $pollInterval = if ($env:OCI_DEPLOY_POLL_INTERVAL) { $env:OCI_DEPLOY_POLL_INTERVAL } else { "30" }
@@ -233,6 +237,63 @@ function New-HostedApplication {
     if ($result -ne 0) { exit $result }
 }
 
+# Stop with a fixed message when a deployment failed because the runtime could not
+# read its image (Spec 019). Returns when the errors describe another failure.
+function Stop-OnImageAccessFailure {
+    param([string]$State, [string[]]$Errors)
+
+    if (-not (Test-ImageAccessError -Lines $Errors)) { return }
+    $images = & oci --region $region --output json artifacts container image list `
+        --compartment-id $compartmentId --repository-name $repository --image-version $Tag --all 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        [Console]::Error.WriteLine('Could not check the image in OCIR; see the OCI error above.')
+        return
+    }
+    try { $items = ((@($images) -join "`n") | ConvertFrom-Json -ErrorAction Stop).data.items }
+    catch { return }
+    if ($null -eq $items) { return }
+    if (@($items).Count -eq 0) {
+        Fail 1 "The image ${containerUri}:$Tag is not in OCIR. Push it with oci-agent-push, then deploy again."
+    }
+    $nextStep = if ($State -eq 'FAILED') {
+        'When the administrator confirms, ask for a new deploy: the plan offers to replace the failed deployment.'
+    } else {
+        'The skills cannot yet replace a deployment in this state: after the administrator confirms, delete it in the OCI Console, then ask for a new deploy.'
+    }
+    $toolHome = Split-Path -Parent $scriptDir
+    $compartmentName = $env:OCI_COMPARTMENT_NAME
+    $lines = @(
+        'Release stopped: the Hosted Deployment cannot read its image from OCIR.',
+        "The image exists: ${containerUri}:$Tag",
+        "Cause: the runtime permissions for compartment $compartmentName are missing.",
+        'This is tenancy IAM setup, done by your tenancy administrator.',
+        'Do not create or change dynamic groups or policies.',
+        '',
+        'Send this to your tenancy administrator:',
+        '  1. A dynamic group whose rules include Hosted Applications and Hosted',
+        "     Deployments in compartment $compartmentName ($compartmentId).",
+        "  2. allow dynamic-group <runtime-dynamic-group> to read repos in compartment $compartmentName",
+        "  See $(Join-Path $toolHome 'docs/iam-policies.md'), `"Runtime: dynamic group`" and",
+        '  "Runtime: policies".',
+        '',
+        "Deployment $deploymentId is $State.",
+        $nextStep
+    )
+    foreach ($line in $lines) { [Console]::Error.WriteLine($line) }
+    exit $exitRuntimePermissions
+}
+
+# Stop after a failed deployment wait, with the runtime permissions message when it applies.
+function Stop-AfterDeploymentWait {
+    param([int]$Status)
+
+    $failure = Get-HostedLastFailure
+    if ($Status -eq 1 -and $failure.State) {
+        Stop-OnImageAccessFailure -State $failure.State -Errors $failure.Errors
+    }
+    exit $Status
+}
+
 function New-FirstRelease {
     if (-not $applicationId) {
         New-HostedApplication
@@ -251,7 +312,7 @@ function New-FirstRelease {
     Write-Output "Created Hosted Deployment: $deploymentId"
     $result = Wait-HostedResource -Kind 'Hosted Deployment' -ResourceId $deploymentId `
         -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
-    if ($result -ne 0) { exit $result }
+    if ($result -ne 0) { Stop-AfterDeploymentWait $result }
 }
 
 if ($Help) {
@@ -403,6 +464,12 @@ if ($applicationCount -eq '1') {
         if ($ReplaceFailed -and $deploymentState -ne 'FAILED') {
             Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
         }
+        if ($deploymentState -eq 'NEEDS_ATTENTION') {
+            $failureReason = @(Get-HostedWorkRequestErrors -Region $region -CompartmentId $compartmentId -ResourceId $deploymentId)
+            [Console]::Error.WriteLine("Hosted Deployment $deploymentId is NEEDS_ATTENTION.")
+            foreach ($line in $failureReason) { [Console]::Error.WriteLine($line) }
+            Stop-OnImageAccessFailure -State 'NEEDS_ATTENTION' -Errors $failureReason
+        }
         if ($deploymentState -notin @('ACTIVE', 'CREATING', 'FAILED')) {
             $message = "Hosted Deployment must be ACTIVE; observed: $deploymentState. "
             Fail $exitExistingResource ($message + 'Check it and retry.')
@@ -412,6 +479,11 @@ if ($applicationCount -eq '1') {
         } elseif ($deploymentState -eq 'FAILED') {
             $releaseCase = if ($ReplaceFailed) { 'Replace failed deployment' } else { 'Failed deployment' }
             $failureReason = @(Get-HostedWorkRequestErrors -Region $region -CompartmentId $compartmentId -ResourceId $deploymentId)
+            if (-not $ReplaceFailed -and (Test-ImageAccessError -Lines $failureReason)) {
+                [Console]::Error.WriteLine("Hosted Deployment $deploymentId is FAILED.")
+                foreach ($line in $failureReason) { [Console]::Error.WriteLine($line) }
+                Stop-OnImageAccessFailure -State 'FAILED' -Errors $failureReason
+            }
         } elseif ($targetStatus -eq 'FAILED' -or $targetStatus -eq 'UPDATING') {
             $message = "Target artifact tag $Tag is $targetStatus. Check it and retry; "
             Fail $exitExistingResource ($message + 'no changes were made.')
@@ -467,7 +539,7 @@ switch ($releaseCase) {
     'Creation in progress' {
         $result = Wait-HostedResource -Kind $resourceKind -ResourceId $resourceId `
             -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
-        if ($result -ne 0) { exit $result }
+        if ($result -ne 0) { Stop-AfterDeploymentWait $result }
     }
     'Failed deployment' { exit $exitExistingResource }
     'Replace failed deployment' {

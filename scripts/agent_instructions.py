@@ -3,7 +3,7 @@
 Author: L. Saetta
 Date last modified: 2026-10-12
 License: MIT
-Description: Add or refresh the OCI agent skills' rules in an agent repository's AGENTS.md.
+Description: Add or refresh the OCI agent skills' rules in an agent's AGENTS.md.
 """
 
 import argparse

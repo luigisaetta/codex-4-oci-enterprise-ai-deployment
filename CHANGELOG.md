@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* 2026-10-13: Stop on missing runtime permissions (Spec 019). When a
+  deployment ends `FAILED` or `NEEDS_ATTENTION` because its runtime cannot
+  read the image from OCIR, the deploy script shows the OCI error, checks
+  that the image exists, and stops with exit 27 and a message for the tenancy
+  administrator; a missing image asks for the push instead. The deploy skill
+  and the agent repository's `AGENTS.md` forbid IAM changes by Codex.
+
 * 2026-10-12: New guide [Logging in to OCIR](docs/ocir-login.md): registry
   address, username built from the Console's Profile menu (with the identity
   domain when shown), auth token generation, login with Docker or Podman, and

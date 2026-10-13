@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-08
+Date last modified: 2026-10-13
 License: MIT
 Description: Exercise Hosted Application release cases with a scenario-driven OCI CLI.
 """
@@ -18,6 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "deploy_hosted_application.sh"
 POWERSHELL_SCRIPT = ROOT / "scripts" / "deploy_hosted_application.ps1"
 PWSH = shutil.which("pwsh")
+# Scenario updates registered by other test modules, for example Spec 019.
+EXTRA_SCENARIOS: dict[str, dict[str, object]] = {}
 MUTATING_COMMANDS = {
     "create",
     "create-hosted-deployment-single-docker-artifact",
@@ -256,11 +258,12 @@ elif "work-request-error" in arguments and "list" in arguments:
         sys.exit(0)
     items = []
     if not scenario.get("missing_work_errors"):
-        message = "Node pool capacity unavailable"
+        code = scenario.get("work_error_code", "OutOfCapacity")
+        message = scenario.get("work_error_message", "Node pool capacity unavailable")
         if scenario.get("work_error_echo_runtime"):
             runtime = json.loads(os.environ["OCI_DEPLOY_RUNTIME_JSON"])
             message += " " + runtime[0]["value"]
-        items = [{"code": "OutOfCapacity", "message": message}]
+        items = [{"code": code, "message": message}]
     output({"data": {"items": items}})
 elif "work-request" in arguments and "list" in arguments:
     if "--compartment-id" not in arguments or "--all" not in arguments:
@@ -274,6 +277,15 @@ elif "work-request" in arguments and "list" in arguments:
     if not scenario.get("missing_work_requests"):
         items = [{"id": "ocid1.workrequest.failed"}]
     output({"data": {"items": items}})
+elif "artifacts" in arguments and "image" in arguments and "list" in arguments:
+    if "--repository-name" not in arguments or "--image-version" not in arguments:
+        print("Usage: image list requires --repository-name and --image-version",
+              file=sys.stderr)
+        sys.exit(2)
+    items = []
+    if scenario.get("image_exists", True):
+        items = [{"id": "ocid1.containerimage.test", "version": "1.0.1"}]
+    output({"data": {"items": items, "remaining-items-count": 0}})
 elif "update" in arguments:
     if "--force" not in arguments:
         print("Abort", file=sys.stderr)
@@ -497,6 +509,7 @@ def scenario_for(case: str) -> dict[str, object]:
             "work_request_header": True,
         },
     }
+    updates.update(EXTRA_SCENARIOS)
     scenario.update(updates.get(case, {}))
     if case == "rollback":
         artifacts.append(

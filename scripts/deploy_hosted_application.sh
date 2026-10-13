@@ -11,12 +11,14 @@
 # activate artifacts in place, or explicitly replace a FAILED deployment.
 # OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
 # Exit codes: 0 success, 1 OCI or tool failure, 20 state requiring review,
-# 26 still in progress, 64 invalid input, 65 OCI region not found.
+# 26 still in progress, 27 runtime cannot read the image (missing runtime permissions),
+# 64 invalid input, 65 OCI region not found.
 
 set -euo pipefail
 
 readonly EXIT_INVALID_INPUT=64
 readonly EXIT_EXISTING_RESOURCE=20
+readonly EXIT_RUNTIME_PERMISSIONS=27
 readonly WAIT_SECONDS=1200
 timeout_seconds=1800
 poll_interval="${OCI_DEPLOY_POLL_INTERVAL:-30}"
@@ -217,6 +219,66 @@ create_hosted_application() {
   wait_for_resource 'Hosted Application' "$application_id" create || exit $?
 }
 
+# Stop with a fixed message when a deployment failed because the runtime could not
+# read its image (Spec 019). Returns when the errors describe another failure.
+stop_on_image_access_failure() {
+  local state="$1" errors="$2" images count next_step tool_home
+  is_image_access_error "$errors" || return 0
+  if ! images="$(oci --region "$OCI_REGION" --output json artifacts container image list \
+    --compartment-id "$compartment_id" --repository-name "$repository" \
+    --image-version "$tag" --all 2>/dev/null)"; then
+    printf '%s\n' 'Could not check the image in OCIR; see the OCI error above.' >&2
+    return 0
+  fi
+  count="$(printf '%s' "$images" | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+try:
+    items = json.load(sys.stdin)["data"]["items"]
+    print(len(items) if isinstance(items, list) else "")
+except (ValueError, TypeError, KeyError):
+    print("")
+')"
+  if [[ "$count" == '0' ]]; then
+    printf 'The image %s:%s is not in OCIR. Push it with oci-agent-push, then deploy again.\n' \
+      "$container_uri" "$tag" >&2
+    exit 1
+  fi
+  [[ -n "$count" ]] || return 0
+  if [[ "$state" == 'FAILED' ]]; then
+    next_step='When the administrator confirms, ask for a new deploy: the plan offers to replace the failed deployment.'
+  else
+    next_step='The skills cannot yet replace a deployment in this state: after the administrator confirms, delete it in the OCI Console, then ask for a new deploy.'
+  fi
+  tool_home="$(CDPATH= cd -- "$script_directory/.." && pwd)"
+  {
+    printf '%s\n' 'Release stopped: the Hosted Deployment cannot read its image from OCIR.'
+    printf 'The image exists: %s:%s\n' "$container_uri" "$tag"
+    printf 'Cause: the runtime permissions for compartment %s are missing.\n' "$OCI_COMPARTMENT_NAME"
+    printf '%s\n' 'This is tenancy IAM setup, done by your tenancy administrator.'
+    printf '%s\n\n' 'Do not create or change dynamic groups or policies.'
+    printf '%s\n' 'Send this to your tenancy administrator:'
+    printf '  1. A dynamic group whose rules include Hosted Applications and Hosted\n'
+    printf '     Deployments in compartment %s (%s).\n' "$OCI_COMPARTMENT_NAME" "$compartment_id"
+    printf '  2. allow dynamic-group <runtime-dynamic-group> to read repos in compartment %s\n' \
+      "$OCI_COMPARTMENT_NAME"
+    printf '  See %s/docs/iam-policies.md, "Runtime: dynamic group" and\n' "$tool_home"
+    printf '  "Runtime: policies".\n\n'
+    printf 'Deployment %s is %s.\n' "$deployment_id" "$state"
+    printf '%s\n' "$next_step"
+  } >&2
+  exit "$EXIT_RUNTIME_PERMISSIONS"
+}
+
+# Stop after a failed deployment wait, with the runtime permissions message when it applies.
+stop_after_deployment_wait() {
+  local status="$1"
+  if [[ "$status" -eq 1 && -n "${last_failure_state:-}" ]]; then
+    stop_on_image_access_failure "$last_failure_state" "$last_failure_errors"
+  fi
+  exit "$status"
+}
+
 create_first_release() {
   local deployment_output
   if [[ -z "$application_id" ]]; then
@@ -237,7 +299,7 @@ create_first_release() {
   deployment_id="$(resolve_mutation_id 'Hosted Deployment' "$deployment_output")"
   deployment_work_request_id="$(parse_mutation_work_request "$deployment_output")"
   printf 'Created Hosted Deployment: %s\n' "$deployment_id"
-  wait_for_resource 'Hosted Deployment' "$deployment_id" create || exit $?
+  wait_for_resource 'Hosted Deployment' "$deployment_id" create || stop_after_deployment_wait $?
 }
 
 while [[ $# -gt 0 ]]; do
@@ -418,6 +480,11 @@ except (ValueError,TypeError):
       printf '%s\n' '--replace-failed requires a FAILED deployment.' >&2
       exit "$EXIT_INVALID_INPUT"
     fi
+    if [[ "$deployment_state" == 'NEEDS_ATTENTION' ]]; then
+      failure_reason="$(report_work_request_errors "$deployment_id" 2>&1)"
+      printf 'Hosted Deployment %s is NEEDS_ATTENTION.\n%s\n' "$deployment_id" "$failure_reason" >&2
+      stop_on_image_access_failure 'NEEDS_ATTENTION' "$failure_reason"
+    fi
     if [[ "$deployment_state" != 'ACTIVE' && "$deployment_state" != 'CREATING' && "$deployment_state" != 'FAILED' ]]; then
       printf 'Hosted Deployment must be ACTIVE; observed: %s. Check it and retry.\n' \
         "$deployment_state" >&2
@@ -429,6 +496,10 @@ except (ValueError,TypeError):
       release_case='Failed deployment'
       if "$replace_failed"; then release_case='Replace failed deployment'; fi
       failure_reason="$(report_work_request_errors "$deployment_id" 2>&1)"
+      if ! "$replace_failed" && is_image_access_error "$failure_reason"; then
+        printf 'Hosted Deployment %s is FAILED.\n%s\n' "$deployment_id" "$failure_reason" >&2
+        stop_on_image_access_failure 'FAILED' "$failure_reason"
+      fi
     elif [[ "$target_status" == 'FAILED'  || "$target_status" == 'UPDATING' ]]; then
       printf 'Target artifact tag %s is %s. Check it and retry; no changes were made.\n' \
         "$tag" "$target_status" >&2
@@ -482,7 +553,7 @@ case "$release_case" in
     create_first_release
     ;;
   'Creation in progress')
-    wait_for_resource "$resource_kind" "$resource_id" create || exit $?
+    wait_for_resource "$resource_kind" "$resource_id" create || stop_after_deployment_wait $?
     ;;
   'Failed deployment')
     exit "$EXIT_EXISTING_RESOURCE"

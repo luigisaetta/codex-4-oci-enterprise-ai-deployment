@@ -4,6 +4,8 @@
 # application_name, application_id, non_deleted_query, timeout_seconds, poll_interval.
 # Inputs: resource kind, OCID and operation; reads OCI only after the initial mutation.
 # Side effects: OCI read requests and bounded sleeps. Source from deploy_hosted_application.sh.
+# After a failed wait, last_failure_state and last_failure_errors hold the observed
+# state and the reported work request errors (Spec 019).
 
 parse_mutation_id() {
   printf '%s' "$1" | "$OCI_AGENT_PYTHON" -c '
@@ -160,6 +162,14 @@ if not printed:
 '
 }
 
+# Return success when work request errors say that the image could not be accessed.
+# Uses tr, not ${1,,} or grep -q, for Bash 3.2 and pipefail safety.
+is_image_access_error() {
+  local lower
+  lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  [[ "$lower" == *'container image could not be accessed'* ]]
+}
+
 wait_for_resource() {
   local kind="$1" resource_id="$2" operation="$3" start elapsed state response error status failures=0
   start="$(date +%s)"
@@ -209,9 +219,11 @@ except (ValueError, TypeError, AttributeError):
       elif [[ "$state" == 'ACTIVE' ]]; then
         return 0
       fi
-      if [[ "$state" == 'FAILED' ]]; then
-        printf '%s %s is FAILED.\n' "$kind" "$resource_id" >&2
-        report_work_request_errors "$resource_id"
+      if [[ "$state" == 'FAILED' || "$state" == 'NEEDS_ATTENTION' ]]; then
+        printf '%s %s is %s.\n' "$kind" "$resource_id" "$state" >&2
+        last_failure_state="$state"
+        last_failure_errors="$(report_work_request_errors "$resource_id" 2>&1)"
+        printf '%s\n' "$last_failure_errors" >&2
         return 1
       fi
       if [[ "$state" != 'CREATING' && "$state" != 'UPDATING' && "$state" != 'DELETING' ]]; then

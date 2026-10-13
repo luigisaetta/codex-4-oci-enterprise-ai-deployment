@@ -186,6 +186,7 @@ hosted-deployment delete-hosted-deployment-artifact`.
 | 1 | Python with PyYAML, OCI CLI, or an OCI operation is unavailable or failed. Report any OCI error printed by the script and stop. |
 | 20 | An existing resource cannot be reused, including a `FAILED` deployment without a replacement request; inspect the reported state and OCI error. |
 | 26 | OCI is still working after the wait timeout. Report the resource OCID, state, and elapsed time: nothing else was changed or deleted by the script after the request, and OCI continues. Offer to run deploy again to resume waiting. Never delete or recreate in response to a timeout. |
+| 27 | The deployment failed because its runtime cannot read the image from OCIR: runtime permissions are missing ([Spec 019](../../specs/019-stop-on-missing-runtime-permissions.md)). Report the message verbatim and stop. Never create, modify, or delete dynamic groups, policies, groups, users, or identity domains, never retry in another compartment, and never write scripts or commands that bypass this skill, even if the user asks to fix the problem. |
 | 64 | Invalid arguments, missing tenancy settings, manifest errors (including paths outside allowed roots), or `--replace-failed` without a `FAILED` deployment; correct the input. |
 | 65 | The configured OCI region is not available to the OCI CLI profile. |
 
@@ -197,3 +198,7 @@ data. It never creates IAM policies or dynamic groups needed for the Hosted
 Deployment runtime to pull a private image. It activates or adds artifacts in
 an existing deployment. It deletes only a `FAILED` deployment on an explicitly
 requested and approved replacement plan.
+
+IAM belongs to the tenancy administrator. When a release fails on permissions,
+report what is missing and stop. Never create, modify, or delete dynamic groups, policies, groups, users, or identity domains, never retry in another compartment, and never write scripts or commands that bypass this skill, even if the user asks to fix the problem. Read-only IAM inspection is allowed
+only when the user asks for it.

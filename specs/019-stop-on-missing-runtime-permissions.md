@@ -1,7 +1,7 @@
 # Spec 019: stop with clear instructions when runtime permissions are missing
 
-Status: draft.
-Date: 2026-10-09.
+Status: implemented; offline checks passed; live acceptance pending.
+Date: 2026-10-09; updated 2026-10-13.
 Origin: issue found on 2026-10-09 (TODO item 16).
 
 ## Problem
@@ -52,6 +52,9 @@ they gave Codex neither the cause nor an instruction to stop.
 * A dedicated exit code for the runtime permissions case.
 * An instruction in `oci-agent-deploy` to report that message and stop,
   without any IAM change.
+* The rule against IAM changes also in the agent repository's `AGENTS.md`,
+  because Codex investigates failures outside the skills (the lesson of
+  Spec 020).
 * Bash and PowerShell twins in parity; offline tests; documentation.
 
 ## Non-goals
@@ -89,7 +92,10 @@ they gave Codex neither the cause nor an instruction to stop.
    script reports the work request errors, as it does today for `FAILED`. In
    the plan, an existing deployment in `NEEDS_ATTENTION` is reported with the
    same errors before the script stops: exit 20, unchanged, or exit 27 when
-   the errors match the runtime permissions case below.
+   the errors match the runtime permissions case below. An existing `FAILED`
+   deployment whose errors match also stops with exit 27, in plan and apply,
+   unless the user requested its replacement (`--replace-failed`). In the
+   plan, the image check uses the requested tag.
 2. **Image check.** If an error message contains "container image could not
    be accessed", the script lists the image with `--repository-name` and
    `--image-version` set to the release's repository and tag, read-only.
@@ -130,6 +136,24 @@ they gave Codex neither the cause nor an instruction to stop.
    another compartment, and never write scripts or commands that bypass this
    skill, even if the user asks to fix the problem." The same rule is added
    to the skill's Limitations.
+7. **`AGENTS.md`.** The instruction block written by
+   `scripts/agent_instructions.py ensure` (Spec 020) gains a section "IAM
+   changes": never create, change, or delete dynamic groups, policies, groups,
+   users, or identity domains, even when asked to fix a problem; read-only
+   inspection only on request; report what is missing and hand it to the
+   tenancy administrator. Existing agent folders receive it by running
+   `ensure` again.
+
+## Relation to the merged Windows changes
+
+Pull request #4 changed `Write-HostedServiceError`, which summarizes a
+failed **CLI call** (create or update) that is not a `ServiceError`. The case
+of this specification is different: the create call succeeds, and the error
+arrives later, in the failed **work request**. The changes therefore extend
+the work request functions (`report_work_request_errors` and
+`wait_for_resource` in Bash; `Get-HostedWorkRequestErrors` and
+`Wait-HostedResource` in PowerShell) and reuse only their existing masking of
+runtime values.
 
 ## Documentation
 
@@ -156,6 +180,7 @@ families:
    are printed, exit 27 for the image-access error (exit 20 for any other
    error), and no mutation.
 6. A runtime variable value in the error text is masked.
+7. `tests/test_agent_instructions.py`: the block contains the IAM section.
 
 ## Acceptance criteria
 
@@ -169,4 +194,23 @@ families:
 
 ## Verification record
 
-Pending.
+### 2026-10-13, macOS, local
+
+* Implemented in `scripts/lib/deploy_wait.sh`, `scripts/deploy_hosted_application.sh`,
+  `scripts/lib/DeployWait.psm1`, and `scripts/deploy_hosted_application.ps1`;
+  exit 27 and the IAM rule in `oci-agent-deploy/SKILL.md`; the "IAM changes"
+  section in `skills/oci-agent-new/assets/agent-instructions.md`; notes in
+  `docs/iam-policies.md` and `docs/quickstart.md`.
+* The fake OCI CLI gained configurable work request errors and
+  `artifacts container image list`; the scenarios live in
+  `tests/test_deploy_runtime_permissions.py` (registered through
+  `EXTRA_SCENARIOS`).
+* The real `artifacts container image list` output was checked read-only:
+  `{"data": {"items": [...], "remaining-items-count": 0}}`, with an empty list
+  for a missing tag.
+* Offline: full suite 369 passed, 141 skipped (all `pwsh is unavailable`);
+  Black and Pylint (10.00/10) passed. The PowerShell twin is statically
+  reviewed only. In one of three runs of the deploy test modules a single test
+  failed and passed on rerun; it was not identified.
+* Pending: acceptance criterion 3 (live, in a compartment without runtime
+  `read repos`).

@@ -125,6 +125,12 @@ Notes:
 
 * **OCIR**: the repository must be in a compartment covered by the statement.
   The skills create it in `OCI_COMPARTMENT_NAME`.
+* **Symptom of missing runtime permissions**: the first deployment in a
+  compartment ends `FAILED` or `NEEDS_ATTENTION` with "the container image
+  could not be accessed or validated", although the image is in OCIR. The
+  deploy script then stops with exit 27 and a message for the administrator
+  (Spec 019): cover the compartment in the runtime dynamic group, and add
+  `read repos` for it.
 * **No vulnerability-scanning statements.** Older setups also grant
   `vulnerability-scanning-service` `read repos` and `read compartments`, and
   the runtime dynamic group `read vss-family`. They are not needed: on

@@ -1,6 +1,7 @@
 # Spec 018: skill `oci-agent-ui`, an end-user demo UI for an agent
 
-Status: implemented; template verified locally; acceptance on a real agent pending.
+Status: implemented; template verified locally; operator acceptance on real
+agents (criteria 1–3), criterion 4 not formally assessed.
 Date: 2026-10-07.
 
 ## Problem
@@ -219,3 +220,18 @@ generating code (F2).
   agent images, skill links and rules) and the structural skill tests.
 * Pending: acceptance criteria 1–4 on a real agent (`express_order_rp`).
 
+### 2026-10-07 and 2026-10-12, real agents (operator-reported)
+
+* 2026-10-07, `express_order_rp` (macOS): the operator generated the UI with
+  the skill, used it against the deployed agent, and accepted it as v1.0
+  (criteria 1 and 3). Details of the run (UI specification review, build
+  output) were not recorded here.
+* 2026-10-12, a colleague's agent: the skill asked to approve the UI
+  specification first; the connection from the page to the agent worked and
+  the behavior matched the specification (criteria 1 and 3). A conversation
+  bug in the agent was fixed by a new agent release; the UI only needed a page
+  refresh.
+* Criterion 2: verified against the deployed agent; the switch to the local
+  container through `ui/.env.local` was not recorded.
+* Criterion 4 (a non-technical viewer follows a demo): not formally
+  assessed.

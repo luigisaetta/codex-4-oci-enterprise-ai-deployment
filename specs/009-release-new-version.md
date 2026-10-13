@@ -1,6 +1,7 @@
 # Spec 009: Release a new version into an existing Hosted Application
 
-Status: implemented (Bash; PowerShell unexecuted); live acceptance pending.
+Status: implemented in Bash and PowerShell; new-version path verified live
+through the skills; rollback through the skills not yet run.
 Date: 2026-09-30.
 
 For creation waits, failed-deployment replacement, and the narrowed deletion
@@ -213,3 +214,21 @@ defaulted to `No` without a terminal, printed `Abort`, and exited 1. Offline
 tests missed this because the fake OCI CLI did not model that confirmation. The
 fix adds `--force` only to artifact activation updates, documents the required
 non-interactive behavior, and makes the fake CLI reject unforced updates.
+
+### 2026-10-13, status alignment from later live use
+
+Evidence from releases made through the skills after this specification, not
+the criterion-2 sequence on `text-stats`:
+
+* New version (criteria 3 and 4 for this path): on 2026-10-09 the agent
+  `multimodal-extraction` (macOS, Bash) was released as 0.1.0, then 0.1.1 and
+  0.1.2 in the same Hosted Deployment. OCI work requests: one
+  `CREATE_HOSTED_DEPLOYMENT` and two `UPDATE_HOSTED_DEPLOYMENT`, all
+  `SUCCEEDED`; artifacts 0.1.0 and 0.1.1 `INACTIVE`, 0.1.2 `ACTIVE`; one
+  application, so the endpoint did not change. The verifier and live
+  functional checks passed after the last update.
+* PowerShell: on 2026-10-08 the Windows pilot released a new version into an
+  existing application and verified it (Spec 007 verification record).
+* Not run through the skills: "Already released" and "Return to a previous
+  version" (rollback). The rollback mechanism was observed only in the
+  manual experiment of 2026-09-30 (F6).

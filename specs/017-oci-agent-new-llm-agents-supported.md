@@ -1,6 +1,7 @@
 # Spec 017: `oci-agent-new` supports agents that call OCI Generative AI
 
-Status: implemented; offline checks passed; real-session check pending.
+Status: implemented; offline checks passed; real-session check passed with
+deviations (see the verification record).
 Date: 2026-10-06.
 Amends: [Spec 011](011-skill-oci-agent-new.md).
 
@@ -100,3 +101,22 @@ corresponding assertion in `tests/test_skills.py`.
   skips with the reason `pwsh is unavailable`); every relative link in the
   edited files resolves.
 * Pending: acceptance criterion 4 in a real session.
+
+### 2026-10-09, real session (criterion 4)
+
+* Agent `multimodal-extraction` (Resource Principal, OCI Responses API,
+  multimodal PDF extraction), macOS, a new Codex session in an empty agent
+  folder. Codex read the skill, the guidelines, and the template; drafted
+  `agent-spec.md` in Italian from the business context; asked the open
+  questions one at a time; and generated the code only after explicit
+  approval. It ran `new_agent.py plan`, `render`, `check-manifest`, and
+  `check-env`.
+* Passed: no "outside the first iteration" question for the LLM calls.
+* Deviation 1: the request included file upload and several endpoints, which
+  are outside the supported shape. Codex confirmed the API contract with the
+  developer but did not name those parts as outside the shape before
+  proceeding.
+* Deviation 2: the closing message mentioned the IAM check and real model
+  tests with Resource Principal, but not that LLM calls answer 502 in the
+  local verification.
+* Two later releases fixed agent bugs visible only on OCI (TODO item 17).

@@ -68,28 +68,31 @@ customer's name stays in the conversation and never reaches a file (Spec 020).
 **B8. Asynchronous agents.** Use the asynchronous contract of
 [Spec 024](../../../specs/024-asynchronous-agents.md) when the agent runs more
 than one LLM call per request, or a request can take more than about 20
-seconds:
+seconds. Write it into the specification **in plain words** for the reader,
+for example: "The request is accepted at once with a job reference; the work
+continues afterwards. While a step is in progress, the status shows it as
+running; when it ends, the next step starts. When all steps end, the status
+shows the result." Never write implementation terms (`asyncio`, background
+tasks, threads) in the specification. The contract:
 
-* `POST /<path>` validates the input synchronously (400 with the B3 schema),
-  then answers **202** with `{"job_id", "status": "queued", "steps"}`;
+* `POST /<path>` checks the input at once (400 with the B3 schema), then
+  answers **202** with `{"job_id", "status": "queued", "steps"}`;
 * `GET /<path>/{job_id}` answers 200 with `job_id`, `status` (`queued`,
   `running`, `completed`, `failed`), every step with its `name` and `status`,
   `result` when completed, and `error` (`code`, business `message`) when
   failed; 404 for an unknown or expired job; 429 for too many jobs;
-* jobs in memory, at most 10 at a time, removed 30 minutes after they end;
-  `job_id` of letters, digits, `-`, and `_`;
-* the job runs in the background (`asyncio`), with a timeout per step and for
-  the whole job; independent steps run in parallel;
-* a failed step fails the job with a business message; the cause is logged;
+* at most 10 jobs at a time; a finished job can be read for 30 minutes;
+* a failed step ends the job with a business message;
 * `deploy.scaling: {min_replicas: 1, max_replicas: 1}` in the manifest
   ([Spec 023](../../../specs/023-replica-scaling-at-creation.md)): the jobs
-  live in one replica;
+  are kept by one replica;
 * functional checks: the deterministic one (B5) sends an invalid start
   request and expects 400; the full job is a polling check (`poll`), with
   `local: false` when the agent uses Resource Principal, which works only in
   OCI.
 
-Write the steps in the specification's **Steps** section.
+Write the steps in the specification's **Steps** section, with a sentence
+each on what the step does for the user. Implementation: Q7.
 *Why:* a request with several LLM calls exceeds the 60-second limit of the
 verifier and the gateway's timeouts; one replica keeps the jobs reachable.
 
@@ -164,3 +167,14 @@ plain strings:
 *Why:* the service rejects an assistant turn sent as a string ("Invalid value:
 'input_text'. Supported values are: 'output_text' and 'refusal'"); found in
 two real agents in October 2026.
+
+**Q7. Asynchronous implementation** (agents of B8). Keep the jobs in memory in
+one place of `agent.py`, with their status and steps, and run each job as an
+`asyncio` task started by the POST handler, so that the server keeps
+answering the status requests. Update the step status before and after each
+step. Give each step and the whole job a timeout (`asyncio.wait_for`); run
+independent steps in parallel (`asyncio.gather`). Never block the event loop:
+use `await asyncio.sleep`, not `time.sleep`, and the asynchronous LLM client
+or `asyncio.to_thread` for blocking calls. Remove finished jobs after 30
+minutes and refuse a new job beyond 10 running ones (429). Log the cause of a
+failed step with the job identifier, never the input.

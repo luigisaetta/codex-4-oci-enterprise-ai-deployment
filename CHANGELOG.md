@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-13: Guideline B8 of `oci-agent-new` now asks for the asynchronous
+  behavior in plain words in the specification; the implementation details
+  moved to the new code rule Q7.
+
 * 2026-10-13: Asynchronous agents (Spec 024). `oci-agent-new` supports agents
   that start a job with a POST (202, `job_id`) and report its steps and
   result with a GET (guideline B8, one replica). Functional checks can follow

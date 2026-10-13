@@ -68,12 +68,17 @@ skills.
 
 * **B8. Asynchronous agents.** Use the contract when the agent runs more than
   one LLM call per request, or a request can take more than about 20
-  seconds. Run the job in the background (`asyncio`), with a timeout per step
-  and for the whole job; run independent steps in parallel. A failed step
-  fails the job with a business message; the cause goes to the log. Set
+  seconds. The specification describes it in plain words (the request is
+  accepted at once, the work continues, the status shows each step), never
+  with implementation terms; steps go in the Steps section. Set
   `deploy.scaling` to one replica. The deterministic functional check (B5)
   uses the synchronous validation of the start request (400), which needs no
-  LLM.
+  LLM. (Amended 2026-10-13, after the first draft of the acceptance agent
+  showed `asyncio` in the specification.)
+* **Q7. Asynchronous implementation** (code only): jobs in memory, each run
+  as an `asyncio` task, step status updated before and after each step,
+  timeouts per step and per job, independent steps in parallel, no blocking
+  calls in the event loop, cleanup after 30 minutes, 429 beyond 10 jobs.
 * **Q6. Conversation history.** With the OCI Responses API, replay previous
   assistant turns as assistant messages with `output_text` content, never as
   plain strings: the service rejects them ("Invalid value: 'input_text'").

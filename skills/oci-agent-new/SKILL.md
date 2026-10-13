@@ -148,7 +148,7 @@ code from the approved specification only, applying the code-quality rules
 ## Requests outside the supported shape
 
 Calls to OCI Generative AI are part of the supported shape: follow the
-[agent guidelines](references/agent-guidelines.md) (B1, B2, Q1–Q4, Q6)
+[agent guidelines](references/agent-guidelines.md) (B1, B2, Q1–Q4, Q6, Q7)
 without asking whether to proceed. So is the **asynchronous** shape of
 guideline B8 (a POST that starts a job, a GET that reads its status), for
 agents with several LLM steps or long requests

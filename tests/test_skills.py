@@ -219,6 +219,22 @@ def test_operator_sessions_never_edit_the_tool_home() -> None:
     assert "do not record results in" in agents
 
 
+def test_new_skill_supports_asynchronous_agents() -> None:
+    """The authoring skill and its guidelines describe the asynchronous shape."""
+    skill = (SKILLS / "oci-agent-new" / "SKILL.md").read_text(encoding="utf-8")
+    guidelines = (
+        SKILLS / "oci-agent-new" / "references" / "agent-guidelines.md"
+    ).read_text(encoding="utf-8")
+    template = (
+        SKILLS / "oci-agent-new" / "assets" / "agent-spec.template.md"
+    ).read_text(encoding="utf-8")
+    assert "../../specs/024-asynchronous-agents.md" in MARKDOWN_LINK.findall(skill)
+    assert "asynchronous pair of guideline B8" in skill
+    for rule in ("**B8. Asynchronous agents.**", "**Q6. Conversation history.**"):
+        assert rule in guidelines
+    assert "## Steps" in template
+
+
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:
     """IDCS deployment guidance keeps examples sanitized and actionable."""
     deploy = (SKILLS / "oci-agent-deploy" / "SKILL.md").read_text(encoding="utf-8")

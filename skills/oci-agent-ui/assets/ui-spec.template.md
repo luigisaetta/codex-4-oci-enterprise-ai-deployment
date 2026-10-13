@@ -32,6 +32,12 @@ Example requests (two or three, from the use case), each with a short label.
 
 Fields of the response that are not listed are not shown.
 
+## Steps (asynchronous agents only)
+
+The agent's steps, in order, each with the business label shown while the
+job runs (for example `extract`: "Reading the document"). For an asynchronous
+agent, Result describes the job's `result`.
+
 ## Messages
 
 * Invalid input:

@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 
 const TIMEOUT_MS = 90_000;
 const MAX_BODY_CHARS = 20_000;
+const JOB_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 function agentUrl() {
   const base = (process.env.AGENT_BASE_URL || "").replace(/\/+$/, "");
@@ -26,24 +27,12 @@ function unavailable(reason) {
   return NextResponse.json({ kind: "unavailable" }, { status: 200 });
 }
 
-export async function POST(request) {
-  const url = agentUrl();
-  if (!url) {
-    return unavailable("AGENT_BASE_URL or AGENT_PATH is missing in .env.local");
+// Forward one request to the agent and map its answer to a page category.
+async function forward(target, method, body) {
+  const headers = { Accept: "application/json" };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
   }
-
-  let body;
-  try {
-    body = await request.text();
-    JSON.parse(body);
-  } catch {
-    return NextResponse.json({ kind: "invalid" }, { status: 200 });
-  }
-  if (body.length > MAX_BODY_CHARS) {
-    return NextResponse.json({ kind: "invalid" }, { status: 200 });
-  }
-
-  const headers = { "Content-Type": "application/json", Accept: "application/json" };
   if (tokenRequired()) {
     try {
       headers.Authorization = `Bearer ${await accessToken()}`;
@@ -54,8 +43,8 @@ export async function POST(request) {
 
   let upstream;
   try {
-    upstream = await fetch(url, {
-      method: "POST",
+    upstream = await fetch(target, {
+      method,
       headers,
       body,
       cache: "no-store",
@@ -91,4 +80,38 @@ export async function POST(request) {
     return NextResponse.json({ kind: "rejected", data }, { status: 200 });
   }
   return unavailable(`HTTP ${upstream.status}`);
+}
+
+// Start a request (synchronous agents) or a job (asynchronous agents).
+export async function POST(request) {
+  const url = agentUrl();
+  if (!url) {
+    return unavailable("AGENT_BASE_URL or AGENT_PATH is missing in .env.local");
+  }
+
+  let body;
+  try {
+    body = await request.text();
+    JSON.parse(body);
+  } catch {
+    return NextResponse.json({ kind: "invalid" }, { status: 200 });
+  }
+  if (body.length > MAX_BODY_CHARS) {
+    return NextResponse.json({ kind: "invalid" }, { status: 200 });
+  }
+  return forward(url, "POST", body);
+}
+
+// Read the status of a job of an asynchronous agent (Spec 024): GET ?job=<id>
+// becomes GET AGENT_BASE_URL + AGENT_PATH + "/" + <id>.
+export async function GET(request) {
+  const url = agentUrl();
+  if (!url) {
+    return unavailable("AGENT_BASE_URL or AGENT_PATH is missing in .env.local");
+  }
+  const job = new URL(request.url).searchParams.get("job") || "";
+  if (!JOB_ID.test(job)) {
+    return NextResponse.json({ kind: "invalid" }, { status: 200 });
+  }
+  return forward(`${url}/${job}`, "GET", undefined);
 }

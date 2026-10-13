@@ -98,7 +98,8 @@ Never invent business content: what the specification does not say goes under
 1. Perform the target platform check.
 2. Read `agent-spec.md` and `agent.yaml`. Stop and explain if `ui/` already
    exists (never overwrite), or if the agent has no single JSON business
-   endpoint. Both profiles are supported: `public-noauth`, and `public-idcs`
+   endpoint (or the asynchronous pair of [Spec 024](../../specs/024-asynchronous-agents.md):
+   a POST that starts a job and a GET for its status). Both profiles are supported: `public-noauth`, and `public-idcs`
    through a token obtained by the local server ([Spec 022](../../specs/022-idcs-credentials-for-ui-and-verifier.md)).
 3. Read the [UI guidelines](references/ui-guidelines.md). Copy
    [the UI specification template](assets/ui-spec.template.md) to
@@ -117,6 +118,8 @@ Never invent business content: what the specification does not say goes under
    Replace `{{UI_NAME}}` in `ui/package.json` (the agent name, lowercase,
    hyphens only) and `{{UI_TITLE}}` in `ui/README.md`. Write
    `ui/app/demo-config.js` from the approved UI specification (guideline T1).
+   For an asynchronous agent, set `mode: "async"` and list in `steps` each
+   step `name` of the agent with its business label (guideline T6).
    Do not change `ui/app/api/agent/route.js` (T2). Then add or refresh the
    customer-name rules in the agent repository's `AGENTS.md`; it never changes
    other content:

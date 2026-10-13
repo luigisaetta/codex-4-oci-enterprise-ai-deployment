@@ -63,3 +63,9 @@ scripts.
 **T5. Next.js 16.** Before writing code beyond `demo-config.js`, read the
 documentation shipped in `ui/node_modules/next/dist/docs/` after `npm
 install`: its APIs differ from older versions.
+
+**T6. Asynchronous agents.** For an agent that starts a job and reports its
+status (Spec 024), set `mode: "async"` and `steps` in `demo-config.js`; the
+template page polls the status through the bridge and shows each step with
+its business label (E1), then the result. Never show `job_id`, step names,
+or statuses as raw values.

@@ -23,6 +23,14 @@ What the agent does, for whom, in one paragraph.
 * Endpoint: `POST /<path>`
 * Request (JSON): field, type, constraints, example.
 * Response (JSON): fields returned on success, and on a rejected request.
+* Asynchronous agents (guideline B8): `POST /<path>` answers 202 with a
+  `job_id`, `GET /<path>/{job_id}` answers the status, the steps, and the
+  result.
+
+## Steps
+
+Only for asynchronous agents: each step in order, with its `name` and what it
+does (for example, `extract`: the LLM extracts the requirements).
 
 ## Behavior
 

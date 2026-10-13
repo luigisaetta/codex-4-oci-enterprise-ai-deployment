@@ -174,3 +174,12 @@ button.primary:disabled {
   padding: 12px;
   border-radius: 8px;
 }
+
+/* Steps of an asynchronous agent (Spec 024). */
+.steps ol { list-style: none; margin: 0; padding: 0; }
+.steps .step { display: flex; gap: 0.6rem; align-items: center; padding: 0.35rem 0; color: #6b7280; }
+.steps .step .mark { width: 1.2rem; text-align: center; font-weight: 700; }
+.steps .step.running { color: #1f2933; font-weight: 600; }
+.steps .step.completed { color: #1f2933; }
+.steps .step.completed .mark { color: #15803d; }
+.steps .step.failed .mark { color: #b91c1c; }

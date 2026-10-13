@@ -16,9 +16,16 @@
 // - messages: plain-language texts for an invalid input, a rejected request
 //   without its own message, and an unavailable service.
 // - technicalView: false unless the developer asked for it explicitly.
+// - mode: "sync" (one request, one answer) or "async" for agents that start a
+//   job and report its status (Spec 024); then `steps` lists each step `name`
+//   of the agent with its business `label`, in order, and `result` reads the
+//   job's `result`. messages.failed is shown when a job fails without its own
+//   business message.
 
 export const demo = {
   language: "en",
+  mode: "sync",
+  steps: [],
   title: "Replace with the demo title",
   story: "Replace with the use case, in one sentence for the persona.",
   input: {
@@ -53,6 +60,7 @@ export const demo = {
     rejected: "The request could not be completed.",
     unavailable: "The service is temporarily unavailable. Please try again in a moment.",
     working: "Working on your request…",
+    failed: "The request could not be completed. Please try again.",
   },
   technicalView: false,
 };

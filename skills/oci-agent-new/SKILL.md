@@ -119,7 +119,7 @@ the agent behavior, endpoint, or model identifier.
 | OCIR repository | `publish.repository`; `^[a-z0-9][a-z0-9._/-]*$`, without `//`. | Helper supplies `agents/<agent-name>` (lowercase). |
 | Business endpoint | `POST` path, request and response fields and types. | None: ask for whatever is missing. |
 | Agent behavior | What the endpoint computes, in plain language. | None: ask. |
-| Functional check | One request body and expected status; expected JSON only for deterministic results. | Derive from behavior and endpoint; show for confirmation. |
+| Functional check | One request body and expected status; expected JSON only for deterministic results. For an asynchronous agent, also a `poll` check (guideline B8). | Derive from behavior and endpoint; show for confirmation. |
 | Runtime variables | Only those named in inputs; source `value`, `from_env`, or `vault_secret_id`. | None. |
 
 ## Specification draft
@@ -148,10 +148,14 @@ code from the approved specification only, applying the code-quality rules
 ## Requests outside the supported shape
 
 Calls to OCI Generative AI are part of the supported shape: follow the
-[agent guidelines](references/agent-guidelines.md) (B1, B2, Q1–Q4) without
-asking whether to proceed.
+[agent guidelines](references/agent-guidelines.md) (B1, B2, Q1–Q4, Q6)
+without asking whether to proceed. So is the **asynchronous** shape of
+guideline B8 (a POST that starts a job, a GET that reads its status), for
+agents with several LLM steps or long requests
+([Spec 024](../../specs/024-asynchronous-agents.md)); use it without asking,
+and say in the draft that the agent is asynchronous.
 
-For GET business endpoints, multiple endpoints, streaming, file uploads, calls
+For other GET business endpoints, more endpoints, streaming, file uploads, calls
 to OCI services other than Generative AI, or other additions outside the
 supported shape, name the requested parts and ask whether to proceed. If
 declined, stop or use the supported shape only if requested. If approved,
@@ -220,6 +224,8 @@ message.
 7. Edit only the new `agent.yaml` created in this session: replace `verify: []`
    with the confirmed functional check. Add `runtime` only for requested
    variables, using the [manifest reference](../../docs/agent-manifest-reference.md).
+   For an asynchronous agent, also add `deploy.scaling` with one replica and
+   the `poll` check of guideline B8.
 8. Create `requirements.txt`, `<package>/__init__.py`, `<package>/app.py`, and
    `<package>/agent.py` within C1–C8; `__init__.py` contains only the module
    header. Recheck their absence before writing. After render, edit only files
@@ -273,7 +279,7 @@ message.
 | --- | --- |
 | C1 | Python 3.11 package, FastAPI, Uvicorn on `0.0.0.0:8080` using the template CMD. |
 | C2 | GET `/health` returns HTTP 200 with JSON; `/ready` returns JSON and HTTP 200 after initialization, non-200 before it completes. |
-| C3 | Exactly one POST business endpoint, JSON requests and responses validated with Pydantic models. |
+| C3 | Exactly one POST business endpoint, or the asynchronous pair of guideline B8 (POST to start, GET for the status); JSON requests and responses validated with Pydantic models. |
 | C4 | Separate HTTP handling in `app.py` from logic in `agent.py` in the same package. Use LangGraph only when requested. |
 | C5 | Stateless container, writes only under `/tmp`; no network calls or file writes at import time. |
 | C6 | No credentials, tokens, or secrets in any generated file, including the manifest. |

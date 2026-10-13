@@ -152,35 +152,90 @@ def validate_path(
     return str(resolved)
 
 
+JOB_PLACEHOLDER = "{job_id}"
+
+
+def safe_path(value: Any) -> bool:
+    """Return whether a check path is a safe absolute HTTP path."""
+    return (
+        isinstance(value, str)
+        and value.startswith("/")
+        and not value.startswith("//")
+        and ".." not in value
+    )
+
+
+def bounded_integer(value: Any, low: int, high: int) -> bool:
+    """Return whether a manifest value is an integer between two bounds."""
+    return (
+        isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+    )
+
+
+def validate_poll(value: Any, location: str) -> dict[str, Any]:
+    """Validate the polling section of an asynchronous check (Spec 024).
+
+    Args:
+        value: ``verify[i].poll`` object.
+        location: Manifest location used in error messages.
+
+    Returns:
+        The polling section with its defaults applied.
+
+    Raises:
+        ManifestError: If the section is incomplete or out of range.
+    """
+    poll = require_object(value, location)
+    fail_unknown_keys(
+        poll, {"path", "until_status", "timeout_seconds", "interval_seconds"}, location
+    )
+    if not safe_path(poll.get("path")) or JOB_PLACEHOLDER not in poll["path"]:
+        raise ManifestError(
+            f"{location}.path must be a safe absolute path "
+            f"containing {JOB_PLACEHOLDER}."
+        )
+    if not isinstance(poll.get("until_status"), str) or not poll["until_status"]:
+        raise ManifestError(f"{location}.until_status must be a non-empty string.")
+    poll.setdefault("timeout_seconds", 300)
+    poll.setdefault("interval_seconds", 3)
+    if not bounded_integer(poll["timeout_seconds"], 1, 1800):
+        raise ManifestError(
+            f"{location}.timeout_seconds must be an integer from 1 to 1800."
+        )
+    if not bounded_integer(poll["interval_seconds"], 1, 60):
+        raise ManifestError(
+            f"{location}.interval_seconds must be an integer from 1 to 60."
+        )
+    return poll
+
+
 def validate_check(value: Any, index: int) -> dict[str, Any]:
     """Validate one functional HTTP check from a manifest."""
     location = f"verify[{index}]"
     check = require_object(value, location)
     fail_unknown_keys(
-        check, {"method", "path", "body", "expect_status", "expect_json"}, location
+        check,
+        {"method", "path", "body", "expect_status", "expect_json", "poll", "local"},
+        location,
     )
     method = check.get("method")
-    path = check.get("path")
     status = check.get("expect_status")
     if method not in {"GET", "POST"}:
         raise ManifestError(f"{location}.method must be GET or POST.")
-    if (
-        not isinstance(path, str)
-        or not path.startswith("/")
-        or path.startswith("//")
-        or ".." in path
-    ):
+    if not safe_path(check.get("path")):
         raise ManifestError(f"{location}.path must be a safe absolute path.")
-    if (
-        not isinstance(status, int)
-        or isinstance(status, bool)
-        or not 100 <= status <= 599
-    ):
+    if not bounded_integer(status, 100, 599):
         raise ManifestError(f"{location}.expect_status must be an HTTP status integer.")
     if method == "GET" and "body" in check:
         raise ManifestError(f"{location}.body is supported only for POST checks.")
     if "expect_json" in check and not isinstance(check["expect_json"], dict):
         raise ManifestError(f"{location}.expect_json must be an object.")
+    if "poll" in check:
+        if method != "POST":
+            raise ManifestError(f"{location}.poll is supported only for POST checks.")
+        check["poll"] = validate_poll(check["poll"], f"{location}.poll")
+    if "local" in check and not isinstance(check["local"], bool):
+        raise ManifestError(f"{location}.local must be true or false.")
     return check
 
 
@@ -764,9 +819,15 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description="Validate an OCI agent manifest.")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    checks_parser = subparsers.add_parser("checks")
+    checks_parser.add_argument("--manifest", required=True)
+    checks_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Only the checks that the local image verification runs.",
+    )
     for command in (
         "validate",
-        "checks",
         "runtime-matches",
         "inbound-auth",
         "inbound-auth-matches",
@@ -811,7 +872,11 @@ def main() -> int:
         elif args.command == "get":
             print(value_for_path(manifest, args.field))
         elif args.command == "checks":
-            print(json.dumps(manifest["verify"], separators=(",", ":")))
+            checks = manifest["verify"]
+            if args.local:
+                # Spec 024: local: false checks run only in the remote verification.
+                checks = [check for check in checks if check.get("local", True)]
+            print(json.dumps(checks, separators=(",", ":")))
         elif args.command == "runtime-env":
             print_runtime_environment(manifest, args.format)
         elif args.command in MATCHERS:

@@ -141,7 +141,7 @@ while :; do
     sleep 1
 done
 if [ -n "$manifest" ]; then
-    checks_json=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" checks --manifest "$manifest")
+    checks_json=$("$OCI_AGENT_PYTHON" "$script_dir/agent_manifest.py" checks --local --manifest "$manifest")
     printf '%s' "$checks_json" | "$OCI_AGENT_PYTHON" "$script_dir/run_manifest_checks.py" --base-url "$base_url" --timeout-seconds "$timeout_seconds"
 elif [ -n "$post_path" ]; then
     if ! code=$(curl --silent --show-error --noproxy '*' --connect-timeout "$timeout_seconds" --max-time "$timeout_seconds" --output "$work_dir/post.body" --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data-raw "$post_body" "$base_url$post_path"); then

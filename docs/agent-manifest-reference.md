@@ -217,10 +217,47 @@ not listed here. Use `verify: []` for no functional check.
 | `path` | yes | Absolute path starting with `/`; no `//` prefix and no `..`. | `/analyze` |
 | `body` | no | JSON body; `POST` only. | `{text: Hello}` |
 | `expect_status` | yes | HTTP status code (100–599). | `200` |
-| `expect_json` | no | JSON object that the response must **contain**: every listed key must be present with that value; other keys in the response are ignored. | `{words: 6}` |
+| `expect_json` | no | JSON object that the response must **contain**: every listed key must be present with that value; other keys in the response are ignored. With `poll`, it applies to the final status response. | `{words: 6}` |
+| `poll` | no | For asynchronous agents, `POST` only: after the start request, read the job status until it ends (see below). | see below |
+| `local` | no | `false`: the local verification of the image skips the check; the remote verification runs it. Default `true`. | `false` |
 
 For `public-idcs` agents, the post-deployment checks send the access token
 automatically.
+
+**Asynchronous agents** ([Spec 024](../specs/024-asynchronous-agents.md)):
+the start request answers with a `job_id`; `poll` reads the status at a path
+that contains `{job_id}` until `status` equals `until_status`. A `failed` job,
+a 404, or the timeout fail the check.
+
+| `poll` field | Required | Rule | Default |
+| --- | --- | --- | --- |
+| `path` | yes | Absolute path containing `{job_id}`. | — |
+| `until_status` | yes | Final status that passes the check, for example `completed`. | — |
+| `timeout_seconds` | no | 1–1800. | `300` |
+| `interval_seconds` | no | 1–60, between two status requests. | `3` |
+
+```yaml
+verify:
+  # Deterministic: an invalid start request is rejected, no LLM needed.
+  - method: POST
+    path: /analyses
+    body: {}
+    expect_status: 400
+  # The full job; with Resource Principal it can run only in OCI.
+  - method: POST
+    path: /analyses
+    body: {text: "Example document"}
+    expect_status: 202
+    local: false
+    poll:
+      path: /analyses/{job_id}
+      until_status: completed
+      timeout_seconds: 300
+    expect_json: {status: completed}
+```
+
+An asynchronous agent keeps its jobs in memory, so its manifest sets one
+replica (`deploy.scaling`).
 
 ## Never put in `agent.yaml`
 

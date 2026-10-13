@@ -214,3 +214,17 @@ def test_idcs_token_module_requests_caches_and_refreshes(tmp_path: Path) -> None
     assert "grant_type=client_credentials" in first["body"]
     assert "scope=https%3A%2F%2Faud%2Finvoke" in first["body"]
     assert "csecret" not in result.stdout.replace(first["auth"], "")
+
+
+def test_template_supports_asynchronous_agents() -> None:
+    """The bridge reads job status safely and the page polls it (Spec 024)."""
+    sources = template_text()
+    route = sources["app/api/agent/route.js"]
+    page = sources["app/page.jsx"]
+    config = sources["app/demo-config.js"]
+    assert "export async function GET(request)" in route
+    assert "const JOB_ID = /^[A-Za-z0-9_-]{1,128}$/;" in route
+    assert 'searchParams.get("job")' in route
+    assert "/api/agent?job=" in page and 'demo.mode === "async"' in page
+    assert 'mode: "sync"' in config and "steps: []" in config
+    assert "failed:" in config

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* 2026-10-13: Asynchronous agents (Spec 024). `oci-agent-new` supports agents
+  that start a job with a POST (202, `job_id`) and report its steps and
+  result with a GET (guideline B8, one replica). Functional checks can follow
+  a job (`poll`) and be limited to the remote verification (`local: false`).
+  The demo UI template polls the job, shows each step with its business
+  label, and then the result. New guideline Q6 on conversation history with
+  the OCI Responses API.
+
 * 2026-10-13: Number of replicas at creation (Spec 023). An optional
   `deploy.scaling` section (`min_replicas`, `max_replicas`, 1 to 30) sets
   the replicas when the Hosted Application is created; the plan shows them,

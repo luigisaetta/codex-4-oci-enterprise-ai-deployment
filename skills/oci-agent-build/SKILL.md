@@ -101,6 +101,8 @@ Example with a user-supplied tag of `0.1.0`:
 ```
 
 The manifest verifier checks the configured response status and JSON subset.
+It follows asynchronous jobs (`poll`), and skips checks marked `local: false`,
+which run only in the remote verification ([Spec 024](../../specs/024-asynchronous-agents.md)).
 It also injects `runtime.env` literal and `from_env` variables into the local
 container. A Vault entry is skipped unless `OCI_AGENT_VAULT_<VARIABLE_NAME>` is
 set in the operator environment; the override is never displayed.

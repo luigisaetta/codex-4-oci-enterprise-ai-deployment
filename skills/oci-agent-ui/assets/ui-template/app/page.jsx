@@ -5,6 +5,53 @@
 import { useState } from "react";
 import { demo } from "./demo-config";
 
+const POLL_MS = 2000;
+const MAX_WAIT_MS = 15 * 60 * 1000;
+const STEP_MARKS = { completed: "✓", running: "…", failed: "✗", pending: "○" };
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Asynchronous agents (Spec 024): poll the job until it ends, reporting steps.
+async function waitForJob(jobId, onSteps) {
+  const started = Date.now();
+  while (Date.now() - started < MAX_WAIT_MS) {
+    await pause(POLL_MS);
+    let answer;
+    try {
+      const response = await fetch(`/api/agent?job=${encodeURIComponent(jobId)}`);
+      answer = await response.json();
+    } catch {
+      return { kind: "unavailable" };
+    }
+    if (answer.kind !== "ok") return answer;
+    const job = answer.data || {};
+    onSteps(job.steps || []);
+    if (job.status === "completed") return { kind: "ok", data: job.result || {} };
+    if (job.status === "failed") return { kind: "failed", message: job.error?.message };
+  }
+  return { kind: "unavailable" };
+}
+
+function Steps({ steps }) {
+  if (!demo.steps?.length) return null;
+  const status = Object.fromEntries(steps.map((step) => [step.name, step.status]));
+  return (
+    <section className="card steps">
+      <ol>
+        {demo.steps.map((step) => {
+          const state = status[step.name] || "pending";
+          return (
+            <li key={step.name} className={`step ${state}`}>
+              <span className="mark">{STEP_MARKS[state] || STEP_MARKS.pending}</span>
+              <span>{step.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 function readPath(data, path) {
   if (!path) return undefined;
   return path.split(".").reduce((value, key) => (value == null ? value : value[key]), data);
@@ -86,6 +133,13 @@ function ResultField({ field, data }) {
 }
 
 function Result({ answer }) {
+  if (answer.kind === "failed") {
+    return (
+      <section className="card notice warning">
+        <p>{answer.message || demo.messages.failed}</p>
+      </section>
+    );
+  }
   if (answer.kind === "unavailable" || answer.kind === "invalid") {
     return (
       <section className="card notice warning">
@@ -121,6 +175,7 @@ export default function Page() {
   const [values, setValues] = useState(initialValues);
   const [answer, setAnswer] = useState(null);
   const [working, setWorking] = useState(false);
+  const [steps, setSteps] = useState(null);
 
   const update = (name, value) => setValues((current) => ({ ...current, [name]: value }));
 
@@ -128,6 +183,7 @@ export default function Page() {
     event.preventDefault();
     setWorking(true);
     setAnswer(null);
+    setSteps(null);
     const payload = Object.fromEntries(
       demo.input.fields.map((field) => [
         field.name,
@@ -140,7 +196,14 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      setAnswer(await response.json());
+      const answer = await response.json();
+      const jobId = answer.kind === "ok" ? answer.data?.job_id : undefined;
+      if (demo.mode === "async" && jobId) {
+        setSteps(answer.data.steps || []);
+        setAnswer(await waitForJob(jobId, setSteps));
+      } else {
+        setAnswer(answer);
+      }
     } catch {
       setAnswer({ kind: "unavailable" });
     } finally {
@@ -181,6 +244,7 @@ export default function Page() {
           </button>
         </form>
       </section>
+      {steps && <Steps steps={steps} />}
       {answer && <Result answer={answer} />}
     </main>
   );

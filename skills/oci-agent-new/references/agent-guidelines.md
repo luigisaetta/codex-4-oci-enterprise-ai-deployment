@@ -65,6 +65,34 @@ demos (`tool_config.py demo-customer`, default `Supremo`). The real
 customer's name stays in the conversation and never reaches a file (Spec 020).
 *Why:* the files are shown during demos and may be shared.
 
+**B8. Asynchronous agents.** Use the asynchronous contract of
+[Spec 024](../../../specs/024-asynchronous-agents.md) when the agent runs more
+than one LLM call per request, or a request can take more than about 20
+seconds:
+
+* `POST /<path>` validates the input synchronously (400 with the B3 schema),
+  then answers **202** with `{"job_id", "status": "queued", "steps"}`;
+* `GET /<path>/{job_id}` answers 200 with `job_id`, `status` (`queued`,
+  `running`, `completed`, `failed`), every step with its `name` and `status`,
+  `result` when completed, and `error` (`code`, business `message`) when
+  failed; 404 for an unknown or expired job; 429 for too many jobs;
+* jobs in memory, at most 10 at a time, removed 30 minutes after they end;
+  `job_id` of letters, digits, `-`, and `_`;
+* the job runs in the background (`asyncio`), with a timeout per step and for
+  the whole job; independent steps run in parallel;
+* a failed step fails the job with a business message; the cause is logged;
+* `deploy.scaling: {min_replicas: 1, max_replicas: 1}` in the manifest
+  ([Spec 023](../../../specs/023-replica-scaling-at-creation.md)): the jobs
+  live in one replica;
+* functional checks: the deterministic one (B5) sends an invalid start
+  request and expects 400; the full job is a polling check (`poll`), with
+  `local: false` when the agent uses Resource Principal, which works only in
+  OCI.
+
+Write the steps in the specification's **Steps** section.
+*Why:* a request with several LLM calls exceeds the 60-second limit of the
+verifier and the gateway's timeouts; one replica keeps the jobs reachable.
+
 ## Code-quality rules (into the code)
 
 **Q1. LLM calls.** Use the OCI OpenAI-compatible endpoint
@@ -123,3 +151,16 @@ check (B5) keeps the build verification green.
 **Q5. Style.** Module header on every Python file, docstrings on public
 functions and classes, lines under 100 characters, and HTTP handling
 (`app.py`) separate from logic (`agent.py`).
+
+**Q6. Conversation history.** With the OCI Responses API, replay previous
+assistant turns as assistant messages with `output_text` content, never as
+plain strings:
+
+```python
+{"type": "message", "role": "assistant",
+ "content": [{"type": "output_text", "text": previous_answer, "annotations": []}]}
+```
+
+*Why:* the service rejects an assistant turn sent as a string ("Invalid value:
+'input_text'. Supported values are: 'output_text' and 'refusal'"); found in
+two real agents in October 2026.

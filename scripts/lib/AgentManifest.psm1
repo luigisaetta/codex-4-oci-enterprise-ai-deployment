@@ -64,7 +64,7 @@ function Invoke-ManifestChecks {
         [Parameter(Mandatory)] [string]$BaseUrl,
         [Parameter(Mandatory)] [int]$TimeoutSeconds
     )
-    $checks = Invoke-AgentManifestCommand -Arguments @('checks', '--manifest', $Manifest)
+    $checks = Invoke-AgentManifestCommand -Arguments @('checks', '--local', '--manifest', $Manifest)
     if ($LASTEXITCODE -ne 0) {
         return
     }

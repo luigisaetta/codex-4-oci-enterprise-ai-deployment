@@ -138,7 +138,7 @@ not print or resolve Vault values.
 | --- | --- |
 | 0 | Application, deployment, tag, health, and readiness checks passed. |
 | 1 | Python with PyYAML, required OCI CLI (or, in Bash, curl) executable, or OCI operation is unavailable or failed. |
-| 13 | A functional check failed (only with `--functional`). |
+| 13 | A functional check failed (only with `--functional`), including an asynchronous job that failed, disappeared, or did not finish within its `poll.timeout_seconds` ([Spec 024](../../specs/024-asynchronous-agents.md)). |
 | 20 | Hosted Application is not `ACTIVE`. |
 | 21 | The application does not have exactly one `ACTIVE` Hosted Deployment, or its deployment remains `UPDATING` when the time budget ends. |
 | 22 | The active artifact tag differs from the expected tag. |

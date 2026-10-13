@@ -201,6 +201,7 @@ release. Every field, with complete examples for both access modes, is in the
 | [Agent manifest reference](docs/agent-manifest-reference.md) | Write `agent.yaml`. |
 | [IAM policies](docs/iam-policies.md) | Prepare the permissions for operators and Hosted Applications. |
 | [Logging in to OCIR](docs/ocir-login.md) | Build the registry username, generate the auth token, and log in. |
+| [Protecting an agent with JWT tokens](docs/idcs-confidential-application.md) | Create the identity-domain confidential application for the `public-idcs` profile, test a token, and fill in `agent.yaml`. |
 | [hello_world demo](demos/hello_world/README.md) | Run the reference FastAPI/LangGraph agent. |
 | [Specifications](specs/) | See design decisions, acceptance criteria, and verification records. |
 

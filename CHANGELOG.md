@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-13: New guide [Protecting an agent with JWT tokens](docs/idcs-confidential-application.md):
+  create and activate the identity-domain confidential application
+  (resource server with audience and scope, client credentials), test a
+  token without showing it, fill in `deploy.auth`, and troubleshoot.
+
 * 2026-10-13: Protect the tool home (Spec 021). Getting started step 9 now
   releases the example agent from a copy outside the tool home; the tool's
   `AGENTS.md` starts with rules for sessions that use the skills (no edits to

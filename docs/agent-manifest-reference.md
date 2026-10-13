@@ -25,6 +25,8 @@ profile decides whether a token is required.
 * **Unprotected agent:** `profile: public-noauth`, and no `auth` section.
 * **Agent protected with JWT tokens:** `profile: public-idcs`, and an `auth`
   section with the three values given by your identity-domain administrator.
+  How to create the confidential application that provides them, step by
+  step: [Protecting an agent with JWT tokens](idcs-confidential-application.md).
 
 The access mode is fixed when the Hosted Application is created. The skills do
 not change it on an existing application: to switch an agent from one mode to

@@ -179,7 +179,9 @@ security posture.
 
 Blocker: the test needs the domain URL, audience, scope, client ID, and client
 secret of a confidential application (new or reused) from the
-identity-domain administrator.
+identity-domain administrator. Step-by-step creation:
+[Protecting an agent with JWT tokens](docs/idcs-confidential-application.md)
+(2026-10-13).
 
 Tests to do, in eu-frankfurt-1, with explicit authorization:
 

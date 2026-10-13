@@ -1,6 +1,6 @@
 # Spec 023: number of replicas at creation
 
-Status: implemented; offline checks passed; live acceptance pending.
+Status: implemented; offline checks and live acceptance passed (2026-10-13).
 Date: 2026-10-13.
 Implements step A of TODO item 12 (scaling at creation), limited to the
 number of replicas.
@@ -117,3 +117,14 @@ replica and find no job.
   145 skipped (all `pwsh is unavailable`); Black and Pylint (10.00/10)
   passed.
 * Pending: acceptance criterion 2 (live).
+
+### 2026-10-13, live acceptance (criterion 2)
+
+* Agent `async-order-check` (Spec 024 acceptance agent), first release with
+  `deploy.scaling: {min_replicas: 1, max_replicas: 1}`, macOS, Bash, through
+  the skills. A read-only `hosted-application get` reported `min-replica` 1,
+  `max-replica` 1, `scaling-type` `REQUESTS_PER_SECOND`, `target-rps-threshold`
+  50.
+* F4 confirmed again: `express-order-demo-rp-idcs`, created the same day
+  without the section, reports `min-replica` 1 and `max-replica` 3 with the
+  same metric and threshold.

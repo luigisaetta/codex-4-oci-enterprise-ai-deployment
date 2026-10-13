@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-10-13
+
+Asynchronous agents, protected agents end to end, and safer operation. See
+the [release notes](docs/releases/v0.7.0.md).
+
 * 2026-10-13: Guideline B8 of `oci-agent-new` now asks for the asynchronous
   behavior in plain words in the specification; the implementation details
   moved to the new code rule Q7.

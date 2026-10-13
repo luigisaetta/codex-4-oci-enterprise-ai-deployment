@@ -1,6 +1,6 @@
 # Spec 024: asynchronous agents (start a job, then read its status)
 
-Status: implemented; offline checks passed; live acceptance pending (agent to be chosen).
+Status: implemented; offline checks and live acceptance passed (2026-10-13).
 Date: 2026-10-13.
 Amends [Spec 011](011-skill-oci-agent-new.md) and
 [Spec 017](017-oci-agent-new-llm-agents-supported.md) (supported shape),
@@ -211,3 +211,14 @@ the asynchronous mechanics, the gateway, or the UI, not to a model:
   `tests/test_skills.py`. Full suite: 410 passed, 145 skipped (all `pwsh is
   unavailable`); Black and Pylint (10.00/10) passed.
 * Pending: acceptance criterion 2, with an agent chosen later.
+
+### 2026-10-13, live acceptance (criterion 2, operator-reported)
+
+* The acceptance agent `async-order-check` was created with `oci-agent-new`
+  in a new Codex session (after the B8 amendment), built, released with
+  `public-idcs` and one replica (Spec 023 record), and verified; its demo UI
+  was created with `oci-agent-ui`. The operator reported that everything
+  worked: local verification with the polling check, remote verification
+  with the token on repeated status requests, and the UI showing the steps,
+  the result, and the failed job. Details of the session were not recorded
+  here.

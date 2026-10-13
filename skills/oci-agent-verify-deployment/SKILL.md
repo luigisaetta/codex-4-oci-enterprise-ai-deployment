@@ -106,8 +106,8 @@ they mean. Never switch platform silently.
    ```
 
 3. Only after resource checks pass, the script polls authenticated health and
-   readiness for `public-idcs`, then checks unauthenticated `/health` (401 or
-   403 expected), then runs optional functional checks with the token. A 200
+   readiness for `public-idcs`, then checks unauthenticated `/health` (401,
+   403, or 404 expected; 404 observed live), then runs optional functional checks with the token. A 200
    health response with non-200 readiness means the container is running but
    not ready; polling continues within the configured timeout.
 4. Report the application and deployment OCIDs, release tag, endpoint host, both

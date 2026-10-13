@@ -1,6 +1,7 @@
 # Spec 010: JWT inbound authentication for Hosted Applications
 
-Status: implemented (Bash; PowerShell unexecuted); live acceptance pending.
+Status: implemented (Bash; PowerShell unexecuted); live release and protected
+probes verified on 2026-10-13; U4 corrected (404); functional checks pending.
 Date: 2026-09-30.
 
 ## Problem
@@ -287,3 +288,28 @@ only in the shell that runs the verifier.
   unexecuted. Documentation-only review confirmed that every relative Markdown
   link in the edited files resolves. Live acceptance remains pending
   confidential-application credentials.
+
+### 2026-10-13, live release (macOS, Bash, through the skills)
+
+* Agent `express_order_rp` released as a new application,
+  `express-order-demo-rp-idcs`, tag 0.2.0, profile `public-idcs`, with an
+  existing confidential application: audience `codex` (not a URL), scope
+  `invoke`. Plan: "First release", "public endpoint, identity-domain token
+  required". Application `ACTIVE` after 62 seconds, deployment `ACTIVE` after
+  92 seconds.
+* The client ID and secret came only from the tool's `.env` (Spec 022).
+* Confirmed: U1 (host `inference.generativeai.<region>…`), U2 (bearer
+  header), U3 (`/health` and `/ready` answered 200 with the token), U5 (token
+  scope `<audience><scope>`, here `codexinvoke`), U6 (HTTP Basic client
+  authentication).
+* **Contradicted: U4.** The request without a token was rejected with
+  **404**, not 401 or 403. The verifier stopped with exit 23. Correction: the
+  verifier (Bash and PowerShell) now accepts 401, 403, or 404 as rejection
+  and still exits 25 on a 2xx answer; tests cover 404, 403, 500, and no
+  answer.
+* Pending: the functional checks with the token, skipped by the stop; rerun
+  the verification after the correction.
+* Side finding: Codex's automatic review blocked a script of the push step
+  because the `AGENTS.md` block said that read-only IAM inspection needs a
+  user request; the block now states that the skills' compartment and region
+  lookups are normal operation.

@@ -106,7 +106,8 @@ probe_unauthenticated_health() {
   local probe_url="${endpoint_base}/health"
   local code=""
 
-  # U4: a protected endpoint must reject a request without a token.
+  # U4, observed live 2026-10-13: a request without a token is rejected with 404;
+  # 401 and 403 are accepted too. A 2xx status means the endpoint is not protected.
   code="$(curl --silent --show-error --output /dev/null \
     --write-out '%{http_code}' \
     --connect-timeout "$request_timeout_seconds" \
@@ -117,8 +118,9 @@ probe_unauthenticated_health() {
     printf '%s\n' 'The endpoint accepted a request without a token' >&2
     exit "$EXIT_UNAUTHENTICATED_ACCEPTED"
   fi
-  if [[ "$unauthenticated_status" != 401 && "$unauthenticated_status" != 403 ]]; then
-    printf 'Unauthenticated health request returned HTTP %s; expected 401 or 403.\n' \
+  if [[ "$unauthenticated_status" != 401 && "$unauthenticated_status" != 403 && \
+    "$unauthenticated_status" != 404 ]]; then
+    printf 'Unauthenticated health request returned HTTP %s; expected 401, 403, or 404.\n' \
       "$unauthenticated_status" >&2
     exit "$EXIT_PROBE_TIMEOUT"
   fi

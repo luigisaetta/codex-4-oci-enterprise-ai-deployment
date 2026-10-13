@@ -231,8 +231,9 @@ while ($true) {
       if ($unauthenticatedStatus -match '^2[0-9][0-9]$') {
         Fail 25 'The endpoint accepted a request without a token'
       }
-      if ($unauthenticatedStatus -ne '401' -and $unauthenticatedStatus -ne '403') {
-        Fail 23 "Unauthenticated health request returned HTTP $unauthenticatedStatus; expected 401 or 403."
+      # U4, observed live 2026-10-13: a request without a token is rejected with 404.
+      if ($unauthenticatedStatus -notin @('401', '403', '404')) {
+        Fail 23 "Unauthenticated health request returned HTTP $unauthenticatedStatus; expected 401, 403, or 404."
       }
     }
     if ($Functional) {

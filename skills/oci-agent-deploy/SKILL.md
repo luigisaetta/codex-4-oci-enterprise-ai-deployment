@@ -204,5 +204,6 @@ an existing deployment. It deletes only a `FAILED` deployment on an explicitly
 requested and approved replacement plan.
 
 IAM belongs to the tenancy administrator. When a release fails on permissions,
-report what is missing and stop. Never create, modify, or delete dynamic groups, policies, groups, users, or identity domains, never retry in another compartment, and never write scripts or commands that bypass this skill, even if the user asks to fix the problem. Read-only IAM inspection is allowed
+report what is missing and stop. The compartment and region lookups of the
+scripts are normal operation. Never create, modify, or delete dynamic groups, policies, groups, users, or identity domains, never retry in another compartment, and never write scripts or commands that bypass this skill, even if the user asks to fix the problem. Read-only IAM inspection is allowed
 only when the user asks for it.

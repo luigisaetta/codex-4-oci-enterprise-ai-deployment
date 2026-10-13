@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-13: First live `public-idcs` release (Spec 010). The service
+  rejects a request without a token with 404: the verifier now accepts 401,
+  403, or 404 as rejection, and the demo UI bridge refreshes its token after
+  any of them. The `AGENTS.md` block states that the skills' compartment and
+  region lookups are normal operation.
+
 * 2026-10-13: Identity-domain credentials for the demo UI and the verifier
   (Spec 022). The demo UI of `oci-agent-ui` now supports agents with the
   `public-idcs` profile: its local server requests a client-credentials token

@@ -368,6 +368,21 @@ def test_idcs_token_failure_is_sanitized(tmp_path: Path) -> None:
     assert ACCESS_TOKEN not in result.stderr
 
 
+@pytest.mark.parametrize(
+    ("status", "expected_code"), [("404", 0), ("403", 0), ("500", 23), ("000", 23)]
+)
+def test_idcs_unauthenticated_rejection_statuses(
+    tmp_path: Path, status: str, expected_code: int
+) -> None:
+    """404 (observed live), 401, and 403 count as rejection; other codes fail."""
+    result = run_verifier(tmp_path, unauthenticated_status=status)
+    assert result.returncode == expected_code, result.stderr
+    if expected_code == 0:
+        assert f"unauthenticated_status={status} result=PASS" in result.stdout
+    else:
+        assert "expected 401, 403, or 404" in result.stderr
+
+
 def test_idcs_accepted_unauthenticated_request_stops(tmp_path: Path) -> None:
     """A protected application accepting anonymous health requests returns exit 25."""
     result = run_verifier(tmp_path, unauthenticated_status=200)

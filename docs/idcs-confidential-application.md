@@ -214,7 +214,7 @@ Run it from the folder where you saved it:
 ```
 
 Expected: `Token issued for scope …`, then the claims. When the agent later
-answers 401, compare `aud` and `scope` in the claims with `deploy.auth` in
+rejects your calls, compare `aud` and `scope` in the claims with `deploy.auth` in
 `agent.yaml`. Otherwise the script prints the domain's error, for example `invalid_client` or `invalid_scope`: see
 [Troubleshooting](#troubleshooting).
 
@@ -224,7 +224,9 @@ Copy the three values **exactly as they are configured in the confidential
 application**, character by character. The audience in particular is
 whatever you entered as **Primary audience** in step 2: the URL suggested in
 step 2, or any other value you chose, for example `all`. A different value,
-or a missing or extra final `/`, makes every call to the agent fail with 401.
+or a missing or extra final `/`, makes every call to the agent fail: the
+service answers 404 to a request it does not accept, as if the agent did not
+exist.
 
 ```yaml
 deploy:
@@ -293,7 +295,8 @@ domain expects another form, set the exact token scope, which is not secret,
 in the same way (`OCI_AGENT_IDCS_TOKEN_SCOPE`, in the environment).
 
 The verifier calls `/health`, `/ready`, and the functional checks with the
-token, and checks that a call without a token is rejected.
+token, and checks that a call without a token is rejected (the service answers
+404).
 
 Callers of the deployed agent do the same: request a token from the domain as
 the script of section 6 does, then send it in the `Authorization: Bearer
@@ -324,7 +327,7 @@ the cause, for example `token request: HTTP 401, OAuth error invalid_client`.
 | --- | --- | --- |
 | Token request: `invalid_client` | Wrong client ID or secret, or the application is not activated. | Check the values in the application's OAuth configuration; activate the application (step 4). |
 | Token request: `invalid_scope` | The token scope is not `<primary audience><scope>` exactly, or the client is not allowed to request it. | Check the audience and the scope character by character. If they are right, in the application's client configuration, under **Token issuance policy**, select **Add resources** and add the application's own `invoke` scope, then save. |
-| Token issued, but the agent answers 401 | The audience, scope, or domain URL of the Hosted Application differ from the confidential application. | Compare `deploy.auth` with steps 2 and 5. These values are fixed at creation: correct `agent.yaml` and release with a new application name. |
+| Token issued, but the agent answers 401 or 404 | The audience, scope, or domain URL of the Hosted Application differ from the confidential application. | Compare `deploy.auth` with steps 2 and 5. These values are fixed at creation: correct `agent.yaml` and release with a new application name. |
 | The verifier stops before calling OCI, naming `OCI_AGENT_IDCS_CLIENT_ID` or `OCI_AGENT_IDCS_CLIENT_SECRET` | The variable is neither in the tool's `.env` nor in the environment of Codex. | Add it to the tool's `.env` (section 8). |
 | The demo page shows "service unavailable" | The `IDCS_*` values in `ui/.env.local` are missing or wrong. | Read the cause in the terminal that runs `npm run dev`; compare with sections 5–7 (section 9). |
 

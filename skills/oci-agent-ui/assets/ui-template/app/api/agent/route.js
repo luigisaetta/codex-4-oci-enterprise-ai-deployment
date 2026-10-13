@@ -65,10 +65,13 @@ export async function POST(request) {
     return unavailable(error?.name === "TimeoutError" ? "timeout" : String(error));
   }
 
-  if (upstream.status === 401 && tokenRequired()) {
-    // The token was refused: get a new one at the next request.
+  if ([401, 403, 404].includes(upstream.status) && tokenRequired()) {
+    // The token may have been refused (the service answers 404 for a rejected
+    // token): get a new one at the next request.
     discardToken();
-    return unavailable("HTTP 401: token refused (check IDCS_* in .env.local and deploy.auth)");
+    return unavailable(
+      `HTTP ${upstream.status}: token refused or wrong address (check IDCS_* and AGENT_* in .env.local, and deploy.auth)`,
+    );
   }
   const text = await upstream.text();
   let data;

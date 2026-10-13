@@ -153,3 +153,11 @@ places. The values are never exported, printed, or written.
   token, errors). Full suite: 376 passed, 142 skipped (all `pwsh is
   unavailable`); Black and Pylint (10.00/10) passed; links resolve.
 * Pending: acceptance criterion 2 (live).
+
+### 2026-10-13, live (part of criterion 2)
+
+* The verifier obtained the token with the client ID and secret only in the
+  tool's `.env`, in a Codex session started without exported variables (see
+  Spec 010 verification record). The demo UI part is pending.
+* The UI bridge now also discards the token after 403 or 404, because the
+  service answers 404 to a rejected token.

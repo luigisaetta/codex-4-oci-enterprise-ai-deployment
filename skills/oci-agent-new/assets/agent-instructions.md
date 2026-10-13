@@ -28,7 +28,9 @@ These rules apply to every task in this repository, with or without a skill.
   not be accessed or validated"), stop: report what is missing, citing
   `docs/iam-policies.md` in the tool home, and ask the user to send it to the
   tenancy administrator.
-* Read-only IAM inspection is allowed only when the user asks for it.
+* The read-only lookups that the OCI agent skills' scripts make (compartment
+  and region) are part of normal operation. Any other IAM inspection, such as
+  reading dynamic groups or policies, only when the user asks for it.
 * Never write wrapper scripts or alternative commands that bypass the OCI
   agent skills.
 <!-- END oci-agent-skills: customer name -->

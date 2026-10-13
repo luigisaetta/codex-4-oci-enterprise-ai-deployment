@@ -34,7 +34,8 @@ authenticated applications.
 For `public-idcs`, use the same endpoint form (U1) with
 `Authorization: Bearer <token>` (U2). Health and readiness use the header too
 (U3). After authenticated probes pass, the verifier calls `/health` without it
-and expects 401 or 403 (U4). Use only `<identity-domain-url>`,
+and expects 401, 403, or 404 (U4; the service answered 404 in the live test
+of 2026-10-13). Use only `<identity-domain-url>`,
 `<audience-of-the-confidential-application>`, and
 `<scope-of-the-confidential-application>` in examples. Never type a client
 secret or access token into chat, print it, or store it; the operator exports

@@ -123,9 +123,14 @@ they gave Codex neither the cause nor an instruction to stop.
    the failed deployment"; for `NEEDS_ATTENTION`, "The skills cannot yet
    replace a deployment in this state: after the administrator confirms,
    delete it in the OCI Console, then ask for a new deploy."
-4. **Missing image message** (image not found), exit 1: "The image
-   `<registry>/<namespace>/<repository>:<tag>` is not in OCIR. Push it with
-   oci-agent-push, then deploy again." No IAM text.
+4. **Missing image message** (image not found), exit 1. The image is searched
+   in the deploy compartment, because that is where the runtime's `read repos`
+   applies. The message says that the image is not in an OCIR repository of
+   that compartment; that a repository of another compartment may not be
+   readable by this runtime; and to push it with `oci-agent-push` to a
+   repository of this compartment (image paths do not include the
+   compartment, so `publish.repository` must not be used by another
+   compartment), then deploy again. No IAM text.
 5. **Values in the message** come from validated inputs and read-only OCI
    calls: compartment name and OCID, image reference, deployment OCID and
    state. The message contains no runtime variable value; the existing
@@ -214,3 +219,18 @@ families:
   failed and passed on rerun; it was not identified.
 * Pending: acceptance criterion 3 (live, in a compartment without runtime
   `read repos`).
+
+### 2026-10-13, first live attempt (not valid for criterion 3)
+
+* Compartment `lsa-spec019` under `specialists-shared`, without runtime
+  policies; application `helloworld-spec019` created and `ACTIVE`.
+* The deployment succeeded because Codex reused the existing image
+  `agents/hello-world:0.1.0`, whose repository is in the administrator's
+  compartment, where the runtime has `read repos`. No repository was created
+  in `lsa-spec019`. OCIR image paths do not include the compartment.
+* Consequences: the missing-image message now says that the image is not in
+  a repository of the deploy compartment and why a repository of another
+  compartment may not be readable; the test must use a repository name of its
+  own (a copy of `hello_world` outside the tool home). In the tool home Codex
+  also edited `demos/hello_world/agent.yaml`, `specs/hello_world.md`, and
+  `CHANGELOG.md`; those edits were not part of this specification.

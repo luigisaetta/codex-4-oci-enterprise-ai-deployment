@@ -240,8 +240,12 @@ except (ValueError, TypeError, KeyError):
     print("")
 ')"
   if [[ "$count" == '0' ]]; then
-    printf 'The image %s:%s is not in OCIR. Push it with oci-agent-push, then deploy again.\n' \
-      "$container_uri" "$tag" >&2
+    printf 'The image %s:%s is not in an OCIR repository of compartment %s.\n' \
+      "$container_uri" "$tag" "$OCI_COMPARTMENT_NAME" >&2
+    printf '%s\n' 'If it is in a repository of another compartment, this runtime may not be allowed to read it.' \
+      'Push it with oci-agent-push to a repository of this compartment (publish.repository must' \
+      'not be used by another compartment: image paths do not include the compartment), then' \
+      'deploy again.' >&2
     exit 1
   fi
   [[ -n "$count" ]] || return 0

@@ -253,7 +253,14 @@ function Stop-OnImageAccessFailure {
     catch { return }
     if ($null -eq $items) { return }
     if (@($items).Count -eq 0) {
-        Fail 1 "The image ${containerUri}:$Tag is not in OCIR. Push it with oci-agent-push, then deploy again."
+        $missing = @(
+            "The image ${containerUri}:$Tag is not in an OCIR repository of compartment $($env:OCI_COMPARTMENT_NAME).",
+            'If it is in a repository of another compartment, this runtime may not be allowed to read it.',
+            'Push it with oci-agent-push to a repository of this compartment (publish.repository must',
+            'not be used by another compartment: image paths do not include the compartment), then',
+            'deploy again.'
+        )
+        Fail 1 ($missing -join [Environment]::NewLine)
     }
     $nextStep = if ($State -eq 'FAILED') {
         'When the administrator confirms, ask for a new deploy: the plan offers to replace the failed deployment.'

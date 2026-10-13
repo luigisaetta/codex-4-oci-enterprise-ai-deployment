@@ -348,7 +348,30 @@ shown only once). Keep it at hand; you type it once, when Docker or Podman asks 
 password. Step by step, with the username and common errors:
 [Logging in to OCIR](ocir-login.md).
 
-Open the **tool home** in Codex (a new session) and ask:
+Release it from a **copy** outside the tool home, so that the release never
+changes the tool's own files. The copy keeps the `demos/hello_world` layout,
+which the example's build needs:
+
+```powershell
+New-Item -ItemType Directory -Path "$HOME\Projects\hello-world-test\demos" -Force
+```
+
+```powershell
+Copy-Item -Recurse "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\demos\__init__.py", "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\demos\hello_world" "$HOME\Projects\hello-world-test\demos\"
+```
+
+```powershell
+Copy-Item "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\.dockerignore" "$HOME\Projects\hello-world-test\"
+```
+
+```powershell
+git -C "$HOME\Projects\hello-world-test" init
+```
+
+If you cloned the project elsewhere, replace
+`$HOME\Projects\codex-4-oci-enterprise-ai-deployment` with your tool home.
+
+Open the copy, `$HOME\Projects\hello-world-test`, in Codex (a new session) and ask:
 
 ```text
 Release version 0.1.0 of the agent demos/hello_world/agent.yaml on OCI
@@ -365,11 +388,12 @@ Expected: Codex reports that the deployment is active and that `/health` and
 `/ready` answer. The first deployment takes a few minutes.
 
 *If you share the compartment with colleagues,* one of them may already have
-an application named `hello-world`. Ask Codex to use another application name
-before you approve the deploy.
+an application named `hello-world`. Change `application_name` in the copy's
+`demos/hello_world/agent.yaml` (or ask Codex to do it) before you approve the
+deploy.
 
 When you no longer need it, delete the `hello-world` Hosted Application from
-the OCI Console.
+the OCI Console, and the copy `$HOME\Projects\hello-world-test`.
 
 ## 10. Create your first agent
 

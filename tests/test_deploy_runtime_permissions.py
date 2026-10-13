@@ -154,8 +154,13 @@ def test_image_access_failure_without_image_asks_for_push(
     result = run_release(tmp_path, "first_release_image_missing", True, release_runner)
 
     assert result.returncode == 1, result.stderr
-    assert "is not in an OCIR repository of compartment test-compartment" in result.stderr
-    assert "Push it with oci-agent-push to a repository of this compartment" in result.stderr
+    assert (
+        "is not in an OCIR repository of compartment test-compartment" in result.stderr
+    )
+    assert (
+        "Push it with oci-agent-push to a repository of this compartment"
+        in result.stderr
+    )
     assert "runtime permissions" not in result.stderr
 
 

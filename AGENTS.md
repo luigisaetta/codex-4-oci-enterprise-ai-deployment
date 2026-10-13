@@ -1,5 +1,21 @@
 # AGENTS.md
 
+## Using the skills, not developing this tool
+
+These rules come first. When the request is to build, push, deploy, verify,
+or test an agent, including `demos/hello_world`, you are operating the tool,
+not developing it:
+
+* Do not edit any file of this repository, and do not record results in
+  specifications, docs, or `CHANGELOG.md`.
+* To change a manifest value, for example the application name of
+  `demos/hello_world`, copy the demo outside this repository first, as in
+  step 9 of Getting started, and work on the copy.
+* Change this repository only when the user explicitly asks to develop the
+  tool (for example, to write or implement a specification).
+
+The rest of this file applies to development of the tool.
+
 ## Repository purpose
 
 This repository contains Codex skills and reproducible demos to support the deployment of AI agents in OCI Enterprise AI. Build clear instructions, specifications, scripts, and examples that a human can review, understand, and run.

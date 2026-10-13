@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-12
+Date last modified: 2026-10-13
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -204,6 +204,19 @@ def test_customer_facing_skills_keep_the_real_customer_name_off_disk() -> None:
         assert "{{DEMO_CUSTOMER_NAME}}" in (SKILLS / skill / template).read_text(
             encoding="utf-8"
         )
+
+
+def test_operator_sessions_never_edit_the_tool_home() -> None:
+    """Lifecycle skills and the tool's AGENTS.md keep operator sessions read-only."""
+    for skill in ("build", "push", "deploy", "verify-deployment"):
+        content = (SKILLS / f"oci-agent-{skill}" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert "Never edit files in the tool home." in content
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    sections = re.findall(r"^## (.+)$", agents, re.MULTILINE)
+    assert sections[0] == "Using the skills, not developing this tool"
+    assert "do not record results in" in agents
 
 
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:

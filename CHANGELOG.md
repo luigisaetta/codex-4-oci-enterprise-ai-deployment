@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* 2026-10-13: Protect the tool home (Spec 021). Getting started step 9 now
+  releases the example agent from a copy outside the tool home; the tool's
+  `AGENTS.md` starts with rules for sessions that use the skills (no edits to
+  the tool's files); the build, push, deploy, and verify skills never edit
+  the tool home.
+
 * 2026-10-13: Stop on missing runtime permissions (Spec 019). When a
   deployment ends `FAILED` or `NEEDS_ATTENTION` because its runtime cannot
   read the image from OCIR, the deploy script shows the OCI error, checks

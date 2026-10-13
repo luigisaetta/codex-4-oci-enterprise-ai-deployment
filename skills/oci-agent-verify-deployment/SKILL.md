@@ -34,6 +34,10 @@ hold agent secrets. In a
 sandboxed session, request permission for Docker and network access before the
 first Docker, OCI CLI, or HTTP command, instead of retrying after a failure.
 
+Never edit files in the tool home. If the manifest is inside it, for example
+`demos/hello_world`, copy it outside the tool home before changing any value
+(step 9 of Getting started).
+
 ## Prerequisites
 
 Read [endpoint rules and observed behavior](references/endpoint-behavior.md).

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-10-12
+Date last modified: 2026-10-13
 License: MIT
 Description: Read tenancy settings, agent secrets, and the approved demo customer
 name from the tool's .env file.
@@ -99,6 +99,21 @@ def configured_value(key: str) -> str:
     return read_all_entries(configuration_file()).get(key, "")
 
 
+def credential_value(key: str) -> str:
+    """Return a credential from the environment or, when unset, the tool's .env.
+
+    Used for the identity-domain client credentials (Spec 022). The value is
+    never exported or printed.
+
+    Args:
+        key: Entry name, for example OCI_AGENT_IDCS_CLIENT_ID.
+
+    Returns:
+        The value, or an empty string when it is set in neither place.
+    """
+    return os.environ.get(key, "").strip() or configured_value(key).strip()
+
+
 def demo_customer_name() -> str:
     """Return the customer name approved for demos (Spec 020).
 
@@ -186,10 +201,16 @@ def main() -> int:
     subparsers.add_parser(
         "demo-customer", help="Print only the approved demo customer name."
     )
+    has_parser = subparsers.add_parser(
+        "has", help="Exit 0 when a key has a value in the environment or .env."
+    )
+    has_parser.add_argument("key")
     args = parser.parse_args()
     if args.command == "demo-customer":
         print(demo_customer_name())
         return 0
+    if args.command == "has":
+        return 0 if credential_value(args.key) else 1
     return emit_environment(args.keys)
 
 

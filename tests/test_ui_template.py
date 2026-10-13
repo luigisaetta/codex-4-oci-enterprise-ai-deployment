@@ -1,13 +1,17 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-07
+Date last modified: 2026-10-13
 License: MIT
 Description: Static checks for the oci-agent-ui skill and its Next.js template.
 """
 
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / "skills" / "oci-agent-ui"
@@ -41,6 +45,7 @@ def test_template_has_the_expected_files() -> None:
         "app/globals.css",
         "app/demo-config.js",
         "app/api/agent/route.js",
+        "app/api/agent/idcs-token.js",
     ):
         assert expected in names
 
@@ -117,3 +122,95 @@ def test_skill_documents_the_end_user_rules_and_links() -> None:
     guidelines = (SKILL / "references/ui-guidelines.md").read_text(encoding="utf-8")
     for rule in ("E1.", "E3.", "E6.", "T2.", "T3.", "T4."):
         assert f"**{rule}" in guidelines
+
+
+def test_idcs_values_are_server_side_and_documented() -> None:
+    """The bridge reads the IDCS entries on the server only (Spec 022)."""
+    sources = template_text()
+    token_module = sources["app/api/agent/idcs-token.js"]
+    for name in (
+        "IDCS_DOMAIN_URL",
+        "IDCS_TOKEN_SCOPE",
+        "IDCS_CLIENT_ID",
+        "IDCS_CLIENT_SECRET",
+    ):
+        assert name in token_module
+        assert f"# {name}=" in sources[".env.local.example"]
+    assert "./idcs-token.js" in sources["app/api/agent/route.js"]
+    for name, content in sources.items():
+        assert "NEXT_PUBLIC_" not in content, name
+    assert "console" not in token_module
+
+
+NODE_SCENARIO = r"""
+import http from "node:http";
+const { accessToken, discardToken, tokenRequired } = await import(process.argv[2]);
+const seen = [];
+const server = http.createServer((request, response) => {
+  let body = "";
+  request.on("data", (chunk) => { body += chunk; });
+  request.on("end", () => {
+    seen.push({ path: request.url, auth: request.headers.authorization, body });
+    response.setHeader("Content-Type", "application/json");
+    if (body.includes("bad-scope")) {
+      response.statusCode = 400;
+      response.end(JSON.stringify({ error: "invalid_scope" }));
+      return;
+    }
+    response.end(JSON.stringify({ access_token: `token-${seen.length}`, expires_in: 3600 }));
+  });
+});
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const env = {
+  IDCS_DOMAIN_URL: `http://127.0.0.1:${server.address().port}/`,
+  IDCS_TOKEN_SCOPE: "https://aud/invoke",
+  IDCS_CLIENT_ID: "cid",
+  IDCS_CLIENT_SECRET: "csecret",
+};
+const results = { required: tokenRequired(env), notRequired: tokenRequired({}) };
+results.first = await accessToken(env, 1000);
+results.cached = await accessToken(env, 2000);
+results.expired = await accessToken(env, 1000 + 3600 * 1000);
+discardToken();
+results.afterDiscard = await accessToken(env, 5000);
+discardToken();
+try { await accessToken({ ...env, IDCS_TOKEN_SCOPE: "bad-scope" }, 6000); }
+catch (error) { results.badScope = error.message; }
+discardToken();
+try { await accessToken({ ...env, IDCS_CLIENT_SECRET: "" }, 7000); }
+catch (error) { results.missing = error.message; }
+results.requests = seen;
+server.close();
+console.log(JSON.stringify(results));
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable.")
+def test_idcs_token_module_requests_caches_and_refreshes(tmp_path: Path) -> None:
+    """The token module uses Basic credentials, caches, and refreshes (Spec 022)."""
+    script = tmp_path / "scenario.mjs"
+    script.write_text(NODE_SCENARIO, encoding="utf-8")
+    module = (TEMPLATE / "app/api/agent/idcs-token.js").as_uri()
+    result = subprocess.run(
+        ["node", str(script), module],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    results = json.loads(result.stdout)
+
+    assert results["required"] is True and results["notRequired"] is False
+    assert results["first"] == "token-1"
+    assert results["cached"] == "token-1"
+    assert results["expired"] == "token-2"
+    assert results["afterDiscard"] == "token-3"
+    assert "HTTP 400" in results["badScope"] and "invalid_scope" in results["badScope"]
+    assert "IDCS_CLIENT_SECRET" in results["missing"]
+    first = results["requests"][0]
+    assert first["path"] == "/oauth2/v1/token"
+    assert first["auth"] == "Basic Y2lkOmNzZWNyZXQ="
+    assert "grant_type=client_credentials" in first["body"]
+    assert "scope=https%3A%2F%2Faud%2Finvoke" in first["body"]
+    assert "csecret" not in result.stdout.replace(first["auth"], "")

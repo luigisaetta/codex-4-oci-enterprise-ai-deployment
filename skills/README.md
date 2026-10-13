@@ -13,8 +13,9 @@ deployment in the same Hosted Application.
 
 The `public-idcs` profile creates a public endpoint that requires an OCI IAM
 identity-domain bearer token. Its manifest contains only the domain URL,
-audience, and scope; verifier-only confidential-application credentials stay
-in the operator's shell.
+audience, and scope. The confidential-application credentials stay in the
+tool's `.env` or the operator's shell (for verification) and in the agent's
+`ui/.env.local` (for its demo UI), never in the manifest.
 
 | Skill | Purpose | Status |
 | --- | --- | --- |

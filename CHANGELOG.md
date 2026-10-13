@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* 2026-10-13: Identity-domain credentials for the demo UI and the verifier
+  (Spec 022). The demo UI of `oci-agent-ui` now supports agents with the
+  `public-idcs` profile: its local server requests a client-credentials token
+  (values in `ui/.env.local`, never sent to the browser), caches it, and adds
+  it to every call. The verifier reads `OCI_AGENT_IDCS_CLIENT_ID` and
+  `OCI_AGENT_IDCS_CLIENT_SECRET` from the tool's `.env` when they are not
+  exported. New `tool_config.py has` command.
+
 * 2026-10-13: New guide [Protecting an agent with JWT tokens](docs/idcs-confidential-application.md):
   create and activate the identity-domain confidential application
   (resource server with audience and scope, client credentials), test a

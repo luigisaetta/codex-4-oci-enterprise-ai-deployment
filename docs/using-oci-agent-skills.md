@@ -263,8 +263,9 @@ $oci-agent-verify-deployment
 ocid1.generativeaihostedapplication.oc1.<region>.<unique-id>
 ```
 
-For `public-idcs`, export `OCI_AGENT_IDCS_CLIENT_ID` and
-`OCI_AGENT_IDCS_CLIENT_SECRET` in your own shell before requesting verification.
+For `public-idcs`, put `OCI_AGENT_IDCS_CLIENT_ID` and
+`OCI_AGENT_IDCS_CLIENT_SECRET` in the tool's `.env`, or export them in your own
+shell, before requesting verification.
 Do not paste either value into chat. The client secret and the access token are
 never printed or stored. `OCI_AGENT_IDCS_TOKEN_SCOPE` is optional when the
 identity domain requires an exact token scope other than the manifest-derived

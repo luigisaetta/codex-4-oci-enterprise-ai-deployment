@@ -181,8 +181,10 @@ release. Every field, with complete examples for both access modes, is in the
 > password prompt.
 
 * For `public-idcs`, store only the non-secret domain URL, audience, and scope
-  in the manifest; export the client ID and secret only in the shell that runs
-  the verification.
+  in the manifest. Put the client ID and secret in the tool's `.env` (or
+  export them) for the verification, and in the agent's `ui/.env.local` for
+  its demo UI; both files are ignored by Git. See
+  [Protecting an agent with JWT tokens](docs/idcs-confidential-application.md).
 * Agents that call OCI Generative AI can use Resource Principal instead of an
   API key: the Hosted Application authenticates as itself, with no secret to
   manage. It needs a Generative AI project and the runtime policies in

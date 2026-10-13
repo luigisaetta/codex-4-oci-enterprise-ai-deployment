@@ -97,8 +97,9 @@ Never invent business content: what the specification does not say goes under
 
 1. Perform the target platform check.
 2. Read `agent-spec.md` and `agent.yaml`. Stop and explain if `ui/` already
-   exists (never overwrite), if `deploy.profile` is `public-idcs` (not
-   supported yet), or if the agent has no single JSON business endpoint.
+   exists (never overwrite), or if the agent has no single JSON business
+   endpoint. Both profiles are supported: `public-noauth`, and `public-idcs`
+   through a token obtained by the local server ([Spec 022](../../specs/022-idcs-credentials-for-ui-and-verifier.md)).
 3. Read the [UI guidelines](references/ui-guidelines.md). Copy
    [the UI specification template](assets/ui-spec.template.md) to
    `ui/ui-spec.md`, replace `{{AGENT_NAME}}` and `{{DEMO_CUSTOMER_NAME}}`, and
@@ -127,6 +128,12 @@ Never invent business content: what the specification does not say goes under
    agent (and, for the deployed agent, the Hosted Application OCID and the
    region). Copy `ui/.env.local.example` to `ui/.env.local` and set
    `AGENT_BASE_URL` and `AGENT_PATH`. Never write the address anywhere else.
+   For `public-idcs`, also set in `ui/.env.local` `IDCS_DOMAIN_URL` (from
+   `deploy.auth.domain_url`) and `IDCS_TOKEN_SCOPE` (`deploy.auth.audience`
+   immediately followed by `deploy.auth.scope`), and add the two empty lines
+   `IDCS_CLIENT_ID=` and `IDCS_CLIENT_SECRET=`. Never write, read, or print the
+   client ID or secret, and never read `ui/.env.local` after asking the
+   developer to fill them in.
 6. Check `node --version` (20.9 or later). With the developer's approval,
    because it downloads packages, run in `ui/`:
 
@@ -166,10 +173,16 @@ lives only in `ui/.env.local`; the server listens only on `127.0.0.1`.
    `AGENT_BASE_URL` in `ui/.env.local` and restart `npm run dev`. With the
    deployed agent, every request is a real call to a public endpoint.
 4. Where technical problems appear: in the terminal that runs `npm run dev`.
+5. For `public-idcs`: fill in `IDCS_CLIENT_ID` and `IDCS_CLIENT_SECRET` in
+   `ui/.env.local` by hand (Git ignores the file), never in the chat; the
+   values come from the confidential application
+   ([Protecting an agent with JWT tokens](../../docs/idcs-confidential-application.md)).
+   The local server uses them to request a token; the browser never sees
+   them.
 
 ## Limitations
 
-One JSON business endpoint; agents with the `public-noauth` profile only; no
-streaming or file upload; no deployment of the UI; no persistence. The build
+One JSON business endpoint; no sign-in of end users (the page runs only on
+this computer); no streaming or file upload; no deployment of the UI; no persistence. The build
 checks that the page compiles, not that it convinces a viewer: review it in the
 browser before a demo.

@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-02
+Date last modified: 2026-10-13
 License: MIT
 Description: Exercise Bash verifier identity-domain authentication without
 network access.
@@ -172,8 +172,17 @@ def run_verifier(  # pylint: disable=too-many-locals
         ),
         OCI_AGENT_IDCS_CLIENT_ID="placeholder-client-id",
         OCI_AGENT_IDCS_CLIENT_SECRET=CLIENT_SECRET,
+        OCI_AGENT_ENV_FILE=str(tmp_path / "tool.env"),
         PATH=f"{fake_bin}{os.pathsep}{environment['PATH']}",
     )
+    if scenario.get("credentials_in_tool_env"):
+        (tmp_path / "tool.env").write_text(
+            "OCI_AGENT_IDCS_CLIENT_ID=placeholder-client-id\n"
+            f"OCI_AGENT_IDCS_CLIENT_SECRET={CLIENT_SECRET}\n",
+            encoding="utf-8",
+        )
+        environment.pop("OCI_AGENT_IDCS_CLIENT_ID")
+        environment.pop("OCI_AGENT_IDCS_CLIENT_SECRET")
     if scenario.get("token_failure"):
         environment["IDCS_TOKEN_FAILURE"] = "1"
     if scenario.get("missing"):
@@ -266,6 +275,17 @@ def test_missing_idcs_credentials_stop_before_oci_or_http(
     assert missing in result.stderr
     assert not read_log(result.log_paths["oci"])
     assert not read_log(result.log_paths["curl"])
+
+
+def test_idcs_credentials_in_the_tool_env_pass_the_preflight(
+    tmp_path: Path, idcs_preflight_runner: tuple[Path, list[str]]
+) -> None:
+    """Credentials only in the tool's .env are accepted, without exporting them."""
+    result = run_verifier(
+        tmp_path, credentials_in_tool_env=True, runner=idcs_preflight_runner
+    )
+    assert result.returncode == 0, result.stderr
+    assert CLIENT_SECRET not in result.stdout + result.stderr
 
 
 def test_idcs_success_uses_stdin_bearer_auth_and_functional_token(

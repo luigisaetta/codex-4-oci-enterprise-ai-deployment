@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-12
+Date last modified: 2026-10-13
 License: MIT
 Description: Unit tests for non-secret OCI tenancy configuration loading.
 """
@@ -25,6 +25,7 @@ def clear_configuration_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OCIR_TENANCY_NAMESPACE", raising=False)
     monkeypatch.delenv("OCIR_USERNAME", raising=False)
     monkeypatch.delenv("DEMO_CUSTOMER_NAME", raising=False)
+    monkeypatch.delenv("OCI_AGENT_IDCS_CLIENT_ID", raising=False)
 
 
 def run_tool_config(*keys: str) -> subprocess.CompletedProcess[str]:
@@ -227,3 +228,33 @@ def test_demo_customer_environment_takes_precedence(
 
     monkeypatch.setenv("DEMO_CUSTOMER_NAME", "  ")
     assert run_demo_customer().stdout == "File Name\n"
+
+
+def test_has_finds_a_key_in_the_environment_or_env_file_and_prints_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """has exits 0 for a value in either place, 1 otherwise, with no output."""
+    configuration = tmp_path / "tool.env"
+    configuration.write_text("OCI_AGENT_IDCS_CLIENT_ID=from-file\n", encoding="utf-8")
+    monkeypatch.setenv("OCI_AGENT_ENV_FILE", str(configuration))
+
+    def has(key: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(TOOL_CONFIG), "has", key],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    from_file = has("OCI_AGENT_IDCS_CLIENT_ID")
+    absent = has("OCI_AGENT_IDCS_CLIENT_SECRET")
+    monkeypatch.setenv("OCI_AGENT_IDCS_CLIENT_SECRET", "from-environment")
+    from_environment = has("OCI_AGENT_IDCS_CLIENT_SECRET")
+
+    assert (from_file.returncode, absent.returncode, from_environment.returncode) == (
+        0,
+        1,
+        0,
+    )
+    for result in (from_file, absent, from_environment):
+        assert result.stdout == "" and result.stderr == ""

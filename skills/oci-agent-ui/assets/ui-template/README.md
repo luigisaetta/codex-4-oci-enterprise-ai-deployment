@@ -32,6 +32,11 @@ Edit `.env.local` (copy it from `.env.local.example` the first time):
 Restart `npm run dev` after a change. With the deployed agent, every request
 is a real call to OCI.
 
+For an agent protected with JWT tokens (`public-idcs`), `.env.local` also
+holds the identity-domain values (`IDCS_*`, see `.env.local.example`). Fill in
+the client ID and secret yourself; the local server uses them to request a
+token, and the browser never sees them. Never commit `.env.local`.
+
 ## What it shows
 
 Business information for the agent's users, as described in `ui-spec.md`.

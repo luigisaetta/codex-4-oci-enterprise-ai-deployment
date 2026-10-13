@@ -68,9 +68,13 @@ if ($Manifest) {
   $deployProfile = Get-ManifestField -Manifest $Manifest -Field deploy.profile
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   if ($deployProfile -eq 'public-idcs') {
+    # Spec 022: the environment first, then the tool's .env; values are never read here.
     foreach ($name in 'OCI_AGENT_IDCS_CLIENT_ID', 'OCI_AGENT_IDCS_CLIENT_SECRET') {
       if (-not (Get-Item "Env:$name" -ErrorAction SilentlyContinue).Value) {
-        Fail 64 "Missing required environment variable: $name"
+        & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'tool_config.py') has $name
+        if ($LASTEXITCODE -ne 0) {
+          Fail 64 "Missing required variable: $name (set it in the environment or in the tool's .env)."
+        }
       }
     }
     $authMode = 'idcs'

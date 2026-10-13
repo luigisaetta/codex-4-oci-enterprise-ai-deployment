@@ -29,8 +29,9 @@ page makes the agent understandable, but nothing in the tool produces one.
 ## Non-goals
 
 * Deploying the UI: it runs only on the developer's machine.
-* Agents with the `public-idcs` profile: the skill stops and says so (a later
-  iteration may obtain the token on the server side).
+* Agents with the `public-idcs` profile: superseded on 2026-10-13 by
+  [Spec 022](022-idcs-credentials-for-ui-and-verifier.md), where the local
+  server obtains the token.
 * Persistence, user accounts, analytics, or telemetry.
 * Agents with more than one business endpoint, streaming, or file upload.
 * Technical views (raw JSON, HTTP status, latency, request identifiers),
@@ -140,8 +141,8 @@ Rules:
 ## Workflow of the skill
 
 1. Target platform check: an agent for OCI Generative AI Hosted Applications.
-2. Read `agent-spec.md` and `agent.yaml`; stop if the profile is `public-idcs`,
-   if the agent has no business endpoint, or if `ui/` already exists.
+2. Read `agent-spec.md` and `agent.yaml`; stop if the agent has no business
+   endpoint, or if `ui/` already exists (`public-idcs`: see Spec 022).
 3. Draft `ui/ui-spec.md`; stop for review (changes by hand or in the chat; only
    that file is changed until approval).
 4. After approval, create the `ui/` files from the template and the approved

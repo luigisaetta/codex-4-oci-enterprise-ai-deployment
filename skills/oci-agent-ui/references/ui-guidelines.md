@@ -52,9 +52,10 @@ template: the browser calls only `/api/agent`; the route reads
 `AGENT_BASE_URL` and `AGENT_PATH` from `.env.local`; 400 and 422 are business
 rejections; any other failure is "unavailable" and is logged.
 
-**T3. No address or secret in the code.** The agent address lives only in
-`ui/.env.local`. Never write an OCID, an endpoint, a key, or a token in any
-generated file.
+**T3. No address or secret in the code.** The agent address and, for
+`public-idcs`, the identity-domain values live only in `ui/.env.local`, read
+on the server; never use a `NEXT_PUBLIC_` variable for them. Never write an
+OCID, an endpoint, a key, a client secret, or a token in any generated file.
 
 **T4. Local only.** Keep `--hostname 127.0.0.1` in the `package.json`
 scripts.

@@ -53,11 +53,13 @@ expected semantic image tag explicitly.
 
 For `public-idcs`, require `OCI_AGENT_IDCS_CLIENT_ID` and
 `OCI_AGENT_IDCS_CLIENT_SECRET`; `OCI_AGENT_IDCS_TOKEN_SCOPE` is optional and
-overrides the manifest-derived scope. If credentials are missing, ask the
-operator to export them in their own shell; never ask for their values. The
-client secret and access token must never be typed into chat, printed, or
-stored. The operator exports the client ID and secret only in the shell that
-runs the verifier. Use only `<identity-domain-url>`,
+overrides the manifest-derived scope. The verifier takes the client ID and
+secret from the environment or, when unset there, from the tool's `.env`
+([Spec 022](../../specs/022-idcs-credentials-for-ui-and-verifier.md)). If they
+are missing, ask the operator to add them to the tool's `.env` or to export
+them in their own shell; never ask for their values, and never read the tool's
+`.env`. The client secret and access token must never be typed into chat,
+printed, or stored. Use only `<identity-domain-url>`,
 `<audience-of-the-confidential-application>`, and
 `<scope-of-the-confidential-application>` in examples.
 

@@ -2,8 +2,10 @@
 // The browser never calls the agent directly: this route forwards the request
 // to AGENT_BASE_URL + AGENT_PATH (from .env.local), so no address or secret
 // reaches the browser. Technical failures are logged here and returned to the
-// page only as a category ("rejected" or "unavailable").
+// page only as a category ("rejected" or "unavailable"). For public-idcs agents
+// it adds an identity-domain token obtained on the server (idcs-token.js).
 import { NextResponse } from "next/server";
+import { TokenError, accessToken, discardToken, tokenRequired } from "./idcs-token.js";
 
 export const runtime = "nodejs";
 
@@ -41,11 +43,20 @@ export async function POST(request) {
     return NextResponse.json({ kind: "invalid" }, { status: 200 });
   }
 
+  const headers = { "Content-Type": "application/json", Accept: "application/json" };
+  if (tokenRequired()) {
+    try {
+      headers.Authorization = `Bearer ${await accessToken()}`;
+    } catch (error) {
+      return unavailable(error instanceof TokenError ? error.message : "token error");
+    }
+  }
+
   let upstream;
   try {
     upstream = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers,
       body,
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -54,6 +65,11 @@ export async function POST(request) {
     return unavailable(error?.name === "TimeoutError" ? "timeout" : String(error));
   }
 
+  if (upstream.status === 401 && tokenRequired()) {
+    // The token was refused: get a new one at the next request.
+    discardToken();
+    return unavailable("HTTP 401: token refused (check IDCS_* in .env.local and deploy.auth)");
+  }
   const text = await upstream.text();
   let data;
   try {

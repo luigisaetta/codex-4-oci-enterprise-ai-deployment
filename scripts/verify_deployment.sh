@@ -187,9 +187,12 @@ if [[ -n "$manifest" ]]; then
     --manifest "$manifest" --field deploy.profile)"
   if [[ "$profile" == public-idcs ]]; then
     auth_mode=idcs
+    # Spec 022: the environment first, then the tool's .env; values are never read here.
     for required_variable in OCI_AGENT_IDCS_CLIENT_ID OCI_AGENT_IDCS_CLIENT_SECRET; do
-      if [[ -z "${!required_variable:-}" ]]; then
-        printf 'Missing required environment variable: %s\n' "$required_variable" >&2
+      if [[ -z "${!required_variable:-}" ]] && \
+        ! "$OCI_AGENT_PYTHON" "$script_directory/tool_config.py" has "$required_variable"; then
+        printf 'Missing required variable: %s (set it in the environment or in the tool'"'"'s .env).\n' \
+          "$required_variable" >&2
         exit "$EXIT_INVALID_INPUT"
       fi
     done

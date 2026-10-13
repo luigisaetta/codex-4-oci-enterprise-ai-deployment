@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-09-30
+Date last modified: 2026-10-13
 License: MIT
 Description: Obtain an identity-domain client-credentials access token safely.
 """
@@ -14,6 +14,15 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+try:
+    if __package__:
+        from . import tool_config
+    else:
+        # Direct script execution puts scripts/ on sys.path.
+        import tool_config  # pylint: disable=import-error
+except ImportError:  # pragma: no cover - the module ships with this script.
+    tool_config = None
 
 EXIT_INVALID_INPUT = 64
 EXIT_TOKEN_FAILURE = 24
@@ -80,10 +89,20 @@ def main() -> int:
     parser.add_argument("--audience", required=True)
     parser.add_argument("--scope", required=True)
     args = parser.parse_args()
+    credentials = {}
     for name in ("OCI_AGENT_IDCS_CLIENT_ID", "OCI_AGENT_IDCS_CLIENT_SECRET"):
-        if not os.environ.get(name):
-            print(f"Missing required environment variable: {name}", file=sys.stderr)
+        # Spec 022: the environment first, then the tool's .env.
+        value = os.environ.get(name, "")
+        if not value and tool_config is not None:
+            value = tool_config.credential_value(name)
+        if not value:
+            print(
+                f"Missing required variable: {name} "
+                "(set it in the environment or in the tool's .env).",
+                file=sys.stderr,
+            )
             return EXIT_INVALID_INPUT
+        credentials[name] = value
     try:
         auth = {
             "domain_url": args.domain_url,
@@ -92,8 +111,8 @@ def main() -> int:
         }
         token = request_token(
             auth,
-            os.environ["OCI_AGENT_IDCS_CLIENT_ID"],
-            os.environ["OCI_AGENT_IDCS_CLIENT_SECRET"],
+            credentials["OCI_AGENT_IDCS_CLIENT_ID"],
+            credentials["OCI_AGENT_IDCS_CLIENT_SECRET"],
         )
     except HTTPError as error:
         oauth_error = "unavailable"

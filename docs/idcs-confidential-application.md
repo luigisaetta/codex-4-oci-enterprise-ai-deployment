@@ -19,8 +19,8 @@ fill in `agent.yaml`.
 | **Domain URL** | `deploy.auth.domain_url` in `agent.yaml` | No |
 | **Primary audience** | `deploy.auth.audience` | No |
 | **Scope** | `deploy.auth.scope` | No |
-| **Client ID** | Shell variable `OCI_AGENT_IDCS_CLIENT_ID`, for verification and callers | No, but keep it private |
-| **Client secret** | Shell variable `OCI_AGENT_IDCS_CLIENT_SECRET`, for verification and callers | **Yes** |
+| **Client ID** | `OCI_AGENT_IDCS_CLIENT_ID` in the tool's `.env` (verification); `IDCS_CLIENT_ID` in the agent's `ui/.env.local` (demo UI) | No, but keep it private |
+| **Client secret** | `OCI_AGENT_IDCS_CLIENT_SECRET` in the tool's `.env`; `IDCS_CLIENT_SECRET` in `ui/.env.local` | **Yes** |
 
 The first three values are fixed when the Hosted Application is created: to
 change them later, release the agent with a new application name.
@@ -79,9 +79,9 @@ client ID and secret.
 
 1. The Console shows the **Client ID** and **Client secret** (in the wizard,
    in the **Application added** dialog; later, in the application's **OAuth
-   configuration**). Copy the secret into your password manager. Never put it
-   in `agent.yaml`, in the tool's `.env`, in a file of a repository, or in the
-   Codex chat.
+   configuration**). Copy the secret into your password manager. Later you
+   put it only in the files that Git ignores (sections 8 and 9); never in
+   `agent.yaml`, in another file of a repository, or in the Codex chat.
 2. A new application is **deactivated**. From the application page select
    **Activate** (in some Console versions, under **Actions**) and confirm.
 
@@ -251,11 +251,24 @@ These values are not secret and are committed with the agent. More details:
 
 ## 8. Release and verify
 
-The release works as for any agent. The **verification** needs a token, so
-before it, set the client ID and secret **in the terminal that starts Codex**,
-then start Codex from that terminal, for example with `codex`. In macOS or
-Linux (zsh or bash), each command shows a prompt and waits for the value; the
-secret is not shown while you paste it:
+The release works as for any agent. The **verification** needs a token, so it
+needs the client ID and secret. Put them in the tool's `.env`, in the tool
+home, which Git ignores (the verifier reads them from there when they are not
+in the environment):
+
+```dotenv
+OCI_AGENT_IDCS_CLIENT_ID=<client-id>
+OCI_AGENT_IDCS_CLIENT_SECRET=<client-secret>
+```
+
+Edit the file yourself; never paste the values into the Codex chat. From then
+on `.env` contains a secret: never share or commit it.
+
+*Alternative, without writing the secret to a file:* set the two variables in
+the terminal that starts Codex, then start Codex from it, for example with
+`codex`. The Codex extension for VS Code sees only the environment that
+started VS Code. In macOS or Linux (zsh or bash), each command shows a prompt
+and waits for the value; the secret is not shown while you paste it:
 
 ```bash
 printf 'Client ID: '; read -r OCI_AGENT_IDCS_CLIENT_ID; export OCI_AGENT_IDCS_CLIENT_ID
@@ -275,24 +288,35 @@ $env:OCI_AGENT_IDCS_CLIENT_ID = Read-Host 'Client ID'
 $env:OCI_AGENT_IDCS_CLIENT_SECRET = Read-Host 'Client secret' -MaskInput
 ```
 
-The variables exist only in that terminal window. The Codex
-extension for VS Code sees only the variables of the environment that
-started VS Code.
-
-The verifier asks for a token with the scope `<audience><scope>`. If your
-audience does not end with `/` and the domain expects another form, set the
-exact token scope, which is not secret:
-
-```bash
-export OCI_AGENT_IDCS_TOKEN_SCOPE='<exact-token-scope>'
-```
+The verifier asks for a token with the scope `<audience><scope>`. If the
+domain expects another form, set the exact token scope, which is not secret,
+in the same way (`OCI_AGENT_IDCS_TOKEN_SCOPE`, in the environment).
 
 The verifier calls `/health`, `/ready`, and the functional checks with the
 token, and checks that a call without a token is rejected.
 
 Callers of the deployed agent do the same: request a token from the domain as
-the script of section 6 does,
-then send it in the `Authorization: Bearer <token>` header.
+the script of section 6 does, then send it in the `Authorization: Bearer
+<token>` header.
+
+## 9. The demo UI of a protected agent
+
+The demo page created by `oci-agent-ui` works with `public-idcs` agents: its
+local server requests the token and adds it to every call; the browser never
+sees the token or the credentials. The skill writes `IDCS_DOMAIN_URL` and
+`IDCS_TOKEN_SCOPE` in the agent's `ui/.env.local`, and leaves two empty lines
+for you to fill in:
+
+```dotenv
+IDCS_DOMAIN_URL=https://idcs-<id>.identity.oraclecloud.com:443
+IDCS_TOKEN_SCOPE=<primary-audience><scope>
+IDCS_CLIENT_ID=<client-id>
+IDCS_CLIENT_SECRET=<client-secret>
+```
+
+Git ignores `ui/.env.local`. Restart `npm run dev` after editing it. If the
+page shows "service unavailable", the terminal that runs `npm run dev` shows
+the cause, for example `token request: HTTP 401, OAuth error invalid_client`.
 
 ## Troubleshooting
 
@@ -301,7 +325,8 @@ then send it in the `Authorization: Bearer <token>` header.
 | Token request: `invalid_client` | Wrong client ID or secret, or the application is not activated. | Check the values in the application's OAuth configuration; activate the application (step 4). |
 | Token request: `invalid_scope` | The token scope is not `<primary audience><scope>` exactly, or the client is not allowed to request it. | Check the audience and the scope character by character. If they are right, in the application's client configuration, under **Token issuance policy**, select **Add resources** and add the application's own `invoke` scope, then save. |
 | Token issued, but the agent answers 401 | The audience, scope, or domain URL of the Hosted Application differ from the confidential application. | Compare `deploy.auth` with steps 2 and 5. These values are fixed at creation: correct `agent.yaml` and release with a new application name. |
-| The verifier stops before calling OCI, naming `OCI_AGENT_IDCS_CLIENT_ID` or `OCI_AGENT_IDCS_CLIENT_SECRET` | The variable is not set in the environment of Codex. | Set it in the terminal that starts Codex (section 8). |
+| The verifier stops before calling OCI, naming `OCI_AGENT_IDCS_CLIENT_ID` or `OCI_AGENT_IDCS_CLIENT_SECRET` | The variable is neither in the tool's `.env` nor in the environment of Codex. | Add it to the tool's `.env` (section 8). |
+| The demo page shows "service unavailable" | The `IDCS_*` values in `ui/.env.local` are missing or wrong. | Read the cause in the terminal that runs `npm run dev`; compare with sections 5–7 (section 9). |
 
 ## Sources
 
@@ -317,4 +342,6 @@ Verified on 2026-10-13:
   wizard pages, resource server and client settings, the **Token issuance
   policy** and **Add resources**, client ID and secret, activation.
 * Project facts A1–A9 and assumptions U1–U6:
-  [Spec 010](../specs/010-jwt-inbound-authentication.md).
+  [Spec 010](../specs/010-jwt-inbound-authentication.md); credentials in the
+  tool's `.env` and the demo UI:
+  [Spec 022](../specs/022-idcs-credentials-for-ui-and-verifier.md).

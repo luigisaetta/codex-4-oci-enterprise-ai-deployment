@@ -1,11 +1,17 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-30
+Date last modified: 2026-10-13
 License: MIT
 Description: Test sanitized identity-domain token request construction.
 """
 
+import base64
+import http.server
 import importlib.util
+import os
+import subprocess
+import sys
+import threading
 from pathlib import Path
 from types import ModuleType
 
@@ -121,3 +127,97 @@ def test_functional_checks_add_bearer_header_from_process_environment(
         1,
     )
     assert captured["request"].get_header("Authorization") == "Bearer placeholder-token"
+
+
+def test_token_helper_reads_credentials_from_the_tool_env_file(tmp_path: Path) -> None:
+    """Without exported credentials, the helper uses the tool's .env (Spec 022)."""
+    seen: dict[str, str] = {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        """Fake token endpoint that records the Basic credentials."""
+
+        def do_POST(self) -> None:  # pylint: disable=invalid-name
+            """Answer one token request."""
+            self.rfile.read(int(self.headers["Content-Length"]))
+            seen["basic"] = base64.b64decode(
+                self.headers["Authorization"].split()[1]
+            ).decode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"access_token":"file-token"}')
+
+        def log_message(self, *_: object) -> None:
+            """Keep test output quiet."""
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.handle_request, daemon=True)
+    thread.start()
+    configuration = tmp_path / "tool.env"
+    configuration.write_text(
+        "OCI_AGENT_IDCS_CLIENT_ID=file-client\n"
+        "OCI_AGENT_IDCS_CLIENT_SECRET=file-secret\n",
+        encoding="utf-8",
+    )
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("OCI_AGENT_IDCS_")
+    }
+    environment["OCI_AGENT_ENV_FILE"] = str(configuration)
+    port = server.server_address[1]
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--domain-url",
+            f"http://127.0.0.1:{port}",
+            "--audience",
+            "aud/",
+            "--scope",
+            "invoke",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+    thread.join(timeout=10)
+    server.server_close()
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "file-token"
+    assert seen["basic"] == "file-client:file-secret"
+    assert "file-secret" not in result.stderr
+
+
+def test_token_helper_names_both_places_when_credentials_are_missing(
+    tmp_path: Path,
+) -> None:
+    """A missing credential is named, with no value, and exits 64."""
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("OCI_AGENT_IDCS_")
+    }
+    environment["OCI_AGENT_ENV_FILE"] = str(tmp_path / "missing.env")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--domain-url",
+            "https://idcs-placeholder.example",
+            "--audience",
+            "a",
+            "--scope",
+            "b",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 64
+    assert "OCI_AGENT_IDCS_CLIENT_ID" in result.stderr
+    assert "tool's .env" in result.stderr

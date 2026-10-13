@@ -35,8 +35,8 @@ the other, release it as a new application (a different
 
 For `public-idcs`, the verification (not the deploy) tests the values: it
 needs the client ID and client secret of the confidential application,
-exported in your own shell as `OCI_AGENT_IDCS_CLIENT_ID` and
-`OCI_AGENT_IDCS_CLIENT_SECRET`. Never put them in `agent.yaml`, and never
+`OCI_AGENT_IDCS_CLIENT_ID` and `OCI_AGENT_IDCS_CLIENT_SECRET`, in the tool's
+`.env` or exported in your own shell. Never put them in `agent.yaml`, and never
 paste them into the chat. See
 [Protect an agent with identity-domain tokens](using-oci-agent-skills.md#protect-an-agent-with-identity-domain-tokens).
 

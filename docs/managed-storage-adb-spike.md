@@ -6,8 +6,9 @@ type. The goal was to learn whether an agent can save data (for example
 catalogs and results) in an Oracle database without managing one.
 
 The tool does **not** support managed storage yet: no manifest field, script,
-or skill uses it. There is no specification for it yet; this note is input
-for a future one.
+or skill uses it. Draft specifications:
+[Spec 026](../specs/026-managed-adb-storage-at-creation.md) (deploy) and
+[Spec 027](../specs/027-agents-with-a-database.md) (agent code).
 
 ## Scope
 
@@ -17,7 +18,8 @@ for a future one.
   The endpoint reported only metadata (variable names, a sanitized connect
   string, file paths and sizes), never credential values. On each call it
   created the table `spike_items` if missing, inserted one row, and returned
-  the row count and the database version.
+  the row count and the database version. The table name and structure were
+  chosen in the agent code (see Database schema).
 * Public endpoint without authentication, Oracle-managed networking, one
   deployment. All resources were deleted at the end (see Cleanup).
 
@@ -67,12 +69,37 @@ regions or tenancies.
 The database runs in the service tenancy: it is not reachable from outside
 the application, and there is no administrator access to it.
 
+## Database schema
+
+The service provides an empty schema: it creates no tables and offers no
+schema definition or migration mechanism. The agent creates its own tables.
+
+In the spike the agent created this table on each request, ignoring the
+"name is already used" error (ORA-00955) so that later requests did not
+fail:
+
+```sql
+begin
+  execute immediate 'create table spike_items (
+    id number generated always as identity,
+    note varchar2(100))';
+exception
+  when others then
+    if sqlcode != -955 then raise; end if;
+end;
+```
+
+The `create table` succeeded, so the database user provided by the service
+can create tables in its schema. Other privileges (views, sequences,
+procedures, indexes) were not tested.
+
 ## Results
 
 | Test | Observed |
 | --- | --- |
 | Application creation with storage | `CREATING` for about 4 minutes the first time; about 1.5 minutes when the storage already existed. |
 | Connection | Works. Oracle Database **19c** (19.33.0.1.0), not 23ai. |
+| Initial schema | Empty; the table was created by the agent code. |
 | Table create, insert, count | Works; rows accumulate across requests (1, 2, 3). |
 | New version of the same application | Released with `scripts/deploy_hosted_application.sh --apply` (case "New version"). The data **survived** (4 rows). |
 | Storage link after creation | The storage reports the application in `application-ids`. |
@@ -90,6 +117,9 @@ the application, and there is no administrator access to it.
 * Data survives new versions of the same application, but not the deletion
   of the application, even when a new application reuses the same storage.
   Treat deleting an application as losing its data.
+* The agent owns its schema: it must create its tables idempotently (at
+  startup or on first use) and handle schema changes between versions,
+  because the data of earlier versions stays in place.
 * The storage has its own life cycle: delete it explicitly after the
   application, otherwise it stays active.
 * Storage must be declared at application creation; adding it later means
@@ -101,6 +131,7 @@ the application, and there is no administrator access to it.
 * Cost of the managed storage, and whether an orphaned storage is billed.
 * Why the data disappears: the schema may be emptied when the application is
   deleted, or each application may receive a new user in the same database.
+* Privileges of the database user beyond creating tables.
 * Behavior with several replicas, and connection limits.
 * Whether the `POSTGRESQL` and `CACHE` storage types behave the same way.
 
@@ -110,7 +141,8 @@ A future specification would need at least: a storage section in the
 manifest, creation of the storage and `--storage-configs` at application
 creation, a refusal to change storage on an existing application, explicit
 cleanup of the storage, guidance for agent code (credentials read from the
-files, idempotent schema creation, lazy connection), and a local test option
+files, idempotent schema creation by the agent, schema changes between
+versions, lazy connection), and a local test option
 (for example Oracle Database Free, or checks limited to the remote
 verification with `local: false`).
 

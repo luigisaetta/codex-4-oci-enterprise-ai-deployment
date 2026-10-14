@@ -181,7 +181,12 @@ the verifier's 60-second limit.
 **Q3. Logging.** Log to stderr with `logging`: one line at startup, one line
 for every error with its type and cause. Never log secrets, runtime variable
 values, or the full user message. Never turn an exception into an error
-response without logging it.
+response without logging it. The logs of a Hosted Application cannot be read
+by the developer, so a 5xx response also carries a short technical code that
+identifies the cause without sensitive data, for example the Oracle
+`full_code` (`ORA-01745`, `DPY-6005`) at the end of `error.message`.
+*Why:* in the live acceptance of Spec 027 the cause of a 503 was found only
+when the response showed `[ORA-01745]`; the guesses before it were wrong.
 
 **Q4. Startup checks.** Validate required variables and data files at startup;
 on failure `/ready` returns 503 and the cause is logged. For agents with a
@@ -235,16 +240,34 @@ failed step with the job identifier, never the input.
   created in the startup event after the variable checks, never at import
   time. Without `DB_CONNECT_STRING`, create no pool and report
   `not_configured`;
+* if the initialization (pool, schema, seed) fails, retry it in the
+  background, for example every 30 seconds for up to 10 minutes, without
+  blocking the event loop;
 * `/ready` answers 503 until the pool, the schema (Q9), and the seed are
-  ready, and reports `database`: `ready`, `unavailable`, or `not_configured`.
-  `not_configured` does not make `/ready` fail, so that the local
-  verification runs without a database;
+  ready, and reports `database`: `ready`, `unavailable`, or `not_configured`,
+  and `database_error`: `{stage, type, code}` of the last failed attempt
+  (`stage` one of `credentials`, `pool`, `schema`, `seed`; `code` the Oracle
+  `full_code` only), or `null`. `not_configured` does not make `/ready` fail,
+  so that the local verification runs without a database;
+* short transactions: read what the request needs, close the transaction,
+  call the LLM, then write in a second transaction and answer only after the
+  commit. Never keep a connection during LLM calls;
 * no blocking database calls in the event loop: use the asynchronous API of
   `python-oracledb` (`oracledb.create_pool_async`) or `asyncio.to_thread`;
-* bind variables for every value; never build SQL text from request data;
-* one transaction per request, committed before the response; a database
-  error answers 503 with `DATABASE_UNAVAILABLE` and logs the error class,
-  never the values.
+* bind variables for every value; never build SQL text from request data.
+  Never name a bind variable after an Oracle reserved word: `:number` failed
+  with ORA-01745, and the same applies to other reserved words such as `DATE`
+  or `LEVEL`. Use a prefix, for example `:p_order_number`;
+* `python-oracledb` returns columns with an `IS JSON` constraint already
+  decoded, as `dict` or `list`: accept decoded values, LOBs, and JSON text
+  when reading them;
+* a database error answers 503 with `DATABASE_UNAVAILABLE`, the Oracle
+  `full_code` at the end of `error.message` (Q3), and logs the error class
+  and code, never the values;
+* an offline test runs one complete business request with a fake LLM and a
+  fake database session, up to the saved record, and checks that every saved
+  value is serializable. The local verification has no database, so this test
+  is the only local run of that path.
 
 ```python
 def read_credentials(secrets_dir: Path) -> tuple[str, str]:
@@ -257,7 +280,11 @@ def read_credentials(secrets_dir: Path) -> tuple[str, str]:
 *Why:* observed in the spike of 2026-10-14
 ([results](../../../docs/managed-storage-adb-spike.md)): the service gives
 the connect string in the variable and the credentials as files, and the
-connect string points to a local TLS endpoint, so no wallet is needed.
+connect string points to a local TLS endpoint, so no wallet is needed. The
+live acceptance of [Spec 027](../../../specs/027-agents-with-a-database.md)
+found the decoded `IS JSON` values, the reserved bind name, and a transient
+startup failure that left `/ready` at 503 without a retry; each cost a full
+release cycle in OCI.
 
 **Q9. Schema** (agents of B9). The agent creates its schema at startup:
 

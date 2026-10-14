@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+* 2026-10-14: Lessons from the first live agent with a database (Spec 027
+  amendment). Guidelines Q3 and Q8: a technical error code in 5xx responses,
+  because the container logs cannot be read; retry of the database
+  initialization and `database_error` in `/ready`; short transactions; no
+  Oracle reserved words as bind names; decoded `IS JSON` values; an offline
+  test of one full request with a fake LLM and database. The `AGENTS.md`
+  block of agent repositories now asks to follow the guidelines' code rules
+  for every change of the agent code.
+
 * 2026-10-14: Agents with a database (Spec 027). `oci-agent-new` supports
   agents that keep data between requests in the managed Oracle database:
   catalogs loaded from packaged files at startup, records saved by the agent

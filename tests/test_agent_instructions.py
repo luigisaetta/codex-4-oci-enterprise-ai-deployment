@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-13
+Date last modified: 2026-10-14
 License: MIT
 Description: Unit tests for the AGENTS.md instruction block of agent repositories.
 """
@@ -42,6 +42,8 @@ def test_creates_agents_md_with_the_block(tmp_path: Path) -> None:
     assert "Supremo" in content
     assert "## IAM changes" in content
     assert "Never create, change, or delete dynamic groups, policies" in content
+    assert "## Changing the agent code" in content
+    assert "references/agent-guidelines.md" in content
 
 
 def test_appends_to_existing_file_and_is_idempotent(tmp_path: Path) -> None:

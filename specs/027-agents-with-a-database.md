@@ -1,6 +1,6 @@
 # Spec 027: agents with a database
 
-Status: implemented; offline checks passed (2026-10-14); live acceptance pending.
+Status: implemented; offline checks passed (2026-10-14); live acceptance passed with deviations (2026-10-14, see the verification record); amended after it.
 Date: 2026-10-14.
 Amends [Spec 011](011-skill-oci-agent-new.md),
 [Spec 017](017-oci-agent-new-llm-agents-supported.md), and
@@ -36,7 +36,9 @@ developer must be able to read back what was saved.
 * Persistent asynchronous jobs: the jobs of B8 stay in memory, with one
   replica.
 * A local database for the build verification (for example Oracle Database
-  Free). Possible later; see Open points.
+  Free in a container): not planned, because it is too hard to set up for
+  many users. The offline test of Q8 (fake LLM and fake database session) is
+  the local substitute.
 * Changing the demo UI template (`oci-agent-ui`).
 * Large datasets, vector search, or features of Oracle Database 23ai: the
   managed database is 19c (spike).
@@ -176,12 +178,32 @@ customer name Supremo):
 
 ## Open points
 
-* A local database for the build verification (Oracle Database Free in a
-  container, with the credential files mounted), to test SQL before OCI.
-  Its version is 23ai, so Q9's 19c rule must still be respected.
 * The privileges of the database user beyond creating tables (spike); Q9
   uses only tables and indexes.
 * Connection limits of the managed database with several replicas.
+
+## Amendment after the live acceptance (2026-10-14)
+
+The acceptance run found three Oracle-specific defects, each only in OCI and
+each costing a full release cycle, and no way to read the container logs.
+The guidelines gain:
+
+* **Q3:** a 5xx response carries a short technical code without sensitive
+  data (for example the Oracle `full_code`), because the logs of a Hosted
+  Application cannot be read.
+* **Q8:** retry of the database initialization in the background;
+  `database_error` (`stage`, `type`, `code`) in `/ready`; short transactions,
+  never open during LLM calls; no Oracle reserved words as bind variable
+  names; decoded values accepted for `IS JSON` columns; the Oracle
+  `full_code` in the 503 response; an offline test of one complete request
+  with a fake LLM and a fake database session.
+
+The `AGENTS.md` block written by `scripts/agent_instructions.py` gains a
+section "Changing the agent code": every change of the agent code, with or
+without a skill, follows the Q rules of the guidelines, Q8 and Q9 for agents
+with a database. *Why:* the acceptance agent was an existing agent changed
+without `oci-agent-new`; the guidelines reached Codex only because the prompt
+named the file (same reasoning as Spec 020 for the customer name).
 
 ## Verification record
 
@@ -209,3 +231,36 @@ customer name Supremo):
   full suite 436 passed, 157 skipped (all `pwsh is unavailable`); Black and
   Pylint (10.00/10) passed; links resolve.
 * Pending: acceptance criterion 2 (live, with `express-order-db`).
+
+### 2026-10-14, live acceptance (criterion 2), eu-frankfurt-1
+
+Operator-reported results, with read-only OCI checks by Claude. OCI CLI
+3.95.0, macOS, Bash; image builds on the workstation (`linux/amd64`).
+
+* **Agent:** the existing express-order agent (Resource Principal,
+  `public-idcs`, customer name Supremo), changed in place by Codex from its
+  revised `agent-spec.md` with a prompt that named guidelines B5, B6, B9,
+  B10, Q4, Q8, and Q9; new application `express-order-demo-rp-db`
+  (Spec 026). Deviations from the acceptance agent above: it was not created
+  with `oci-agent-new`, and its specification saves only `ordered` results.
+* **0.1.0:** local verification passed without a database (`/ready` 200,
+  `not_configured`). Remote: `database: ready`, `GET ?limit=1` 200, `{}` 400;
+  the valid request answered 500. Cause, found by running the request inside
+  the image with a fake LLM and a fake session, then reading the
+  `python-oracledb` 3.4.2 source (`FetchInfo.is_json`): `IS JSON` CLOB columns
+  are returned decoded, and `json.loads` failed on a `dict`.
+* **0.1.1** (decoding fixed): the valid request answered 503
+  `DATABASE_UNAVAILABLE`, without a code at that time.
+* **0.1.2** (short transactions, timestamp bound as `datetime`, Oracle code
+  in the 503): the first start stayed at `/ready` 503 for 303 seconds. The
+  same images, activated again from the Console, were ready in 11 seconds
+  (0.1.1) and 4 seconds (0.1.2), with identical packages and startup code:
+  a transient failure at startup, with no retry. The valid request then
+  answered 503 with `[ORA-01745]`: the bind variable `:number` is an Oracle
+  reserved word (also the cause of the 0.1.1 failure).
+* **0.1.3** (bind renamed; initialization retry and `database_error` in
+  `/ready` requested, their code not reviewed): the full remote verification with functional checks passed,
+  including the valid request (200). The demo UI shows the last ten orders
+  (operator-reported).
+* Pending: a saved order read back after a new version (the first order was
+  created on 0.1.3), and the reading of one order by its number.

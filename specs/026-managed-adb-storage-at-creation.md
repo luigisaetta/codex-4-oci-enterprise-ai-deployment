@@ -1,6 +1,6 @@
 # Spec 026: managed ADB storage at creation
 
-Status: implemented; offline checks passed (2026-10-14); live acceptance pending.
+Status: implemented; offline checks passed (2026-10-14); live acceptance criterion 2 mostly passed (2026-10-14), criterion 3 pending.
 Date: 2026-10-14.
 Amends [Spec 003](003-skill-oci-agent-deploy.md) (deploy) and
 [Spec 006](006-agent-manifest-configuration.md) (manifest). Input:
@@ -190,3 +190,24 @@ oci --region <region> generative-ai hosted-application-storage delete --hosted-a
   twin is verified only statically.
 * Pending: acceptance criteria 2 and 3 (live), and a run of the PowerShell
   scenarios.
+
+### 2026-10-14, live acceptance (criterion 2), eu-frankfurt-1
+
+With the acceptance agent of Spec 027 (application
+`express-order-demo-rp-db`), Bash, OCI CLI 3.95.0, run by a tenancy
+administrator through the skills:
+
+* First release 0.1.0: the plan showed the storage creation; the apply
+  created `express-order-demo-rp-db-storage` (`ACTIVE` at once), then the
+  application (`CREATING` from 10:20:10 to 10:24:54 UTC) and the deployment.
+* Read-only checks: `hosted-application get` reports `storage-configs` with
+  `DB_CONNECT_STRING` and the storage OCID; the storage reports the
+  application in `application-ids`.
+* New versions 0.1.1, 0.1.2, and 0.1.3: the plan showed
+  `Storage action: none (linked to the existing application; data is kept)`;
+  no storage was listed or created; the database kept its schema and
+  catalog across versions. Activating an earlier artifact from the Console
+  also kept the storage.
+* Not run: a rerun of the plan on an already released tag ("Already
+  released"). Pending: criterion 3 (an operator who is not an
+  administrator) and the PowerShell scenarios.

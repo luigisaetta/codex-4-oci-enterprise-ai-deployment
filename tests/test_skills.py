@@ -257,6 +257,8 @@ def test_new_skill_supports_agents_with_a_database() -> None:
         assert rule in guidelines
     assert "expect_json: {database: ready}" in guidelines
     assert "DATABASE_UNAVAILABLE" in guidelines
+    for lesson in ("ORA-01745", "database_error", "fake database session", "IS JSON"):
+        assert lesson in guidelines
     assert "## Data\n" in template
 
 

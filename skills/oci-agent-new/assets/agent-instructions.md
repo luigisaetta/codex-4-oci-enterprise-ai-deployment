@@ -33,4 +33,12 @@ These rules apply to every task in this repository, with or without a skill.
   reading dynamic groups or policies, only when the user asks for it.
 * Never write wrapper scripts or alternative commands that bypass the OCI
   agent skills.
+
+## Changing the agent code
+
+* When you change the code of this agent, with or without a skill, follow the
+  code rules (Q rules) in
+  `<tool-home>/skills/oci-agent-new/references/agent-guidelines.md`; for an
+  agent with a database (`deploy.storage` in `agent.yaml`), Q8 and Q9 in
+  particular.
 <!-- END oci-agent-skills: customer name -->

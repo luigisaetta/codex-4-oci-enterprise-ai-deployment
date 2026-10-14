@@ -1,6 +1,6 @@
 # Spec 025: rename the project to OCI Agent Shipyard
 
-Status: implemented in the repository; migration of workstations pending.
+Status: implemented; primary workstation migrated (2026-10-14); other workstations pending.
 Date: 2026-10-14.
 
 ## Problem
@@ -72,3 +72,20 @@ environment.
   the historical records listed in the non-goals.
 * README title "OCI Agent Shipyard"; the overview image header and its JPG
   regenerated.
+
+### 2026-10-14, primary workstation migration (macOS)
+
+* Remote `https://github.com/luigisaetta/oci-agent-shipyard.git`, `main` in
+  sync with `origin/main`, tag `v0.7.0` on the remote; the old folder no
+  longer exists.
+* The six skill links in `~/.agents/skills` point to the new tool home; the
+  tool home's `.agents/skills` link is relative and unaffected.
+* New environment `oci-agent-shipyard`: Python 3.11.17, OCI CLI 3.95.0, OCI
+  Python SDK 2.188.0 (newer than the 3.94.0 and 2.187.0 used for the live
+  tests so far); the old environment was removed.
+* `scripts/check_setup.sh`: all 4 checks passed. Full suite in the new
+  environment: 410 passed, 145 skipped; Black and Pylint (10.00/10) passed.
+  The OCI CLI commands and `hosted-application create` options used by the
+  scripts are present in 3.95.0.
+* Pending: a new Codex session listing the six skills (criterion 2), and a
+  first live release with OCI CLI 3.95.0.

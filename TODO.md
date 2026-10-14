@@ -3,7 +3,9 @@
 Planned work, from the project review of 2026-10-01. The project is dedicated
 to developers who work with Codex: every item keeps Codex skills as the
 primary interface. Items that change behavior become a specification in
-`specs/` before implementation; documentation-only items do not.
+`specs/` before implementation; documentation-only items do not. Features
+that we deliberately do not plan to support are in
+[UNPLANNED.md](UNPLANNED.md).
 
 ## Plan
 
@@ -22,7 +24,6 @@ follow the numbers unless a dependency says otherwise.
 | 12 | [Configuration drift and update: scaling and runtime environment](#12-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
 | 13 | [Artifact pruning and application teardown](#13-artifact-pruning-and-application-teardown) | — | Low-medium | Medium term |
 | 14 | [Multiple environments](#14-multiple-environments) | 12 | Medium | Medium term |
-| 15 | [Private endpoint and custom networking](#15-private-endpoint-and-custom-networking) | service capabilities | High | Later |
 
 Phases:
 
@@ -36,7 +37,6 @@ Phases:
    AI, with a local UI to try it.
 4. **Medium term**: needed for continuous use across versions and
    environments.
-5. **Later**: depends on what the service supports.
 
 IAM is the dependency hub: the Vault check (5), the Generative AI demo (7),
 agents created with `oci-agent-new`, and the pre-flight check (10) all need correct policies,
@@ -244,12 +244,3 @@ to Codex.
 The specification must decide how `deploy.application_name` maps to each
 environment (one compartment per environment, or a name suffix), so that two
 environments can never resolve to the same application.
-
-## 15. Private endpoint and custom networking
-
-Only public endpoints with Oracle-managed networking are supported, which
-blocks many enterprise uses. Verify what the service supports (VCN, subnet,
-private endpoint), then write a specification and add a `private` manifest
-profile. At minimum, document clearly what is unsupported and the workaround;
-this documentation-only step can be done earlier.
-

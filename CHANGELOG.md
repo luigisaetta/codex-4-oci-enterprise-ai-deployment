@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-14: New `UNPLANNED.md` lists the features that the project
+  deliberately does not plan to support, with the reason and the workaround.
+  First entry: private endpoints and custom networking (formerly TODO
+  item 15).
+
 * 2026-10-14: Platform dispatch, to prepare skills for OCI AI Data Platform
   (AI DP) (Spec 028). The `AGENTS.md` block of each agent folder declares its
   target platform; every skill reads that declaration first, then the folder's

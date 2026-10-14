@@ -74,7 +74,7 @@ Spec 007.
   symlinks. This was verified empirically on 2026-09-27 with codex-cli
   0.155.0-alpha.16.3 in the companion repository `codex-4-oci-aidp`; the
   OpenAI "Build skills" documentation was reviewed on 2026-09-22.
-* The project Conda environment `codex-4-oci-enterprise-ai-deployment`
+* The project Conda environment `oci-agent-shipyard`
   provides Python, PyYAML, and OCI CLI. Docker, Buildx, and curl (Bash) or
   Docker Desktop/Podman (PowerShell) are installed as today.
 
@@ -162,7 +162,7 @@ The other fields are unchanged. The allowed root is this checkout, found through
   is `python` from `PATH`.
 * Before reading a manifest, each script checks that the interpreter can import
   `yaml`. If not, it exits with code 1 and asks the operator to activate the
-  Conda environment `codex-4-oci-enterprise-ai-deployment` or to set
+  Conda environment `oci-agent-shipyard` or to set
   `OCI_AGENT_PYTHON`.
 * Dependency files are split by purpose:
   * the root `requirements.txt` holds the **tool** runtime dependencies (PyYAML;
@@ -174,7 +174,7 @@ The other fields are unchanged. The allowed root is this checkout, found through
   The `hello_world` Dockerfile copies its own requirements file. The image
   contents are otherwise unchanged.
 * The skills run the scripts inside the Conda environment, either activated or
-  through `conda run --no-capture-output -n codex-4-oci-enterprise-ai-deployment`,
+  through `conda run --no-capture-output -n oci-agent-shipyard`,
   so that build logs still stream.
 
 ### 5. Templates for external agents

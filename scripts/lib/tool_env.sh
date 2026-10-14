@@ -10,7 +10,7 @@ resolve_python() {
     OCI_AGENT_PYTHON="${OCI_AGENT_PYTHON:-python}"
     export OCI_AGENT_PYTHON
     if ! "$OCI_AGENT_PYTHON" -c 'import yaml' >/dev/null 2>&1; then
-        printf '%s\n' 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' >&2
+        printf '%s\n' 'Python with PyYAML is required. Activate the Conda environment oci-agent-shipyard or set OCI_AGENT_PYTHON.' >&2
         return 1
     fi
 }

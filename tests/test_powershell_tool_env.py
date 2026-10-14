@@ -201,4 +201,4 @@ def test_build_rejects_an_invalid_selected_interpreter(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1
-    assert "codex-4-oci-enterprise-ai-deployment" in result.stderr
+    assert "oci-agent-shipyard" in result.stderr

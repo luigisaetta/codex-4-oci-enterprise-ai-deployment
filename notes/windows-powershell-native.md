@@ -37,10 +37,10 @@ is `-ContainerEngine Auto|Docker|Podman`.
    are usable, pass `-ContainerEngine Docker` or `-ContainerEngine Podman`
    explicitly; `Auto` refuses to guess.
 3. **The project Conda environment** named
-   `codex-4-oci-enterprise-ai-deployment` with `requirements-dev.txt`
+   `oci-agent-shipyard` with `requirements-dev.txt`
    installed. It provides `python` with PyYAML for the manifests and the OCI
    CLI (`oci`). Activate it in the same `pwsh` session before running a script,
-   for example with `conda activate codex-4-oci-enterprise-ai-deployment`.
+   for example with `conda activate oci-agent-shipyard`.
 4. **OCI CLI authentication** configured in your Windows user profile, outside
    the repository.
 5. **Script execution allowed.** If `pwsh` refuses to run `.ps1` files because
@@ -122,7 +122,7 @@ sets aligned.
 | `PowerShell 7.4 or later is required` | You are in Windows PowerShell 5.1 or an old `pwsh`. Open PowerShell 7 (`pwsh`) and rerun. |
 | `Both Docker and Podman are usable` | Pass `-ContainerEngine Docker` or `-ContainerEngine Podman`. |
 | `No usable container engine was found` | Start Docker Desktop or the Podman machine, then rerun `docker info` or `podman info`. |
-| `Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.` or a Microsoft Store window opens | The Conda environment is not active in this `pwsh` session; `python` resolves to the Store alias. Activate the environment, or set `OCI_AGENT_PYTHON` to its `python.exe`. |
+| `Python with PyYAML is required. Activate the Conda environment oci-agent-shipyard or set OCI_AGENT_PYTHON.` or a Microsoft Store window opens | The Conda environment is not active in this `pwsh` session; `python` resolves to the Store alias. Activate the environment, or set `OCI_AGENT_PYTHON` to its `python.exe`. |
 | `Missing required tool: oci` | Same cause: OCI CLI lives in the Conda environment. |
 | `Missing configuration key(s): ...` (exit 64) | A tenancy setting is neither in the session nor in the tenancy file named in the message. |
 | `Manifest error: ...` (exit 64) | The manifest file is not found (paths are relative to the current folder, or absolute), a build path leaves the allowed roots, or the file fails validation; the message names the field. |

@@ -59,8 +59,8 @@ prerequisites are in [IAM policies](iam-policies.md), starting with
 [Setup for the administrator](iam-policies.md#setup-for-the-administrator).
 
 The scripts run inside the Conda environment
-`codex-4-oci-enterprise-ai-deployment` (activated, or `conda run
---no-capture-output -n codex-4-oci-enterprise-ai-deployment ...`), or with the
+`oci-agent-shipyard` (activated, or `conda run
+--no-capture-output -n oci-agent-shipyard ...`), or with the
 interpreter set in `OCI_AGENT_PYTHON`.
 
 ## Creating a new agent repository

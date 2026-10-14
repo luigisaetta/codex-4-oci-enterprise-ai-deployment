@@ -198,7 +198,7 @@ def test_build_image_rejects_an_interpreter_without_pyyaml(tmp_path: Path) -> No
     )
 
     assert result.returncode == 1
-    assert "codex-4-oci-enterprise-ai-deployment" in result.stderr
+    assert "oci-agent-shipyard" in result.stderr
 
 
 def test_tool_environment_keeps_exported_values_with_a_missing_file(

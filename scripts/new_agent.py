@@ -26,7 +26,7 @@ try:
 except ImportError:
     print(
         "Python with PyYAML is required. Activate the Conda environment "
-        "codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.",
+        "oci-agent-shipyard or set OCI_AGENT_PYTHON.",
         file=sys.stderr,
     )
     raise SystemExit(EXIT_INVALID_INPUT) from None

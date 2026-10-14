@@ -28,9 +28,9 @@ change directory into the tool home. Pass the manifest path as the user gives it
 (relative to the current folder) or as an absolute path. Its build paths are
 relative to the manifest's own folder.
 
-Run inside the Conda environment `codex-4-oci-enterprise-ai-deployment`
+Run inside the Conda environment `oci-agent-shipyard`
 (activated, or `conda run --no-capture-output -n
-codex-4-oci-enterprise-ai-deployment ...`), or set `OCI_AGENT_PYTHON`. Tenancy
+oci-agent-shipyard ...`), or set `OCI_AGENT_PYTHON`. Tenancy
 settings come from `OCI_AGENT_ENV_FILE`, default `"$TOOL_HOME/.env"`; the
 scripts read it themselves. Never source it, read it into the conversation, or print its content: it may
 hold agent secrets. In a

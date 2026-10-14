@@ -32,9 +32,9 @@ the tool home or write there. Read templates in
 elsewhere. The helper writes their rendered output into the workspace.
 
 Use Python from the activated Conda environment
-`codex-4-oci-enterprise-ai-deployment`, or the explicit `OCI_AGENT_PYTHON`
+`oci-agent-shipyard`, or the explicit `OCI_AGENT_PYTHON`
 interpreter. Without activation, prefix Python commands with
-`conda run --no-capture-output -n codex-4-oci-enterprise-ai-deployment`.
+`conda run --no-capture-output -n oci-agent-shipyard`.
 The Bash examples use:
 
 ```bash
@@ -43,7 +43,7 @@ AGENT_PYTHON="${OCI_AGENT_PYTHON:-python}"
 
 When the selected interpreter lacks PyYAML, the helper exits 64 with:
 "Python with PyYAML is required. Activate the Conda environment
-codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON."
+oci-agent-shipyard or set OCI_AGENT_PYTHON."
 Activate that environment or set `OCI_AGENT_PYTHON`, then retry.
 In PowerShell invoke the same `.py` helper
 with the selected interpreter and the same `--option` names; no script twin

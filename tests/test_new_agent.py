@@ -536,7 +536,7 @@ def test_missing_pyyaml_reports_actionable_error_without_traceback(
     assert result.returncode == 64
     assert result.stderr.strip() == (
         "Python with PyYAML is required. Activate the Conda environment "
-        "codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON."
+        "oci-agent-shipyard or set OCI_AGENT_PYTHON."
     )
     assert not result.stdout
     assert "Traceback" not in result.stdout + result.stderr

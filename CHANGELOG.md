@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* 2026-10-14: The project is now **OCI Agent Shipyard**: repository, tool home
+  folder, and Conda environment `oci-agent-shipyard` (Spec 025). Existing
+  workstations: uninstall the skills, rename the folder, create the new
+  environment, and install the skills again, as described in Spec 025.
+
 ## 0.7.0 - 2026-10-13
 
 Asynchronous agents, protected agents end to end, and safer operation. See

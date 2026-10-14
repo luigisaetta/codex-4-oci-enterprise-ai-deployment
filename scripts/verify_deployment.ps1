@@ -47,7 +47,7 @@ Import-Module (Join-Path $scriptDir 'lib/ToolEnvironment.psm1') -Force
 if (-not (Resolve-AgentPython)) {
   Fail 1 (
     'Python with PyYAML is required. Activate the Conda environment ' +
-    'codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.'
+    'oci-agent-shipyard or set OCI_AGENT_PYTHON.'
   )
 }
 

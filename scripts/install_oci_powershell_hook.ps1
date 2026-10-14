@@ -2,14 +2,14 @@
 .SYNOPSIS
 Installs OCI CLI module-path hooks in the active project Conda environment.
 .DESCRIPTION
-Requires PowerShell 7.4+ and the activated codex-4-oci-enterprise-ai-deployment
+Requires PowerShell 7.4+ and the activated oci-agent-shipyard
 environment. Copies the repository's activation and deactivation hooks into
 that environment. Guards a Conda-generated block in the current user's Windows
 PowerShell profile when present, saving a backup first. Refuses to replace
 differing existing hooks unless -Update is specified. Does not call OCI or
 alter credentials, file ACLs, or machine-wide PowerShell profiles.
 .EXAMPLE
-conda activate codex-4-oci-enterprise-ai-deployment
+conda activate oci-agent-shipyard
 ./scripts/install_oci_powershell_hook.ps1
 #>
 [CmdletBinding()]
@@ -19,9 +19,9 @@ $ErrorActionPreference = 'Stop'
 if ($PSVersionTable.PSVersion -lt [version]'7.4') {
     throw 'PowerShell 7.4 or later is required.'
 }
-if ($env:CONDA_DEFAULT_ENV -ne 'codex-4-oci-enterprise-ai-deployment' -or
+if ($env:CONDA_DEFAULT_ENV -ne 'oci-agent-shipyard' -or
     -not $env:CONDA_PREFIX) {
-    throw 'Activate the codex-4-oci-enterprise-ai-deployment Conda environment first.'
+    throw 'Activate the oci-agent-shipyard Conda environment first.'
 }
 
 $sourceRoot = Join-Path $PSScriptRoot 'lib/conda'

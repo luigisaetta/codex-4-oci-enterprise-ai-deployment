@@ -95,11 +95,11 @@ cd ~/Progetti
 ```
 
 ```bash
-git clone https://github.com/luigisaetta/codex-4-oci-enterprise-ai-deployment.git
+git clone https://github.com/luigisaetta/oci-agent-shipyard.git
 ```
 
 ```bash
-cd codex-4-oci-enterprise-ai-deployment
+cd oci-agent-shipyard
 ```
 
 This folder is the **tool home**: the skills point to it. **Do not move or
@@ -111,14 +111,14 @@ have already cloned the project, use that folder and skip the clone.
 Create a dedicated environment (once; skip it if it already exists):
 
 ```bash
-conda create -n codex-4-oci-enterprise-ai-deployment python=3.11 -y
+conda create -n oci-agent-shipyard python=3.11 -y
 ```
 
 Activate it. Do this **in every new terminal** before working with the
 project:
 
 ```bash
-conda activate codex-4-oci-enterprise-ai-deployment
+conda activate oci-agent-shipyard
 ```
 
 Check that the environment's Python is the active one:
@@ -128,7 +128,7 @@ python -c "import sys; print(sys.version.split()[0], sys.executable)"
 ```
 
 Expected: version 3.11 or later, and a path that contains
-`codex-4-oci-enterprise-ai-deployment`.
+`oci-agent-shipyard`.
 
 *If `conda activate` fails, or the path is not in the environment:* run
 `conda init zsh` (macOS) or `conda init bash` (most Linux systems), close
@@ -274,7 +274,7 @@ Expected: every line says `PASS`, and the last line is
 | Docker build environment | Start Docker Desktop or Rancher Desktop. If it mentions `linux/amd64`, enable the emulation (step 1). With Rancher Desktop, check that the engine is **Moby (`dockerd`)**. |
 | OCI CLI and region | Repeat step 4. If it says the region was not found, check `OCI_REGION` in `.env` and that your tenancy is subscribed to that region. |
 | Skills installed | Repeat step 6, then start a new Codex session. |
-| A message about Python and PyYAML | The environment is not active: run `conda activate codex-4-oci-enterprise-ai-deployment`. |
+| A message about Python and PyYAML | The environment is not active: run `conda activate oci-agent-shipyard`. |
 
 Run `scripts/check_setup.sh` again until every line says `PASS`.
 
@@ -300,11 +300,11 @@ mkdir -p ~/Progetti/hello-world-test/demos
 ```
 
 ```bash
-cp -R ~/Progetti/codex-4-oci-enterprise-ai-deployment/demos/__init__.py ~/Progetti/codex-4-oci-enterprise-ai-deployment/demos/hello_world ~/Progetti/hello-world-test/demos/
+cp -R ~/Progetti/oci-agent-shipyard/demos/__init__.py ~/Progetti/oci-agent-shipyard/demos/hello_world ~/Progetti/hello-world-test/demos/
 ```
 
 ```bash
-cp ~/Progetti/codex-4-oci-enterprise-ai-deployment/.dockerignore ~/Progetti/hello-world-test/
+cp ~/Progetti/oci-agent-shipyard/.dockerignore ~/Progetti/hello-world-test/
 ```
 
 ```bash
@@ -312,7 +312,7 @@ git -C ~/Progetti/hello-world-test init
 ```
 
 If you cloned the project elsewhere, replace
-`~/Progetti/codex-4-oci-enterprise-ai-deployment` with your tool home.
+`~/Progetti/oci-agent-shipyard` with your tool home.
 
 Open the copy, `~/Progetti/hello-world-test`, in Codex (a new session) and ask:
 

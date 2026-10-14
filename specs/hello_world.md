@@ -40,7 +40,7 @@ Reviewed on 2026-09-22:
 ## Verification results
 
 Verified locally on 2026-09-22 using macOS arm64 and Python 3.11.0 in the
-`codex-4-oci-enterprise-ai-deployment` Conda environment.
+`oci-agent-shipyard` Conda environment.
 
 Installed versions: LangGraph 1.2.12, FastAPI 0.141.1, Pydantic 2.13.5,
 Uvicorn 0.53.0, HTTPX 0.28.1, Black 26.5.1, Pylint 4.0.8, pytest 9.1.1.

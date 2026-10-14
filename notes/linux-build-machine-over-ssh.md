@@ -50,7 +50,7 @@ The build machine should have:
 * Docker Engine and Buildx capable of building and loading `linux/amd64`
   images.
 * Git, Bash, curl, and Conda with the project environment
-  `codex-4-oci-enterprise-ai-deployment`.
+  `oci-agent-shipyard`.
 * OCI CLI only if the machine performs push, deploy, or remote verification.
 * An SSH service limited to approved users, key-based authentication, and an
   auditable access path.
@@ -75,9 +75,9 @@ For example, a workstation can request an image build through SSH:
 
 ```bash
 ssh build-host.example.internal \
-  'cd ~/projects/codex-4-oci-enterprise-ai-deployment && \
+  'cd ~/projects/oci-agent-shipyard && \
    git pull --ff-only && \
-   conda run -n codex-4-oci-enterprise-ai-deployment \
+   conda run -n oci-agent-shipyard \
      bash scripts/build_image.sh \
      --manifest demos/hello_world/agent.yaml --tag 0.4.0'
 ```

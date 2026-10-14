@@ -1,7 +1,7 @@
-# Codex Skills for OCI Enterprise AI Deployment
+# OCI Agent Shipyard
 
-**Ship AI agents to OCI Enterprise AI Hosted Applications with plain-language
-requests to Codex.**
+**Build, ship, and run AI agents on OCI Enterprise AI Hosted Applications,
+with plain-language requests to Codex.**
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Target: OCI Hosted Applications](https://img.shields.io/badge/target-OCI%20Hosted%20Applications-C74634)

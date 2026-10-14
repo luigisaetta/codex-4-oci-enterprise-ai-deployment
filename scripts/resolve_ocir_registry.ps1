@@ -9,7 +9,7 @@ $PSNativeCommandUseErrorActionPreference = $false
 if ($PSVersionTable.PSVersion -lt [version]'7.4') { [Console]::Error.WriteLine("PowerShell 7.4 or later is required; current version is $($PSVersionTable.PSVersion). Open PowerShell 7 (pwsh), then run this command again."); exit 64 }
 function Fail([int]$Code, [string]$Message) { [Console]::Error.WriteLine($Message); exit $Code }
 Import-Module (Join-Path $PSScriptRoot 'lib/ToolEnvironment.psm1') -Force
-if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment oci-agent-shipyard or set OCI_AGENT_PYTHON.' }
 $settingsResult = Import-TenancySettings -Keys @('OCI_REGION')
 if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not $env:OCI_REGION) { Fail 64 'Missing required environment variable: OCI_REGION' }

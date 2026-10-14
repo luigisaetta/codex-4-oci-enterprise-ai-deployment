@@ -115,11 +115,11 @@ Set-Location "$HOME\Projects"
 ```
 
 ```powershell
-git clone https://github.com/luigisaetta/codex-4-oci-enterprise-ai-deployment.git
+git clone https://github.com/luigisaetta/oci-agent-shipyard.git
 ```
 
 ```powershell
-Set-Location .\codex-4-oci-enterprise-ai-deployment
+Set-Location .\oci-agent-shipyard
 ```
 
 This folder is the **tool home**: the skills point to it. **Do not move or
@@ -131,14 +131,14 @@ have already cloned the project, use that folder and skip the clone.
 Create a dedicated environment (once; skip it if it already exists):
 
 ```powershell
-conda create -n codex-4-oci-enterprise-ai-deployment python=3.11 -y
+conda create -n oci-agent-shipyard python=3.11 -y
 ```
 
 Activate it. Do this **in every new PowerShell window** before working with
 the project:
 
 ```powershell
-conda activate codex-4-oci-enterprise-ai-deployment
+conda activate oci-agent-shipyard
 ```
 
 Check that the environment's Python is the active one:
@@ -148,7 +148,7 @@ python -c "import sys; print(sys.version.split()[0], sys.executable)"
 ```
 
 Expected: version 3.11 or later, and a path that contains
-`codex-4-oci-enterprise-ai-deployment`.
+`oci-agent-shipyard`.
 
 *If `conda activate` fails, or the path is not in the environment:* Conda is
 not set up for PowerShell. Run this once, close the window, open a new
@@ -331,7 +331,7 @@ Expected: every line says `PASS`, and the last line is
 | Docker build environment | Start Docker Desktop (Linux containers) or the Podman machine (step 1). |
 | OCI CLI and region | Repeat step 4. If it says the region was not found, check `OCI_REGION` in `.env` and that your tenancy is subscribed to that region. |
 | Skills installed | Repeat step 6, then start a new Codex session. |
-| A message about Python and PyYAML | The environment is not active: run `conda activate codex-4-oci-enterprise-ai-deployment`. |
+| A message about Python and PyYAML | The environment is not active: run `conda activate oci-agent-shipyard`. |
 
 Run `./scripts/check_setup.ps1` again until every line says `PASS`.
 
@@ -357,11 +357,11 @@ New-Item -ItemType Directory -Path "$HOME\Projects\hello-world-test\demos" -Forc
 ```
 
 ```powershell
-Copy-Item -Recurse "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\demos\__init__.py", "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\demos\hello_world" "$HOME\Projects\hello-world-test\demos\"
+Copy-Item -Recurse "$HOME\Projects\oci-agent-shipyard\demos\__init__.py", "$HOME\Projects\oci-agent-shipyard\demos\hello_world" "$HOME\Projects\hello-world-test\demos\"
 ```
 
 ```powershell
-Copy-Item "$HOME\Projects\codex-4-oci-enterprise-ai-deployment\.dockerignore" "$HOME\Projects\hello-world-test\"
+Copy-Item "$HOME\Projects\oci-agent-shipyard\.dockerignore" "$HOME\Projects\hello-world-test\"
 ```
 
 ```powershell
@@ -369,7 +369,7 @@ git -C "$HOME\Projects\hello-world-test" init
 ```
 
 If you cloned the project elsewhere, replace
-`$HOME\Projects\codex-4-oci-enterprise-ai-deployment` with your tool home.
+`$HOME\Projects\oci-agent-shipyard` with your tool home.
 
 Open the copy, `$HOME\Projects\hello-world-test`, in Codex (a new session) and ask:
 

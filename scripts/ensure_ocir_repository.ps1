@@ -18,7 +18,7 @@ function Invoke-Oci([string[]]$Arguments) {
 }
 if (-not $Repository -or $Repository -notmatch '^[a-z0-9][a-z0-9._/-]*$' -or $Repository.Contains('//')) { Fail 64 'Provide a valid OCIR repository with -Repository.' }
 Import-Module (Join-Path $PSScriptRoot 'lib/ToolEnvironment.psm1') -Force
-if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment codex-4-oci-enterprise-ai-deployment or set OCI_AGENT_PYTHON.' }
+if (-not (Resolve-AgentPython)) { Fail 1 'Python with PyYAML is required. Activate the Conda environment oci-agent-shipyard or set OCI_AGENT_PYTHON.' }
 $settingsResult = Import-TenancySettings -Keys @('OCI_REGION', 'OCI_COMPARTMENT_NAME')
 if ($settingsResult -ne 0) { Fail $settingsResult 'Unable to load OCI tenancy settings.' }
 if (-not (Get-Command oci -ErrorAction SilentlyContinue)) { Fail 1 'OCI CLI is not available in PATH. Activate the project Conda environment first.' }

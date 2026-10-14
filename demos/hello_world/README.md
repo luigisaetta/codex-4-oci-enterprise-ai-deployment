@@ -9,7 +9,7 @@ Prerequisites: Python 3.11+, the project Conda environment, and a free port 8080
 Run these commands from the repository root:
 
 ```bash
-conda activate codex-4-oci-enterprise-ai-deployment
+conda activate oci-agent-shipyard
 python -m pip install -r demos/hello_world/requirements.txt
 python -m uvicorn demos.hello_world.app:app --host 0.0.0.0 --port 8080
 ```

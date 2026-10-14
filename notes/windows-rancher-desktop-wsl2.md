@@ -32,7 +32,7 @@ Changing container engine or Moby image-storage driver can make previously built
 2. Rancher Desktop is installed and running.
 3. In Rancher Desktop settings, select **Container Engine: Moby (`dockerd`)**.
 4. Enable Rancher Desktop integration for the chosen WSL2 distribution.
-5. Install inside that WSL2 distribution: Git, Miniconda or Conda with the `codex-4-oci-enterprise-ai-deployment` environment, OCI CLI in that environment, `curl`, and the standard Bash utilities used by the scripts.
+5. Install inside that WSL2 distribution: Git, Miniconda or Conda with the `oci-agent-shipyard` environment, OCI CLI in that environment, `curl`, and the standard Bash utilities used by the scripts.
 6. Configure OCI CLI authentication in the WSL2 user account. Keep OCI config, API keys, auth tokens, and the project `.env` outside version control.
 
 The Windows user may need administrator assistance to install WSL2 or the Rancher Desktop privileged service. The privileged service is not needed for this repository's local verification because it probes a loopback port only.
@@ -44,8 +44,8 @@ Clone the repository into the WSL2 Linux filesystem:
 ```bash
 mkdir -p ~/projects
 cd ~/projects
-git clone <repository-url> codex-4-oci-enterprise-ai-deployment
-cd codex-4-oci-enterprise-ai-deployment
+git clone <repository-url> oci-agent-shipyard
+cd oci-agent-shipyard
 ```
 
 Avoid running the normal workflow from `/mnt/c/...` when possible. A Linux filesystem checkout provides more predictable Git permissions, executable bits, file watching, and build-context performance.
@@ -71,7 +71,7 @@ The socket normally appears at `/var/run/docker.sock` when WSL integration is en
 Create the normal tenancy-only `.env` from `.env.example`, configure OCI CLI, and use the existing macOS/Linux commands. For example:
 
 ```bash
-conda run -n codex-4-oci-enterprise-ai-deployment \
+conda run -n oci-agent-shipyard \
   bash scripts/build_image.sh \
   --manifest demos/hello_world/agent.yaml --tag 0.4.0
 ```

@@ -70,7 +70,7 @@ These are decisions of this project, documented for developers in the guide.
 Before starting the skill, the developer needs:
 
 1. **A prepared workstation**, as for the other skills: the tool home in its
-   place, the Conda environment `codex-4-oci-enterprise-ai-deployment`, the
+   place, the Conda environment `oci-agent-shipyard`, the
    skills installed with `scripts/install_skills.sh`, and a Codex session
    started after the installation. The skill runs `new_agent.py` from the tool
    home with the Conda environment's Python.

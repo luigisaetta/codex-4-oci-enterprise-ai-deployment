@@ -211,6 +211,23 @@ What to know before using it (observed on 2026-10-14, see the
   `oci-agent-deploy`.
 * The database cannot be reached from outside the application.
 
+How the agent code uses the database, and the checks it needs, are in the
+guidelines B9, B10, Q8, and Q9 of `oci-agent-new`
+([Spec 027](../specs/027-agents-with-a-database.md)). Example of the checks:
+
+```yaml
+verify:
+  - method: POST
+    path: /express-orders
+    body: {}
+    expect_status: 400
+  - method: GET
+    path: /ready
+    expect_status: 200
+    expect_json: {database: ready}
+    local: false
+```
+
 ### `runtime` (optional)
 
 Environment variables for the container, set on the Hosted Application when it

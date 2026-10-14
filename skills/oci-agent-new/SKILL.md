@@ -6,7 +6,9 @@ description: Create a new AI agent for OCI Generative AI Hosted Applications (Ho
 # OCI Agent New
 
 Contract and verification: [Spec 011](../../specs/011-skill-oci-agent-new.md),
-amended by [Spec 017](../../specs/017-oci-agent-new-llm-agents-supported.md).
+amended by [Spec 017](../../specs/017-oci-agent-new-llm-agents-supported.md),
+[Spec 024](../../specs/024-asynchronous-agents.md), and
+[Spec 027](../../specs/027-agents-with-a-database.md).
 
 ## Purpose and when to use
 
@@ -119,7 +121,8 @@ the agent behavior, endpoint, or model identifier.
 | OCIR repository | `publish.repository`; `^[a-z0-9][a-z0-9._/-]*$`, without `//`. | Helper supplies `agents/<agent-name>` (lowercase). |
 | Business endpoint | `POST` path, request and response fields and types. | None: ask for whatever is missing. |
 | Agent behavior | What the endpoint computes, in plain language. | None: ask. |
-| Functional check | One request body and expected status; expected JSON only for deterministic results. For an asynchronous agent, also a `poll` check (guideline B8). | Derive from behavior and endpoint; show for confirmation. |
+| Functional check | One request body and expected status; expected JSON only for deterministic results. For an asynchronous agent, also a `poll` check (guideline B8); for an agent with a database, also the remote-only `/ready` check (guideline B5). | Derive from behavior and endpoint; show for confirmation. |
+| Saved data | Whether the agent keeps data between requests: catalogs in the database, saved records (guideline B9). | None: no database. |
 | Runtime variables | Only those named in inputs; source `value`, `from_env`, or `vault_secret_id`. | None. |
 
 ## Specification draft
@@ -154,6 +157,14 @@ guideline B8 (a POST that starts a job, a GET that reads its status), for
 agents with several LLM steps or long requests
 ([Spec 024](../../specs/024-asynchronous-agents.md)); use it without asking,
 and say in the draft that the agent is asynchronous.
+
+Agents that keep data between requests are supported too
+([Spec 027](../../specs/027-agents-with-a-database.md)): when the
+specification asks for saved data or a catalog in a database, use the managed
+Oracle database of guideline B9 and the read endpoints of guideline B10
+without asking, and say so in the Deployment section of the draft. If the
+agent replaces an existing application without storage, say in the draft that
+it needs a new application name, which starts with an empty database.
 
 For other GET business endpoints, more endpoints, streaming, file uploads, calls
 to OCI services other than Generative AI, or other additions outside the
@@ -225,9 +236,13 @@ message.
    with the confirmed functional check. Add `runtime` only for requested
    variables, using the [manifest reference](../../docs/agent-manifest-reference.md).
    For an asynchronous agent, also add `deploy.scaling` with one replica and
-   the `poll` check of guideline B8.
+   the `poll` check of guideline B8. For an agent with a database, add
+   `deploy.storage: {type: ADB}` and the remote-only `/ready` check of
+   guideline B5; mark `local: false` every other check that needs the
+   database.
 8. Create `requirements.txt`, `<package>/__init__.py`, `<package>/app.py`, and
-   `<package>/agent.py` within C1–C8; `__init__.py` contains only the module
+   `<package>/agent.py` (and `<package>/db.py` for an agent with a database,
+   guideline Q8) within C1–C8; `__init__.py` contains only the module
    header. Recheck their absence before writing. After render, edit only files
    created in this session; never modify a kept `.gitignore` or other existing
    file. Every generated Python file starts with this header:
@@ -252,6 +267,8 @@ message.
    "$AGENT_PYTHON" -m py_compile \
      "$PACKAGE/__init__.py" "$PACKAGE/app.py" "$PACKAGE/agent.py"
    ```
+
+   Add `"$PACKAGE/db.py"` when it exists.
 
 10. Validate the completed manifest and require at least one check:
 
@@ -279,9 +296,9 @@ message.
 | --- | --- |
 | C1 | Python 3.11 package, FastAPI, Uvicorn on `0.0.0.0:8080` using the template CMD. |
 | C2 | GET `/health` returns HTTP 200 with JSON; `/ready` returns JSON and HTTP 200 after initialization, non-200 before it completes. |
-| C3 | Exactly one POST business endpoint, or the asynchronous pair of guideline B8 (POST to start, GET for the status); JSON requests and responses validated with Pydantic models. |
+| C3 | Exactly one POST business endpoint, or the asynchronous pair of guideline B8 (POST to start, GET for the status); for an agent with a database, also the read endpoints of guideline B10. JSON requests and responses validated with Pydantic models. |
 | C4 | Separate HTTP handling in `app.py` from logic in `agent.py` in the same package. Use LangGraph only when requested. |
-| C5 | Stateless container, writes only under `/tmp`; no network calls or file writes at import time. |
+| C5 | Stateless container, writes only under `/tmp`; data that must survive goes to the managed database (guideline B9). No network calls or file writes at import time. |
 | C6 | No credentials, tokens, or secrets in any generated file, including the manifest. |
 | C7 | Runtime dependencies only, with version ranges starting from [hello_world requirements](../../demos/hello_world/requirements.txt): FastAPI, Pydantic, Uvicorn, and only needed packages. |
 | C8 | Package folder must not be excluded by `.dockerignore`; the helper reads the build template's exclusions. |
@@ -306,7 +323,11 @@ List these four items in order:
    before the build; in `resource_principal` mode, the Generative AI project
    and the runtime policies of [IAM policies](../../docs/iam-policies.md) must
    exist before the deploy, and LLM calls answer 502 in the local
-   verification, as expected.
+   verification, as expected. For an agent with a database: the local
+   verification runs without it (`database: not_configured`, and 503
+   `DATABASE_UNAVAILABLE` for the endpoints that need it), the database
+   checks run in the remote verification, creating the application takes
+   several minutes, and deleting the application loses the data.
 2. **Review `agent.yaml`**: access profile, any needed runtime variables not
    specified (link to the [manifest reference](../../docs/agent-manifest-reference.md)),
    and whether the functional check matches the expected behavior.
@@ -319,8 +340,10 @@ List these four items in order:
 
 ## Limitations
 
-The skill generates one POST JSON business endpoint and no agent tests,
-README, development requirements, or test UI.
+The skill generates one POST JSON business endpoint (with the read endpoints
+of guideline B10 for an agent with a database) and no agent tests, README,
+development requirements, or test UI. The local verification has no database:
+the SQL of an agent with a database runs for the first time in OCI.
 Packages needing compilation fail the build because the base image has no
 compiler; prefer a version or alternative with a `linux/amd64` wheel.
 Files present before this session are never modified. No local syntax or

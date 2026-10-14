@@ -103,6 +103,11 @@ Example with a user-supplied tag of `0.1.0`:
 The manifest verifier checks the configured response status and JSON subset.
 It follows asynchronous jobs (`poll`), and skips checks marked `local: false`,
 which run only in the remote verification ([Spec 024](../../specs/024-asynchronous-agents.md)).
+The local container has no database: for an agent with `deploy.storage`,
+`/ready` reports `database: not_configured` and the endpoints that need the
+database answer 503 `DATABASE_UNAVAILABLE`, as expected
+([Spec 027](../../specs/027-agents-with-a-database.md)); its database checks
+are `local: false`.
 It also injects `runtime.env` literal and `from_env` variables into the local
 container. A Vault entry is skipped unless `OCI_AGENT_VAULT_<VARIABLE_NAME>` is
 set in the operator environment; the override is never displayed.

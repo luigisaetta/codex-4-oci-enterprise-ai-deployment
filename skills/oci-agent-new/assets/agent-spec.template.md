@@ -41,6 +41,17 @@ The steps the agent follows, in order, and its business rules.
 * Files packaged with the agent (for example a catalog).
 * External services (for example an LLM: model, region).
 
+## Data
+
+Only for agents that keep data between requests (guideline B9):
+
+* Tables: for each, what it holds, who writes it (seed from a packaged file,
+  or the agent), and whether it changes.
+* Saved records and the endpoints that read them (guideline B10), for example
+  `GET /<records>/{id}` and `GET /<records>?limit=<n>`.
+* The data survives new versions and is shared by all replicas; it is lost
+  when the application is deleted.
+
 ## Configuration
 
 * LLM authentication: `api_key` (default, `GENAI_API_KEY` with `from_env`) or

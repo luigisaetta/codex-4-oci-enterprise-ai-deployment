@@ -1,6 +1,6 @@
 # Spec 027: agents with a database
 
-Status: draft.
+Status: implemented; offline checks passed (2026-10-14); live acceptance pending.
 Date: 2026-10-14.
 Amends [Spec 011](011-skill-oci-agent-new.md),
 [Spec 017](017-oci-agent-new-llm-agents-supported.md), and
@@ -185,4 +185,27 @@ customer name Supremo):
 
 ## Verification record
 
-None yet.
+### 2026-10-14, macOS, local
+
+* `skills/oci-agent-new/references/agent-guidelines.md`: new B9 (saved data),
+  B10 (reading saved records), Q8 (database access), Q9 (schema); B5 gains the
+  remote-only `/ready` check, B6 sends changing state to the database, Q4
+  waits for the database.
+* `skills/oci-agent-new/SKILL.md`: the database shape in the supported shape,
+  the "Saved data" input, constraints C3 and C5, workflow steps 7–9
+  (`deploy.storage`, `local: false` checks, `db.py`), the closing message, and
+  the limitations. The specification template gains the **Data** section.
+* `skills/oci-agent-build/SKILL.md`, `skills/oci-agent-verify-deployment/SKILL.md`,
+  and `docs/agent-manifest-reference.md`: local verification without a
+  database, remote database checks, and an example of the checks.
+* Decision: `not_configured` keeps `/ready` at 200, so that the local
+  verification passes without a database; the remote-only check
+  `database: ready` catches an application created without its storage.
+* Decision: the guidelines name `oracledb.create_pool_async` or
+  `asyncio.to_thread` for non-blocking access; the asynchronous API of
+  `python-oracledb` was not exercised in the spike, which used the
+  synchronous thin mode.
+* Offline: `tests/test_skills.py::test_new_skill_supports_agents_with_a_database`;
+  full suite 436 passed, 157 skipped (all `pwsh is unavailable`); Black and
+  Pylint (10.00/10) passed; links resolve.
+* Pending: acceptance criterion 2 (live, with `express-order-db`).

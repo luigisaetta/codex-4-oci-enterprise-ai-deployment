@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* 2026-10-14: Agents with a database (Spec 027). `oci-agent-new` supports
+  agents that keep data between requests in the managed Oracle database:
+  catalogs loaded from packaged files at startup, records saved by the agent
+  and read back with `GET` endpoints, and a schema created and extended by the
+  agent (guidelines B9, B10, Q8, Q9). The local verification runs without a
+  database; the database checks run in the remote verification.
+
 * 2026-10-14: Managed Oracle database for agents (Spec 026). An optional
   `deploy.storage` section (`type: ADB`) makes the first release create a
   managed Autonomous Database storage, named `<application_name>-storage`,

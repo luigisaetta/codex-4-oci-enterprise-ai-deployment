@@ -128,6 +128,10 @@ probe fails; report the observed result.
 Functional checks defined in the manifest are not part of this default read-only
 workflow. Only after separately obtaining authorization to invoke business paths
 may you append `--functional`; report each request and response result.
+For an agent with `deploy.storage`, the functional checks include `GET /ready`
+with `database: ready` and the checks that write to or read from the database
+([Spec 027](../../specs/027-agents-with-a-database.md)): they create records
+in the agent's database, which stay there.
 
 Runtime environment validation belongs to build and deploy. This verifier does
 not print or resolve Vault values.

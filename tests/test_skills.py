@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-13
+Date last modified: 2026-10-14
 License: MIT
 Description: Structurally validate OCI agent skill metadata and local references.
 """
@@ -233,6 +233,31 @@ def test_new_skill_supports_asynchronous_agents() -> None:
     for rule in ("**B8. Asynchronous agents.**", "**Q6. Conversation history.**"):
         assert rule in guidelines
     assert "## Steps" in template
+
+
+def test_new_skill_supports_agents_with_a_database() -> None:
+    """The authoring skill, guidelines, and template describe saved data (Spec 027)."""
+    skill = (SKILLS / "oci-agent-new" / "SKILL.md").read_text(encoding="utf-8")
+    guidelines = (
+        SKILLS / "oci-agent-new" / "references" / "agent-guidelines.md"
+    ).read_text(encoding="utf-8")
+    template = (
+        SKILLS / "oci-agent-new" / "assets" / "agent-spec.template.md"
+    ).read_text(encoding="utf-8")
+    assert "../../specs/027-agents-with-a-database.md" in MARKDOWN_LINK.findall(skill)
+    assert "`deploy.storage: {type: ADB}`" in skill
+    assert "read endpoints of guideline B10" in skill
+    assert "data that must survive goes to the managed database" in skill
+    for rule in (
+        "**B9. Saved data.**",
+        "**B10. Reading saved records.**",
+        "**Q8. Database access**",
+        "**Q9. Schema**",
+    ):
+        assert rule in guidelines
+    assert "expect_json: {database: ready}" in guidelines
+    assert "DATABASE_UNAVAILABLE" in guidelines
+    assert "## Data\n" in template
 
 
 def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None:

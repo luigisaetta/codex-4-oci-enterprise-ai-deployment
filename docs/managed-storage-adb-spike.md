@@ -6,8 +6,8 @@ type. The goal was to learn whether an agent can save data (for example
 catalogs and results) in an Oracle database without managing one.
 
 The deploy supports managed ADB storage through `deploy.storage`
-([Spec 026](../specs/026-managed-adb-storage-at-creation.md)); the guidance
-for agent code is a draft
+([Spec 026](../specs/026-managed-adb-storage-at-creation.md)), and
+`oci-agent-new` generates agents that use it
 ([Spec 027](../specs/027-agents-with-a-database.md)).
 
 ## Scope
@@ -140,7 +140,7 @@ procedures, indexes) were not tested.
 Spec 026 implements the deploy side: the storage section in the manifest,
 creation of the storage and `--storage-configs` at application creation, the
 refusal to change storage on an existing application, and the documented
-cleanup. Spec 027 (draft) covers the agent code: credentials read from the
+cleanup. Spec 027 covers the agent code: credentials read from the
 files, idempotent schema creation by the agent, schema changes between
 versions, lazy connection, and verification without a local database.
 

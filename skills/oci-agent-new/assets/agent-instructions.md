@@ -1,4 +1,12 @@
 <!-- BEGIN oci-agent-skills: customer name (Spec 020) -->
+## Target platform
+
+* This agent targets OCI Generative AI Hosted Applications (also called
+  Hosted Deployments or OCI Enterprise AI).
+* Use the `oci-agent-*` skills of the OCI agent skills to create, build,
+  push, deploy, verify, and demo it. Never use the skills for OCI AI Data
+  Platform (AI DP) on this repository.
+
 ## Customer name in demos
 
 These rules apply to every task in this repository, with or without a skill.

@@ -1,6 +1,6 @@
 ---
 name: oci-agent-new
-description: Create a new AI agent for OCI Generative AI Hosted Applications (Hosted Deployments). Use when asked to design, specify, or create a new OCI agent, including a request for a first draft of its specification. Drafts agent-spec.md from a short request, then, after approval, writes agent.yaml, Dockerfile, and a FastAPI agent. Runs no build, push, deploy, Docker, or OCI command.
+description: Create a new AI agent for OCI Generative AI Hosted Applications (Hosted Deployments, OCI Enterprise AI); not for OCI AI Data Platform (AI DP) agents. Asks for the platform when the request does not state it. Use when asked to design, specify, or create a new OCI agent, including a request for a first draft of its specification. Drafts agent-spec.md from a short request, then, after approval, writes agent.yaml, Dockerfile, and a FastAPI agent. Runs no build, push, deploy, Docker, or OCI command.
 ---
 
 # OCI Agent New
@@ -73,9 +73,24 @@ not prerequisites for authoring. Codex cannot change its workspace mid-session.
 
 ## Target platform check
 
-Create agents for OCI Generative AI Hosted Applications only. Before running
-commands, confirm this is the developer's target. If the request concerns
-another platform or the target is unclear, stop and ask; never switch silently.
+Create agents for OCI Generative AI Hosted Applications only (also called
+Hosted Deployments or OCI Enterprise AI;
+[Spec 028](../../specs/028-platform-dispatch.md)). Before running commands:
+
+1. If the workspace's `AGENTS.md` has a "Target platform" section, follow it.
+   If it names OCI AI Data Platform (AI DP), stop with this message: "This
+   agent targets OCI AI Data Platform (AI DP); this skill creates agents only
+   for OCI Generative AI Hosted Applications. Use the skills for OCI AI DP."
+2. Otherwise, if the request names a platform or one of its synonyms, use it.
+   If it names AI DP (or AI Data Platform), stop with the message above.
+3. Otherwise, ask in one message which platform the agent targets, with these
+   two options: "OCI Generative AI Hosted Applications (Hosted Deployments,
+   OCI Enterprise AI)" or "OCI AI Data Platform (AI DP)". If the developer
+   chooses AI DP, stop with the message above.
+
+Write the chosen platform in the Deployment section of the specification
+draft. Workflow step 6 writes it into the repository's `AGENTS.md`. Never
+switch platform silently.
 
 ## Customer name
 

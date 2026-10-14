@@ -43,6 +43,9 @@ def test_creates_agents_md_with_the_block(tmp_path: Path) -> None:
     assert "## IAM changes" in content
     assert "Never create, change, or delete dynamic groups, policies" in content
     assert "## Changing the agent code" in content
+    assert "## Target platform" in content
+    assert "This agent targets OCI Generative AI Hosted Applications" in content
+    assert "Never use the skills for OCI AI Data" in content
     assert "references/agent-guidelines.md" in content
 
 

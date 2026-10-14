@@ -1,6 +1,6 @@
 ---
 name: oci-agent-deploy
-description: Plan or deploy a verified OCIR container image to OCI Generative AI Hosted Applications, not OCI AI Data Platform (AI DP) code-first agents, using managed networking and a public inbound-auth profile.
+description: Plan or deploy a verified OCIR container image to OCI Generative AI Hosted Applications (Hosted Deployments, OCI Enterprise AI), not for OCI AI Data Platform (AI DP) agents, using managed networking and a public inbound-auth profile.
 ---
 
 # OCI Agent Deploy
@@ -74,14 +74,23 @@ mapping table: [Choosing Bash or PowerShell](../README.md#choosing-bash-or-power
 
 ## Target platform check
 
-These skills release container images to OCI Generative AI Hosted Applications.
-Before any command, check the current repository: an `agent.yaml` with
-`schema_version` and a `Dockerfile` indicate Hosted Applications; an entry file
-whose class has a synchronous `setup()` and an async `invoke()`, without
-`agent.yaml`, indicates an OCI AI Data Platform (AI DP) code-first agent. If the
-signals indicate AI DP, stop and tell the user to use the `aidp-agent-deploy`
-skill instead. If the signals are mixed or absent, ask the user which platform
-they mean. Never switch platform silently.
+These skills release container images to OCI Generative AI Hosted Applications
+(also called Hosted Deployments or OCI Enterprise AI)
+([Spec 028](../../specs/028-platform-dispatch.md)). Before any command, decide
+the platform in this order:
+
+1. If the repository's `AGENTS.md` has a "Target platform" section, follow it.
+   If it names OCI AI Data Platform (AI DP), stop with this message:
+   "This agent targets OCI AI Data Platform (AI DP); these skills support only
+   OCI Generative AI Hosted Applications. Use the skills for OCI AI DP."
+2. Otherwise, infer it from the files: an `agent.yaml` with `schema_version`
+   and a `Dockerfile` indicate Hosted Applications; an entry file whose class
+   has a synchronous `setup()` and an asynchronous `invoke()`, without
+   `agent.yaml`, indicates an AI DP code-first agent: stop with the message
+   above.
+3. If the signals are mixed or absent, ask the user which platform they mean.
+
+Never switch platform silently.
 
 ## Workflow
 

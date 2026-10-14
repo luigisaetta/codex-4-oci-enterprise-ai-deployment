@@ -1,6 +1,6 @@
 ---
 name: oci-agent-ui
-description: Create a local, end-user demo web UI (Next.js) for an existing agent of OCI Generative AI Hosted Applications, from its agent-spec.md. Use when asked to build a UI, a demo page, or a front end to show an OCI agent to customers or management. Drafts ui/ui-spec.md first, then, after approval, generates the ui/ folder. The UI runs only on this computer; it never deploys anything.
+description: Create a local, end-user demo web UI (Next.js) for an existing agent of OCI Generative AI Hosted Applications (Hosted Deployments, OCI Enterprise AI), from its agent-spec.md; not for OCI AI Data Platform (AI DP) agents. Use when asked to build a UI, a demo page, or a front end to show an OCI agent to customers or management. Drafts ui/ui-spec.md first, then, after approval, generates the ui/ folder. The UI runs only on this computer; it never deploys anything.
 ---
 
 # OCI Agent UI
@@ -45,10 +45,23 @@ conversation, print, or edit it, because it may hold agent secrets.
 
 ## Target platform check
 
-Create demo UIs only for agents of OCI Generative AI Hosted Applications.
-Before running commands, confirm this is the developer's target. If the request
-concerns another platform or the target is unclear, stop and ask; never switch
-silently.
+Create demo UIs only for agents of OCI Generative AI Hosted Applications
+(also called Hosted Deployments or OCI Enterprise AI)
+([Spec 028](../../specs/028-platform-dispatch.md)). Before any command, decide
+the platform in this order:
+
+1. If the repository's `AGENTS.md` has a "Target platform" section, follow it.
+   If it names OCI AI Data Platform (AI DP), stop with this message:
+   "This agent targets OCI AI Data Platform (AI DP); these skills support only
+   OCI Generative AI Hosted Applications. Use the skills for OCI AI DP."
+2. Otherwise, infer it from the files: an `agent.yaml` with `schema_version`
+   and a `Dockerfile` indicate Hosted Applications; an entry file whose class
+   has a synchronous `setup()` and an asynchronous `invoke()`, without
+   `agent.yaml`, indicates an AI DP code-first agent: stop with the message
+   above.
+3. If the signals are mixed or absent, ask the user which platform they mean.
+
+Never switch platform silently.
 
 ## Customer name
 

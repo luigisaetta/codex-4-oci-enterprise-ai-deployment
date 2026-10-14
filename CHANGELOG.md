@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* 2026-10-14: Platform dispatch, to prepare skills for OCI AI Data Platform
+  (AI DP) (Spec 028). The `AGENTS.md` block of each agent folder declares its
+  target platform; every skill reads that declaration first, then the folder's
+  files, then asks. `oci-agent-new` asks for the platform when the request
+  does not state it. No skill names an AI DP skill, and no script changed.
+  Existing agent folders: run `python scripts/agent_instructions.py ensure
+  --target <agent-folder>` once from the tool home to add the declaration.
+
 * 2026-10-14: Lessons from the first live agent with a database (Spec 027
   amendment). Guidelines Q3 and Q8: a technical error code in 5xx responses,
   because the container logs cannot be read; retry of the database

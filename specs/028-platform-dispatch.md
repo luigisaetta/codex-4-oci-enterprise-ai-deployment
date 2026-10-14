@@ -1,6 +1,6 @@
 # Spec 028: platform dispatch, to prepare OCI AI Data Platform skills
 
-Status: draft.
+Status: implemented; offline checks passed (2026-10-14); live acceptance pending.
 Date: 2026-10-14.
 Amends [Spec 011](011-skill-oci-agent-new.md) and
 [Spec 018](018-skill-oci-agent-ui.md) (target platform check),
@@ -159,4 +159,27 @@ gaps:
 
 ## Verification record
 
-None yet.
+### 2026-10-14, macOS, local
+
+* `skills/oci-agent-new/assets/agent-instructions.md`: the "Target platform"
+  section, first in the block, inside the existing markers.
+* The six `SKILL.md` files: the ordered target platform check (declaration,
+  then files, then a question), the fixed stop message for AI DP, and the
+  descriptions with the synonyms and "not for OCI AI Data Platform (AI DP)
+  agents". The reference to `aidp-agent-deploy` was removed from the four
+  lifecycle skills.
+* `oci-agent-new`: the question with the two options; the specification
+  template gains "Platform: OCI Generative AI Hosted Applications" in its
+  Deployment section.
+* Documentation: `skills/README.md` (section "Choosing the platform"),
+  `docs/quickstart.md`, both Getting started guides.
+* Decision: the stop message is the same text in every skill, so that the
+  test can check it and the user sees one wording.
+* Offline: `tests/test_skills.py` (platform check of every skill, compared on
+  single-spaced text; no AI DP skill named in any skill file; descriptions;
+  the two options of `oci-agent-new`; the template), and
+  `tests/test_agent_instructions.py` (the new section). Full suite: 439
+  passed, 157 skipped (all `pwsh is unavailable`); Black and Pylint
+  (10.00/10) passed; links resolve. `git diff` shows no change under
+  `scripts/` or `demos/` (acceptance criterion 2).
+* Pending: acceptance criterion 3 (live, new Codex sessions).

@@ -71,6 +71,7 @@ Request → expected response, for at least one deterministic case.
 
 ## Deployment
 
+* Platform: OCI Generative AI Hosted Applications
 * Application name: {{AGENT_NAME}}
 * Deployment region: the tool's `OCI_REGION` (`.env`)
 * Access: `public-noauth`

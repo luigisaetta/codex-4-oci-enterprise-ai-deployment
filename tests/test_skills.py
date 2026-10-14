@@ -156,19 +156,58 @@ def test_deploy_skill_documents_release_cases_and_no_delete_rule() -> None:
     assert "--replace-failed" in content
 
 
+def target_platform_check(content: str) -> str:
+    """Return the text of a skill's "Target platform check" section."""
+    section = content.split("## Target platform check", maxsplit=1)[1]
+    # Line breaks differ between skills, so compare single-spaced text.
+    return " ".join(section.split("\n## ", maxsplit=1)[0].split())
+
+
 def test_skills_include_target_platform_check() -> None:
-    """Every skill checks its platform; lifecycle skills retain their routing."""
-    lifecycle_skills = {
-        "oci-agent-build",
-        "oci-agent-push",
-        "oci-agent-deploy",
-        "oci-agent-verify-deployment",
-    }
+    """Every skill dispatches by the declared platform first (Spec 028)."""
     for directory in skill_directories():
         content = (directory / "SKILL.md").read_text(encoding="utf-8")
-        assert "## Target platform check" in content
-        if directory.name in lifecycle_skills:
-            assert "aidp-agent-deploy" in content
+        assert "## Target platform check" in content, directory.name
+        check = target_platform_check(content)
+        assert '"Target platform" section' in check, directory.name
+        assert "`AGENTS.md`" in check, directory.name
+        assert "OCI Generative AI Hosted Applications" in check, directory.name
+        assert "Use the skills for OCI AI DP." in check, directory.name
+        assert "Never switch platform silently." in check, directory.name
+        assert "../../specs/028-platform-dispatch.md" in check, directory.name
+
+
+def test_skills_name_no_ai_dp_skill() -> None:
+    """Skills refer to the AI DP skills generically, never by name (Spec 028)."""
+    for markdown in [*SKILLS.rglob("*.md"), *SKILLS.rglob("*.yaml")]:
+        content = markdown.read_text(encoding="utf-8")
+        assert "aidp-agent" not in content, markdown
+        assert "aidp-notebook" not in content, markdown
+
+
+def test_descriptions_exclude_ai_dp_agents() -> None:
+    """Every description names the synonyms and excludes AI DP agents."""
+    for directory in skill_directories():
+        description = frontmatter(directory / "SKILL.md")["description"]
+        assert "OCI Enterprise AI" in description, directory.name
+        assert (
+            "not for OCI AI Data Platform (AI DP) agents" in description
+        ), directory.name
+
+
+def test_new_skill_asks_for_the_platform_with_two_options() -> None:
+    """Without a stated platform, oci-agent-new offers both platforms."""
+    skill = (SKILLS / "oci-agent-new" / "SKILL.md").read_text(encoding="utf-8")
+    check = target_platform_check(skill)
+    assert (
+        '"OCI Generative AI Hosted Applications (Hosted Deployments, '
+        'OCI Enterprise AI)"' in check
+    )
+    assert '"OCI AI Data Platform (AI DP)"' in check
+    template = (
+        SKILLS / "oci-agent-new" / "assets" / "agent-spec.template.md"
+    ).read_text(encoding="utf-8")
+    assert "* Platform: OCI Generative AI Hosted Applications" in template
 
 
 def test_new_skill_documents_helper_and_llm_support() -> None:

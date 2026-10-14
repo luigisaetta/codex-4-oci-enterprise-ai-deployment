@@ -26,6 +26,22 @@ tool's `.env` or the operator's shell (for verification) and in the agent's
 | [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Bash and PowerShell implemented; a Podman-backed Windows release and verification passed for an existing Hosted Application. See [Spec 007](../specs/007-windows-powershell-support.md) and [Spec 012](../specs/012-reliable-deploy-wait.md). |
 | [oci-agent-verify-deployment](oci-agent-verify-deployment/SKILL.md) | Verify an active Hosted Application release with OCI state checks and health/readiness probes. | Implemented; static and live Frankfurt verification passed for `hello-world:0.2.0`; see [Spec 005](../specs/005-skill-oci-agent-verify-deployment.md). |
 
+## Choosing the platform
+
+These skills support one platform: OCI Generative AI Hosted Applications
+(also called Hosted Deployments or OCI Enterprise AI). Skills for OCI AI Data
+Platform (AI DP) are planned. Codex chooses the skills in this order
+([Spec 028](../specs/028-platform-dispatch.md)):
+
+1. The "Target platform" section of the agent folder's `AGENTS.md`, written
+   when the agent is created (`scripts/agent_instructions.py ensure`).
+2. Without it, the files of the folder: `agent.yaml` and a `Dockerfile` mean
+   Hosted Applications.
+3. Otherwise, the skill asks. `oci-agent-new` asks for the platform when the
+   request does not state it.
+
+If the platform is AI DP, every skill of this repository stops and says so.
+
 ## Choosing Bash or PowerShell
 
 The helper of `oci-agent-new`, `$TOOL_HOME/scripts/new_agent.py`, is Python

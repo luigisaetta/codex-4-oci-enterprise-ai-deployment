@@ -1,4 +1,6 @@
 # Shared OCI resource wait and response helpers for deploy_hosted_application.ps1.
+# Kinds: 'Hosted Application', 'Hosted Deployment', and 'Managed storage' (Spec 026;
+# its lookup uses -ApplicationName as the storage display name).
 # Requires PowerShell 7.4+, OCI CLI and a validated region. Performs read-only OCI calls.
 function Get-MutationId {
     param([string]$Response)
@@ -26,6 +28,10 @@ function Find-MutatedResource {
         $lookupArgs = @('--region', $Region, 'generative-ai', 'hosted-application-collection',
             'list-hosted-applications', '--compartment-id', $CompartmentId,
             '--display-name', $ApplicationName, '--all')
+    } elseif ($Kind -eq 'Managed storage') {
+        $lookupArgs = @('--region', $Region, 'generative-ai',
+            'hosted-application-storage-collection', 'list-hosted-application-storages',
+            '--compartment-id', $CompartmentId, '--display-name', $ApplicationName, '--all')
     } else {
         $lookupArgs = @('--region', $Region, 'generative-ai', 'hosted-deployment-collection',
             'list-hosted-deployments', '--compartment-id', $CompartmentId,
@@ -151,6 +157,9 @@ function Wait-HostedResource {
         if ($Kind -eq 'Hosted Application') {
             $getArgs = @('--region', $Region, '--output', 'json', 'generative-ai',
                 'hosted-application', 'get', '--hosted-application-id', $ResourceId)
+        } elseif ($Kind -eq 'Managed storage') {
+            $getArgs = @('--region', $Region, '--output', 'json', 'generative-ai',
+                'hosted-application-storage', 'get', '--hosted-application-storage-id', $ResourceId)
         } else {
             $getArgs = @('--region', $Region, '--output', 'json', 'generative-ai',
                 'hosted-deployment', 'get', '--hosted-deployment-id', $ResourceId)

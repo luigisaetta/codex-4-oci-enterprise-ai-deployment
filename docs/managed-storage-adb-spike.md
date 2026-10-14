@@ -5,10 +5,10 @@ Generative AI Hosted Applications, with the Autonomous Database (ADB) storage
 type. The goal was to learn whether an agent can save data (for example
 catalogs and results) in an Oracle database without managing one.
 
-The tool does **not** support managed storage yet: no manifest field, script,
-or skill uses it. Draft specifications:
-[Spec 026](../specs/026-managed-adb-storage-at-creation.md) (deploy) and
-[Spec 027](../specs/027-agents-with-a-database.md) (agent code).
+The deploy supports managed ADB storage through `deploy.storage`
+([Spec 026](../specs/026-managed-adb-storage-at-creation.md)); the guidance
+for agent code is a draft
+([Spec 027](../specs/027-agents-with-a-database.md)).
 
 ## Scope
 
@@ -135,16 +135,14 @@ procedures, indexes) were not tested.
 * Behavior with several replicas, and connection limits.
 * Whether the `POSTGRESQL` and `CACHE` storage types behave the same way.
 
-## Impact on the tool (not implemented)
+## Impact on the tool
 
-A future specification would need at least: a storage section in the
-manifest, creation of the storage and `--storage-configs` at application
-creation, a refusal to change storage on an existing application, explicit
-cleanup of the storage, guidance for agent code (credentials read from the
+Spec 026 implements the deploy side: the storage section in the manifest,
+creation of the storage and `--storage-configs` at application creation, the
+refusal to change storage on an existing application, and the documented
+cleanup. Spec 027 (draft) covers the agent code: credentials read from the
 files, idempotent schema creation by the agent, schema changes between
-versions, lazy connection), and a local test option
-(for example Oracle Database Free, or checks limited to the remote
-verification with `local: false`).
+versions, lazy connection, and verification without a local database.
 
 ## Cleanup
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Author: L. Saetta
-Date last modified: 2026-10-13
+Date last modified: 2026-10-14
 License: MIT
 Description: Validate and expose the versioned agent deployment manifest.
 """
@@ -17,11 +17,39 @@ from urllib.parse import urlparse
 
 import yaml
 
+# Callers import ManifestError and the storage helpers from this module too.
 if __package__:
     from . import tool_config
+    from .manifest_common import (
+        ENVIRONMENT_NAME,
+        RESERVED_ENVIRONMENT_NAMES,
+        ManifestError,
+        fail_unknown_keys,
+        require_object,
+    )
+    from .manifest_storage import (
+        storage_config,
+        storage_configs,
+        storage_matches,
+        validate_storage,
+    )
 else:
     # Direct script execution puts scripts/ on sys.path.
-    import tool_config  # pylint: disable=import-error
+    # pylint: disable=import-error
+    import tool_config
+    from manifest_common import (
+        ENVIRONMENT_NAME,
+        RESERVED_ENVIRONMENT_NAMES,
+        ManifestError,
+        fail_unknown_keys,
+        require_object,
+    )
+    from manifest_storage import (
+        storage_config,
+        storage_configs,
+        storage_matches,
+        validate_storage,
+    )
 
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
@@ -29,9 +57,7 @@ SEMVER = re.compile(
 )
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 REPOSITORY = re.compile(r"^[a-z0-9][a-z0-9._/-]*$")
-ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 VAULT_SECRET_ID = re.compile(r"^ocid1\.vaultsecret\.oc1\.[A-Za-z0-9._-]+$")
-RESERVED_ENVIRONMENT_NAMES = {"PATH", "HOME", "PYTHONPATH"}
 SENSITIVE_ENVIRONMENT_TOKENS = (
     "TOKEN",
     "SECRET",
@@ -41,35 +67,6 @@ SENSITIVE_ENVIRONMENT_TOKENS = (
     "API_KEY",
     "PRIVATE_KEY",
 )
-
-
-class ManifestError(ValueError):
-    """Raised when an agent manifest does not meet the supported contract."""
-
-
-def fail_unknown_keys(value: dict[str, Any], allowed: set[str], location: str) -> None:
-    """Reject keys outside a schema object.
-
-    Args:
-        value: Object to validate.
-        allowed: Allowed key names.
-        location: Human-readable schema location.
-
-    Raises:
-        ManifestError: If an unknown key is present.
-    """
-    unknown = sorted(set(value) - allowed)
-    if unknown:
-        raise ManifestError(
-            f"{location} has unsupported field(s): {', '.join(unknown)}"
-        )
-
-
-def require_object(value: Any, location: str) -> dict[str, Any]:
-    """Return a mapping or raise a useful manifest validation error."""
-    if not isinstance(value, dict):
-        raise ManifestError(f"{location} must be an object.")
-    return value
 
 
 def is_within(path: Path, root: Path) -> bool:
@@ -484,10 +481,14 @@ def validate_deploy(value: Any) -> dict[str, Any]:
     """
     deploy = require_object(value, "manifest.deploy")
     fail_unknown_keys(
-        deploy, {"application_name", "profile", "auth", "scaling"}, "manifest.deploy"
+        deploy,
+        {"application_name", "profile", "auth", "scaling", "storage"},
+        "manifest.deploy",
     )
     if "scaling" in deploy:
         deploy["scaling"] = validate_scaling(deploy["scaling"])
+    if "storage" in deploy:
+        deploy["storage"] = validate_storage(deploy["storage"])
     if not isinstance(deploy.get("application_name"), str) or not NAME.fullmatch(
         deploy["application_name"]
     ):
@@ -698,6 +699,13 @@ def load_manifest(manifest_path: str) -> dict[str, Any]:
         raise ManifestError("manifest.publish.repository is invalid.")
     manifest["deploy"] = validate_deploy(manifest.get("deploy"))
     manifest["runtime"] = validate_runtime(manifest.get("runtime"))
+    storage = manifest["deploy"].get("storage")
+    runtime_names = {variable["name"] for variable in manifest["runtime"]["env"]}
+    if storage is not None and storage["connect_env"] in runtime_names:
+        raise ManifestError(
+            "manifest.deploy.storage.connect_env must not be a runtime.env name: "
+            f"{storage['connect_env']}."
+        )
     checks = manifest.get("verify")
     if not isinstance(checks, list):
         raise ManifestError("manifest.verify must be a list.")
@@ -833,11 +841,16 @@ def build_parser() -> argparse.ArgumentParser:
         "inbound-auth-matches",
         "scaling-config",
         "scaling-matches",
+        "storage-config",
+        "storage-matches",
     ):
         subparsers.add_parser(command).add_argument("--manifest", required=True)
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("--manifest", required=True)
     get_parser.add_argument("--field", required=True)
+    storage_parser = subparsers.add_parser("storage-configs")
+    storage_parser.add_argument("--manifest", required=True)
+    storage_parser.add_argument("--storage-id", required=True)
     deployment_parser = subparsers.add_parser("deployment-name")
     deployment_parser.add_argument("--manifest", required=True)
     deployment_parser.add_argument("--tag", required=True)
@@ -855,10 +868,31 @@ MATCHERS = {
     "runtime-matches": runtime_matches,
     "inbound-auth-matches": inbound_auth_matches,
     "scaling-matches": scaling_matches,
+    "storage-matches": storage_matches,
 }
 JSON_BUILDERS = {
     "inbound-auth": inbound_auth_config,
     "scaling-config": scaling_config,
+    "storage-config": storage_config,
+}
+
+
+def deployment_name(manifest: dict[str, Any], args: argparse.Namespace) -> str:
+    """Return the Hosted Deployment name for a semantic tag."""
+    if not SEMVER.fullmatch(args.tag):
+        raise ManifestError("Tag must be semantic (MAJOR.MINOR.PATCH).")
+    return f"{manifest['deploy']['application_name']}-{args.tag.replace('.', '-')}"
+
+
+def storage_configs_json(manifest: dict[str, Any], args: argparse.Namespace) -> str:
+    """Return the ``--storage-configs`` JSON for a storage OCID (Spec 026)."""
+    return json.dumps(storage_configs(manifest, args.storage_id), separators=(",", ":"))
+
+
+# Commands that need an argument besides the manifest.
+ARGUMENT_COMMANDS = {
+    "deployment-name": deployment_name,
+    "storage-configs": storage_configs_json,
 }
 
 
@@ -883,16 +917,13 @@ def main() -> int:
             if not MATCHERS[args.command](manifest, json.load(sys.stdin)):
                 return 1
         elif args.command in JSON_BUILDERS:
-            # scaling-config prints nothing when the manifest has no scaling.
+            # scaling-config and storage-config print nothing when the
+            # manifest has no such section.
             config = JSON_BUILDERS[args.command](manifest)
             if config is not None:
                 print(json.dumps(config, separators=(",", ":")))
         else:
-            if not SEMVER.fullmatch(args.tag):
-                raise ManifestError("Tag must be semantic (MAJOR.MINOR.PATCH).")
-            print(
-                f"{manifest['deploy']['application_name']}-{args.tag.replace('.', '-')}"
-            )
+            print(ARGUMENT_COMMANDS[args.command](manifest, args))
     except ManifestError as error:
         print(f"Manifest error: {error}", file=sys.stderr)
         return 64

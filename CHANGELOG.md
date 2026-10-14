@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* 2026-10-14: Managed Oracle database for agents (Spec 026). An optional
+  `deploy.storage` section (`type: ADB`) makes the first release create a
+  managed Autonomous Database storage, named `<application_name>-storage`,
+  and link it when the Hosted Application is created; the agent receives the
+  connect string in `DB_CONNECT_STRING`. The plan shows the storage; a rerun
+  reuses an orphaned storage instead of creating another; an existing
+  application whose storage differs from the manifest stops the deploy.
+
 * 2026-10-14: New note [Managed ADB storage spike](docs/managed-storage-adb-spike.md)
   with the results of a live test of the managed Autonomous Database storage
   of Hosted Applications. The tool does not support managed storage yet.

@@ -1,6 +1,6 @@
 # Spec 026: managed ADB storage at creation
 
-Status: draft.
+Status: implemented; offline checks passed (2026-10-14); live acceptance pending.
 Date: 2026-10-14.
 Amends [Spec 003](003-skill-oci-agent-deploy.md) (deploy) and
 [Spec 006](006-agent-manifest-configuration.md) (manifest). Input:
@@ -101,9 +101,11 @@ another source is given.
    an empty database." Otherwise the release continues as today; a new
    version keeps the data (F5).
 6. **Manifest helper.** `agent_manifest.py storage-config` prints the
-   storage section as JSON, or nothing when absent;
-   `storage-matches` reads the application JSON on stdin and exits 0 when
-   manifest and application agree, 1 otherwise. Same pattern as Spec 023.
+   storage section as JSON with the storage display name, or nothing when
+   absent; `storage-configs --storage-id <ocid>` prints the
+   `--storage-configs` JSON; `storage-matches` reads the application JSON on
+   stdin and exits 0 when manifest and application agree, 1 otherwise. Same
+   pattern as Spec 023.
 7. **Release record.** The deploy prints the storage OCID with the other
    resource references.
 8. **Permissions.** A `NotAuthorizedOrNotFound` error on the storage
@@ -162,4 +164,29 @@ oci --region <region> generative-ai hosted-application-storage delete --hosted-a
 
 ## Verification record
 
-None yet.
+### 2026-10-14, macOS, local
+
+* `scripts/manifest_storage.py`: `validate_storage`, `storage_config`,
+  `storage_configs`, `storage_matches`. `scripts/manifest_common.py` holds
+  `ManifestError` and the schema helpers shared with `agent_manifest.py`,
+  which re-exports them; this keeps `agent_manifest.py` under the module size
+  limit. New commands `storage-config`, `storage-configs`, `storage-matches`;
+  `deployment-name` and `storage-configs` share one dispatch table.
+* Both deploy scripts: the storage plan lines, the selection of the storage
+  before a release that creates the application (create, reuse an orphan, or
+  exit 20), creation and wait before `hosted-application create`, the
+  `--storage-configs` option, the storage comparison on existing
+  applications, and the IAM message after a failed storage request (exit 1).
+  The wait and lookup helpers (`scripts/lib/deploy_wait.sh`,
+  `DeployWait.psm1`) gained the `Managed storage` kind.
+* Decision: the storage list uses the same error capture as mutations, so
+  that a permission error prints only the selected, redacted ServiceError
+  fields in both script families.
+* Offline: `tests/test_storage.py` (manifest validation, helpers, and nine
+  release scenarios per script family); the fake OCI CLI of
+  `tests/test_deploy_release_cases.py` gained storage list, create, and get.
+  Full suite: 435 passed, 157 skipped (all `pwsh is unavailable`); Black
+  and Pylint (10.00/10) passed. PowerShell scenarios were skipped: `pwsh` is unavailable on this workstation, so the PowerShell
+  twin is verified only statically.
+* Pending: acceptance criteria 2 and 3 (live), and a run of the PowerShell
+  scenarios.

@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-10-13
+Date last modified: 2026-10-14
 License: MIT
 Description: Exercise Hosted Application release cases with a scenario-driven OCI CLI.
 """
@@ -116,6 +116,26 @@ if "iam" in arguments and "region" in arguments:
 elif "iam" in arguments and "compartment" in arguments:
     query = arguments[arguments.index("--query") + 1]
     output("1" if "length(" in query else "ocid1.compartment.test")
+elif "list-hosted-application-storages" in arguments:
+    if scenario.get("reject_storage_list"):
+        service_error(404, "NotAuthorizedOrNotFound", "Authorization failed")
+    storages = [item for item in scenario.get("storages", [])
+                if item.get("lifecycle-state") != "DELETED"]
+    if "--query" in arguments:
+        query = arguments[arguments.index("--query") + 1]
+        output(str(len(storages)) if "length(" in query else storages[0]["id"])
+    else:
+        output({"data": {"items": scenario.get("storages", [])}})
+elif "hosted-application-storage" in arguments and "create" in arguments:
+    if scenario.get("reject_storage_create"):
+        service_error(404, "NotAuthorizedOrNotFound", "Authorization failed")
+    storage = {"id": "ocid1.generativeaiapplicationstorage.created",
+               "lifecycle-state": "ACTIVE", "application-ids": []}
+    scenario.setdefault("storages", []).append(storage)
+    save()
+    output({"data": storage, "opc-work-request-id": "ocid1.workrequest.storage"})
+elif "hosted-application-storage" in arguments and "get" in arguments:
+    output({"data": {"id": arguments[-1], "lifecycle-state": "ACTIVE"}})
 elif "list-hosted-applications" in arguments:
     query = arguments[arguments.index("--query") + 1]
     application_id = "ocid1.generativeaihostedapplication.test"
@@ -158,6 +178,7 @@ elif "hosted-application" in arguments and "get" in arguments:
                     "environment-variables": runtime,
                     "inbound-auth-config": auth,
                     "scaling-config": scenario.get("scaling_config"),
+                    "storage-configs": scenario.get("storage_configs"),
                 }
             }
         )

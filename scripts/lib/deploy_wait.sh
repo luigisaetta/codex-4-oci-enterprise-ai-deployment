@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Shared polling and response parsing for Hosted Application and Deployment mutations.
+# Shared polling and response parsing for Hosted Application, Deployment, and managed
+# storage ('Managed storage', Spec 026) mutations.
 # Requires: Bash 3.2+, OCI CLI, OCI_AGENT_PYTHON, OCI_REGION, compartment_id,
-# application_name, application_id, non_deleted_query, timeout_seconds, poll_interval.
+# application_name, application_id, non_deleted_query, timeout_seconds, poll_interval;
+# storage_name for storage lookups.
 # Inputs: resource kind, OCID and operation; reads OCI only after the initial mutation.
 # Side effects: OCI read requests and bounded sleeps. Source from deploy_hosted_application.sh.
 # After a failed wait, last_failure_state and last_failure_errors hold the observed
@@ -41,6 +43,16 @@ lookup_mutated_resource() {
     result="$(oci --region "$OCI_REGION" generative-ai hosted-application-collection \
       list-hosted-applications --compartment-id "$compartment_id" \
       --display-name "$application_name" --all \
+      --query "(${non_deleted_query})[0].id" --raw-output)" || return 1
+  elif [[ "$kind" == 'Managed storage' ]]; then
+    count="$(oci --region "$OCI_REGION" generative-ai hosted-application-storage-collection \
+      list-hosted-application-storages --compartment-id "$compartment_id" \
+      --display-name "$storage_name" --all \
+      --query "length(${non_deleted_query})" --raw-output)" || return 1
+    [[ "$count" == '1' ]] || return 1
+    result="$(oci --region "$OCI_REGION" generative-ai hosted-application-storage-collection \
+      list-hosted-application-storages --compartment-id "$compartment_id" \
+      --display-name "$storage_name" --all \
       --query "(${non_deleted_query})[0].id" --raw-output)" || return 1
   else
     count="$(oci --region "$OCI_REGION" generative-ai hosted-deployment-collection \
@@ -178,6 +190,10 @@ wait_for_resource() {
     if [[ "$kind" == 'Hosted Application' ]]; then
       response="$(oci --region "$OCI_REGION" --output json generative-ai hosted-application get \
         --hosted-application-id "$resource_id" 2>&1)" && error=0 || error=$?
+    elif [[ "$kind" == 'Managed storage' ]]; then
+      response="$(oci --region "$OCI_REGION" --output json generative-ai \
+        hosted-application-storage get --hosted-application-storage-id "$resource_id" \
+        2>&1)" && error=0 || error=$?
     else
       response="$(oci --region "$OCI_REGION" --output json generative-ai hosted-deployment get \
         --hosted-deployment-id "$resource_id" 2>&1)" && error=0 || error=$?

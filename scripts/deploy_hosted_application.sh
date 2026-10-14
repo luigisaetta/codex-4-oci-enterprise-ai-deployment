@@ -7,8 +7,9 @@
 # or from the environment.
 # Inputs: --manifest PATH --tag MAJOR.MINOR.PATCH; --timeout-seconds 1800 by default;
 # --replace-failed selects only a FAILED deployment; --apply authorizes mutations.
-# Side effects: plans read OCI only. Applies create missing resources, or add and
-# activate artifacts in place, or explicitly replace a FAILED deployment.
+# Side effects: plans read OCI only. Applies create missing resources (including the
+# managed storage of deploy.storage, Spec 026), or add and activate artifacts in
+# place, or explicitly replace a FAILED deployment.
 # OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
 # Exit codes: 0 success, 1 OCI or tool failure, 20 state requiring review,
 # 26 still in progress, 27 runtime cannot read the image (missing runtime permissions),
@@ -105,6 +106,7 @@ print_plan() {
     printf '%s\n' 'Access: public unauthenticated endpoint.'
   fi
   printf 'Release case: %s\n' "$release_case"
+  print_storage_plan
   if [[ -n "$scaling_json" ]]; then
     printf 'Scaling: %s replicas\n' "$(printf '%s' "$scaling_json" | "$OCI_AGENT_PYTHON" -c '
 import json
@@ -138,7 +140,103 @@ print("{}-{}".format(config["minReplica"], config["maxReplica"]))
     printf '%s\n' "$environment_report"
   fi
   printf '%s\n' \
-    'Container environment variables, managed storage, and custom networking are omitted.'
+    'Container environment variables and custom networking are omitted.'
+}
+
+# Print the managed storage lines of the plan (Spec 026).
+print_storage_plan() {
+  if [[ -z "$storage_json" ]]; then
+    printf '%s\n' 'Storage: none'
+    return
+  fi
+  printf 'Storage: ADB, connect string in %s\n' "$storage_env"
+  case "$storage_action" in
+    create)
+      printf 'Storage action: create %s\n' "$storage_name"
+      ;;
+    reuse)
+      printf 'Storage action: reuse %s (not linked to any application): %s\n' \
+        "$storage_name" "$storage_id"
+      ;;
+    *)
+      printf '%s\n' 'Storage action: none (linked to the existing application; data is kept)'
+      ;;
+  esac
+  if [[ -n "$storage_action" ]]; then
+    printf '%s\n' 'Creating an application with storage takes several minutes; the new database is empty.'
+  fi
+}
+
+# Print the IAM rule after a failed storage request (Spec 026, Spec 019).
+report_storage_permission_rule() {
+  printf '%s\n' \
+    'If OCI reports NotAuthorizedOrNotFound, your group lacks a permission for managed storage.' \
+    'This is tenancy IAM setup, done by your tenancy administrator.' \
+    'Do not create or change dynamic groups or policies.' >&2
+}
+
+# Select the managed storage of a first release: create, reuse an orphan, or stop.
+inspect_storage() {
+  local storages_json details storage_count storage_state storage_links
+  if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
+    hosted-application-storage-collection list-hosted-application-storages \
+    --compartment-id "$compartment_id" --display-name "$storage_name" --all; then
+    report_service_error 'Managed storage list' "$mutation_error"
+    report_storage_permission_rule
+    exit 1
+  fi
+  storages_json="$mutation_output"
+  details="$(printf '%s' "$storages_json" | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+try:
+    data = json.load(sys.stdin).get("data") or {}
+except ValueError:
+    data = {}
+items = data.get("items", []) if isinstance(data, dict) else data
+items = [item for item in items if item.get("lifecycle-state") != "DELETED"]
+first = items[0] if items else {}
+print(len(items))
+print(first.get("id", ""))
+print(first.get("lifecycle-state", ""))
+print(len(first.get("application-ids") or []))
+')"
+  storage_count="$(printf '%s\n' "$details" | sed -n '1p')"
+  storage_id="$(printf '%s\n' "$details" | sed -n '2p')"
+  storage_state="$(printf '%s\n' "$details" | sed -n '3p')"
+  storage_links="$(printf '%s\n' "$details" | sed -n '4p')"
+  if [[ "$storage_count" == '0' ]]; then
+    storage_action='create'
+  elif [[ "$storage_count" == '1' && "$storage_state" == 'ACTIVE' && "$storage_links" == '0' ]]; then
+    storage_action='reuse'
+  elif [[ "$storage_count" == '1' ]]; then
+    printf 'Managed storage "%s" (%s) is %s and linked to %s application(s); it cannot be reused.\n' \
+      "$storage_name" "$storage_id" "$storage_state" "$storage_links" >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  else
+    printf 'Expected zero or one non-deleted managed storage named "%s"; found %s.\n' \
+      "$storage_name" "$storage_count" >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
+}
+
+# Create the managed storage when the plan selected it, then wait until ACTIVE.
+ensure_storage() {
+  [[ "$storage_action" == 'create' ]] || {
+    printf 'Reusing managed storage: %s\n' "$storage_id"
+    return 0
+  }
+  printf 'Creating managed storage %s (ADB).\n' "$storage_name"
+  if ! invoke_mutation oci --region "$OCI_REGION" --output json generative-ai \
+    hosted-application-storage create --compartment-id "$compartment_id" \
+    --storage-type ADB --display-name "$storage_name"; then
+    report_service_error 'Managed storage create' "$mutation_error"
+    report_storage_permission_rule
+    exit 1
+  fi
+  storage_id="$(resolve_mutation_id 'Managed storage' "$mutation_output")"
+  printf 'Created managed storage: %s\n' "$storage_id"
+  wait_for_resource 'Managed storage' "$storage_id" create || exit $?
 }
 
 # Activate an existing artifact, wait for the work request, and confirm its tag.
@@ -191,6 +289,13 @@ check_application_configuration() {
       'changing it is not supported.' >&2
     exit "$EXIT_EXISTING_RESOURCE"
   fi
+  if ! printf '%s' "$current_json" | "$OCI_AGENT_PYTHON" \
+    "$script_directory/agent_manifest.py" storage-matches --manifest "$manifest"; then
+    printf '%s%s%s\n' 'Existing Hosted Application storage differs from the manifest; ' \
+      'storage can be set only when the application is created. ' \
+      'Creating a new application starts with an empty database.' >&2
+    exit "$EXIT_EXISTING_RESOURCE"
+  fi
 }
 
 # Resolve an accepted mutation without exposing its raw CLI output.
@@ -219,8 +324,15 @@ invoke_mutation() {
 create_hosted_application() {
   local application_output
   local -a scaling_options=()
+  local -a storage_options=()
   if [[ -n "$scaling_json" ]]; then
     scaling_options=(--scaling-config "$scaling_json")
+  fi
+  if [[ -n "$storage_json" ]]; then
+    ensure_storage
+    storage_options=(--storage-configs "$("$OCI_AGENT_PYTHON" \
+      "$script_directory/agent_manifest.py" storage-configs --manifest "$manifest" \
+      --storage-id "$storage_id")")
   fi
   printf 'Creating Hosted Application with %s and Oracle-managed networking.\n' "$profile"
   # The ${array[@]+...} form keeps Bash 3.2 with set -u working when the array is empty.
@@ -230,7 +342,8 @@ create_hosted_application() {
     --networking-config '{"inboundNetworkingConfig":{"endpointMode":"PUBLIC"},'\
 '"outboundNetworkingConfig":{"networkMode":"MANAGED"}}' \
     --environment-variables "$environment_variables_json" \
-    ${scaling_options[@]+"${scaling_options[@]}"}; then
+    ${scaling_options[@]+"${scaling_options[@]}"} \
+    ${storage_options[@]+"${storage_options[@]}"}; then
     report_service_error 'Hosted Application create' "$mutation_error"
     exit 1
   fi
@@ -405,6 +518,25 @@ inbound_auth_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
 # Spec 023: empty when the manifest has no deploy.scaling (platform default).
 scaling_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
   scaling-config --manifest "$manifest")"
+# Spec 026: empty when the manifest has no deploy.storage.
+storage_json="$("$OCI_AGENT_PYTHON" "$script_directory/agent_manifest.py" \
+  storage-config --manifest "$manifest")"
+storage_env=""
+storage_name=""
+storage_id=""
+storage_action=""
+if [[ -n "$storage_json" ]]; then
+  storage_env="$(printf '%s' "$storage_json" | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+print(json.load(sys.stdin)["connect_env"])
+')"
+  storage_name="$(printf '%s' "$storage_json" | "$OCI_AGENT_PYTHON" -c '
+import json
+import sys
+print(json.load(sys.stdin)["display_name"])
+')"
+fi
 domain_url=""
 audience=""
 scope=""
@@ -555,6 +687,10 @@ fi
 if "$replace_failed" && [[ "$release_case" != 'Replace failed deployment' ]]; then
   printf '%s\n' '--replace-failed requires a FAILED deployment.' >&2
   exit "$EXIT_INVALID_INPUT"
+fi
+# Only a release that creates the application selects or creates its storage.
+if [[ -n "$storage_json" && -z "$application_id" ]]; then
+  inspect_storage
 fi
 if [[ "${application_state:-}" == 'CREATING' ]]; then
   release_case='Application creation in progress'

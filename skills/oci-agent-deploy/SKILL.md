@@ -101,6 +101,20 @@ without it, `Scaling: platform default`. If an existing application has other
 replicas than the manifest, the deploy stops with exit 20: changing the
 scaling of an existing application is not supported.
 
+With `deploy.storage`, a release that creates the application also selects its
+managed ADB storage, named `<application_name>-storage`
+([Spec 026](../../specs/026-managed-adb-storage-at-creation.md)). The plan
+reports `Storage: ADB, connect string in <variable>` and a `Storage action`:
+`create <name>`, `reuse <name>` (an `ACTIVE` storage linked to no application,
+for example after a failed creation), or `none` for an existing application,
+whose data is kept. A storage linked to another application, in another
+state, or found twice stops the deploy with exit 20. If an existing
+application's storage differs from the manifest, the deploy stops with exit
+20: storage can be set only at creation, and a new application starts with an
+empty database. Tell the user that creating an application with storage takes
+several minutes. Without `deploy.storage`, the plan reports `Storage: none`
+and no storage is listed or created.
+
 Get these non-secret values from the identity-domain administrator; its
 confidential application may be new or reused. Use only
 `<identity-domain-url>`, `<audience-of-the-confidential-application>`, and
@@ -202,12 +216,24 @@ hosted-deployment delete-hosted-deployment-artifact`.
 
 ## Limitations
 
-The script deliberately omits `--storage-configs` and custom networking. It
+The script deliberately omits custom networking. It passes `--storage-configs`
+only for `deploy.storage`, when it creates the application, and never adds,
+changes, or deletes the storage of an existing application. It
 supplies `--environment-variables` only from validated manifest `runtime.env`
 data. It never creates IAM policies or dynamic groups needed for the Hosted
 Deployment runtime to pull a private image. It activates or adds artifacts in
 an existing deployment. It deletes only a `FAILED` deployment on an explicitly
 requested and approved replacement plan.
+
+Removing an agent with managed storage is a manual step, done only when the
+user asks for it: deleting the application loses its data. Delete the Hosted
+Application (this also deletes its deployments; the active deployment cannot be
+deleted alone), then the storage, which otherwise stays active:
+`oci --region <region> generative-ai hosted-application delete
+--hosted-application-id <application-ocid>`, then `oci --region <region>
+generative-ai hosted-application-storage delete --hosted-application-storage-id
+<storage-ocid>`. A failed storage request with `NotAuthorizedOrNotFound` is a
+missing permission: report it and stop, as for any IAM problem.
 
 IAM belongs to the tenancy administrator. When a release fails on permissions,
 report what is missing and stop. The compartment and region lookups of the

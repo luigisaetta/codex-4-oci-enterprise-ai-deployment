@@ -6,8 +6,9 @@ Plans or, with -Apply, releases a manifest-defined OCI Generative AI Hosted Appl
 Prerequisites: PowerShell 7.4+, OCI CLI authentication, and Python with PyYAML.
 Inputs: -Manifest PATH -Tag MAJOR.MINOR.PATCH; -TimeoutSeconds defaults to 1800.
 -ReplaceFailed selects only a FAILED deployment; -Apply authorizes mutations.
-Without -Apply it performs OCI reads only. With -Apply it creates missing resources, adds and
-activates artifacts in place, or explicitly replaces a FAILED deployment.
+Without -Apply it performs OCI reads only. With -Apply it creates missing resources (including
+the managed storage of deploy.storage, Spec 026), adds and activates artifacts in place, or
+explicitly replaces a FAILED deployment.
 OCI_DEPLOY_POLL_INTERVAL sets polling seconds (default 30; intended for offline tests).
 Usage: deploy_hosted_application.ps1 [-Plan|-Apply] -Manifest PATH -Tag TAG
   [-TimeoutSeconds SECONDS] [-ReplaceFailed].
@@ -62,7 +63,7 @@ function Invoke-Oci {
 
 # Capture a rejected mutating request and print only selected, redacted ServiceError fields.
 function Invoke-OciMutation {
-    param([string]$Kind, [string[]]$Arguments)
+    param([string]$Kind, [string[]]$Arguments, [string[]]$FailureHint = @())
     $errorPath = [System.IO.Path]::GetTempFileName()
     try {
         $output = & oci @Arguments 2> $errorPath
@@ -74,6 +75,7 @@ function Invoke-OciMutation {
     if ($exitCode -ne 0) {
         $failureOutput = ((@($output) | ForEach-Object { "$_" }) -join "`n") + "`n" + $errorText
         Write-HostedServiceError -Kind $Kind -OutputText $failureOutput
+        foreach ($line in $FailureHint) { [Console]::Error.WriteLine($line) }
         exit 1
     }
     return ((@($output) | ForEach-Object { "$_" }) -join "`n").Trim()
@@ -135,6 +137,90 @@ function Test-ExistingApplicationConfiguration {
             'changing it is not supported.'
         )
     }
+    $ApplicationJson | & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+        storage-matches --manifest $Manifest | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Fail $exitExistingResource (
+            'Existing Hosted Application storage differs from the manifest; ' +
+            'storage can be set only when the application is created. ' +
+            'Creating a new application starts with an empty database.'
+        )
+    }
+}
+
+# The IAM rule printed after a failed storage request (Spec 026, Spec 019).
+$storagePermissionRule = @(
+    'If OCI reports NotAuthorizedOrNotFound, your group lacks a permission for managed storage.',
+    'This is tenancy IAM setup, done by your tenancy administrator.',
+    'Do not create or change dynamic groups or policies.'
+)
+
+# Print the managed storage lines of the plan (Spec 026).
+function Write-StoragePlan {
+    if (-not $storageJson) {
+        Write-Output 'Storage: none'
+        return
+    }
+    Write-Output "Storage: ADB, connect string in $storageEnv"
+    switch ($storageAction) {
+        'create' { Write-Output "Storage action: create $storageName" }
+        'reuse' {
+            Write-Output "Storage action: reuse $storageName (not linked to any application): $storageId"
+        }
+        default { Write-Output 'Storage action: none (linked to the existing application; data is kept)' }
+    }
+    if ($storageAction) {
+        Write-Output 'Creating an application with storage takes several minutes; the new database is empty.'
+    }
+}
+
+# Select the managed storage of a first release: create, reuse an orphan, or stop.
+function Select-Storage {
+    $storagesJson = Invoke-OciMutation -Kind 'Managed storage list' -FailureHint $storagePermissionRule -Arguments @(
+        '--region', $region, '--output', 'json', 'generative-ai',
+        'hosted-application-storage-collection', 'list-hosted-application-storages',
+        '--compartment-id', $compartmentId, '--display-name', $storageName, '--all'
+    )
+    $items = @()
+    if ($storagesJson) {
+        $data = ($storagesJson | ConvertFrom-Json).data
+        $items = if ($null -ne $data.items) { @($data.items) } else { @($data) }
+    }
+    $items = @($items | Where-Object { $null -ne $_ -and $_.'lifecycle-state' -ne 'DELETED' })
+    if ($items.Count -eq 0) {
+        $script:storageAction = 'create'
+        return
+    }
+    if ($items.Count -gt 1) {
+        Fail $exitExistingResource "Expected zero or one non-deleted managed storage named `"$storageName`"; found $($items.Count)."
+    }
+    $script:storageId = [string]$items[0].id
+    $state = [string]$items[0].'lifecycle-state'
+    $links = @($items[0].'application-ids' | Where-Object { $_ }).Count
+    if ($state -eq 'ACTIVE' -and $links -eq 0) {
+        $script:storageAction = 'reuse'
+        return
+    }
+    Fail $exitExistingResource "Managed storage `"$storageName`" ($storageId) is $state and linked to $links application(s); it cannot be reused."
+}
+
+# Create the managed storage when the plan selected it, then wait until ACTIVE.
+function New-StorageIfNeeded {
+    if ($storageAction -ne 'create') {
+        Write-Output "Reusing managed storage: $storageId"
+        return
+    }
+    Write-Output "Creating managed storage $storageName (ADB)."
+    $storageOutput = Invoke-OciMutation -Kind 'Managed storage create' -FailureHint $storagePermissionRule -Arguments @(
+        '--region', $region, '--output', 'json', 'generative-ai', 'hosted-application-storage',
+        'create', '--compartment-id', $compartmentId, '--storage-type', 'ADB',
+        '--display-name', $storageName
+    )
+    $script:storageId = Resolve-MutationId 'Managed storage' $storageOutput
+    Write-Output "Created managed storage: $storageId"
+    $result = Wait-HostedResource -Kind 'Managed storage' -ResourceId $storageId `
+        -Operation create -Region $region -CompartmentId $compartmentId -TimeoutSeconds $TimeoutSeconds -PollInterval $pollInterval
+    if ($result -ne 0) { exit $result }
 }
 
 # Print the release case and the OCI state that selected it.
@@ -163,6 +249,7 @@ function Write-Plan {
         Write-Output 'Access: public unauthenticated endpoint.'
     }
     Write-Output "Release case: $releaseCase"
+    Write-StoragePlan
     if ($scalingJson) {
         $scaling = $scalingJson | ConvertFrom-Json
         Write-Output "Scaling: $($scaling.minReplica)-$($scaling.maxReplica) replicas"
@@ -193,7 +280,7 @@ function Write-Plan {
     if ($environmentReport) {
         Write-Output $environmentReport
     }
-    Write-Output 'Container environment variables, managed storage, and custom networking are omitted.'
+    Write-Output 'Container environment variables and custom networking are omitted.'
 }
 
 # Activate an existing artifact, wait for the work request, and confirm its tag.
@@ -225,8 +312,9 @@ function Resolve-MutationId {
     param([string]$Kind, [string]$Response)
     $id = Get-MutationId -Response $Response
     if (-not $id) {
+        $lookupName = if ($Kind -eq 'Managed storage') { $storageName } else { $applicationName }
         $id = Find-MutatedResource -Kind $Kind -Region $region -CompartmentId $compartmentId `
-            -ApplicationName $applicationName -ApplicationId $applicationId
+            -ApplicationName $lookupName -ApplicationId $applicationId
         if (-not $id) {
             Fail 1 "$Kind create/delete response had no data.id and lookup found no unique resource. Check OCI before retrying."
         }
@@ -244,6 +332,13 @@ function New-HostedApplication {
         '--environment-variables', $environmentJson
     )
     if ($scalingJson) { $createArgs += @('--scaling-config', $scalingJson) }
+    if ($storageJson) {
+        New-StorageIfNeeded
+        $storageConfigs = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') `
+            storage-configs --manifest $Manifest --storage-id $storageId
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $createArgs += @('--storage-configs', ((@($storageConfigs) | ForEach-Object { "$_" }) -join "`n").Trim())
+    }
     $applicationOutput = Invoke-OciMutation -Kind 'Hosted Application create' -Arguments $createArgs
     $script:applicationId = Resolve-MutationId 'Hosted Application' $applicationOutput
     $script:applicationWorkRequestId = Get-MutationWorkRequestId -Response $applicationOutput
@@ -398,6 +493,19 @@ $inboundAuthJson = ((@($inboundAuthJson) | ForEach-Object { "$_" }) -join "`n").
 $scalingJson = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') scaling-config --manifest $Manifest
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $scalingJson = ((@($scalingJson) | ForEach-Object { "$_" }) -join "`n").Trim()
+# Spec 026: empty when the manifest has no deploy.storage.
+$storageJson = & $env:OCI_AGENT_PYTHON (Join-Path $scriptDir 'agent_manifest.py') storage-config --manifest $Manifest
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$storageJson = ((@($storageJson) | ForEach-Object { "$_" }) -join "`n").Trim()
+$storageEnv = ''
+$storageName = ''
+$storageId = ''
+$storageAction = ''
+if ($storageJson) {
+    $storage = $storageJson | ConvertFrom-Json
+    $storageEnv = [string]$storage.connect_env
+    $storageName = [string]$storage.display_name
+}
 $domainUrl = ''
 $audience = ''
 $scope = ''
@@ -533,6 +641,10 @@ if ($applicationCount -eq '1') {
 
 if ($ReplaceFailed -and $releaseCase -ne 'Replace failed deployment') {
     Fail $exitInvalidInput '--replace-failed requires a FAILED deployment.'
+}
+# Only a release that creates the application selects or creates its storage.
+if ($storageJson -and -not $applicationId) {
+    Select-Storage
 }
 if ($applicationState -eq 'CREATING') {
     $releaseCase = 'Application creation in progress'

@@ -137,6 +137,7 @@ listed in `OCI_AGENT_ALLOWED_ROOTS`.
 | `profile` | yes | `public-noauth` or `public-idcs` (see [Choose the access mode first](#choose-the-access-mode-first)). | `public-idcs` |
 | `auth` | only with `public-idcs` | Identity-domain settings; rejected with `public-noauth`. | see below |
 | `scaling` | no | Number of replicas, set when the application is created. Without it, the platform default applies (1 to 3 replicas). | `{min_replicas: 1, max_replicas: 1}` |
+| `storage` | no | Managed Oracle database for the application, set when the application is created. | `{type: ADB}` |
 
 `deploy.auth`, for `public-idcs` only; all three fields are required, and
 the values must match the confidential application exactly:
@@ -174,6 +175,41 @@ can reach a replica that does not have that state. The value is set only when
 the application is created; the deploy stops if an existing application has
 other replicas. The scaling metric stays the platform default (requests per
 second).
+
+`deploy.storage`, optional
+([Spec 026](../specs/026-managed-adb-storage-at-creation.md)):
+
+| Field | Rule |
+| --- | --- |
+| `type` | Required; `ADB` (Oracle Autonomous Database, version 19c). |
+| `connect_env` | Name of the variable that receives the connect string; default `DB_CONNECT_STRING`. Must match `^[A-Z][A-Z0-9_]*$`, must not be a `runtime.env` name, and must not start with `OCI_` or `OCIR_`. |
+
+```yaml
+deploy:
+  application_name: my-agent
+  profile: public-noauth
+  storage:
+    type: ADB
+```
+
+The service creates the database and connects it to the application: there is
+no database, wallet, network, or credential to manage, and none goes in the
+manifest. At run time the agent finds the connect string in `connect_env`,
+and the database user and password in the files
+`/mnt/secrets/adb/username` and `/mnt/secrets/adb/password`. The schema is
+empty: the agent creates its own tables.
+
+What to know before using it (observed on 2026-10-14, see the
+[spike results](managed-storage-adb-spike.md)):
+
+* Storage is set only when the application is **created**. The deploy stops
+  if an existing application has no storage, or has one and the manifest does
+  not. A new application name starts with an empty database.
+* The data survives new versions and restarts, and all replicas share it.
+* Deleting the application **loses the data**. The storage itself is not
+  deleted with the application: delete it afterwards, as described in
+  `oci-agent-deploy`.
+* The database cannot be reached from outside the application.
 
 ### `runtime` (optional)
 

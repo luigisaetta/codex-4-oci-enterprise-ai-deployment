@@ -28,6 +28,14 @@ placeholders; the statements are explained in the rest of this page.
    allow group <operator-group> to read generative-ai-work-request in compartment <compartment-name>
    ```
 
+   For agents with managed storage (`deploy.storage`,
+   [Spec 026](../specs/026-managed-adb-storage-at-creation.md)), the operator
+   also lists and creates storages. The permission it needs is **not verified
+   yet**: the Oracle IAM page lists no storage resource type of its own, and
+   the only live test ran as a tenancy administrator. If a release stops with
+   `NotAuthorizedOrNotFound` on a storage request, the administrator adds the
+   missing permission and records it here.
+
 3. **Runtime dynamic group**, so that Hosted Applications can pull their image:
    create a dynamic group with this matching rule, and allow it to read the
    registry:

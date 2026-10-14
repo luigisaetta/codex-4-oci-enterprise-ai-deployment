@@ -13,7 +13,6 @@ follow the numbers unless a dependency says otherwise.
 | # | Item | Depends on | Effort | Phase |
 | --- | --- | --- | --- | --- |
 | 17 | [Local LLM test for Resource Principal agents](#17-local-llm-test-for-resource-principal-agents) (issue found 2026-10-09) | — | Low-medium | Now |
-| 18 | [Clearer OCIR username](#18-clearer-ocir-username) (user feedback 2026-10-12) | — | Low | Now |
 | 2 | [Verify PowerShell parity](#2-verify-powershell-parity) | — | Low | Now |
 | 3 | [Compatibility check and pre-release smoke test](#3-compatibility-check-and-pre-release-smoke-test) | — | Low | Now |
 | 5 | [Live check of runtime environment variables](#5-live-check-of-runtime-environment-variables) | — | Low | Live session |
@@ -76,21 +75,6 @@ Two other findings of the same test, for the agent guidelines
   body `{}` and a request model with `extra="forbid"` answered 400 on OCI and
   200 locally; reading the body by hand, and accepting an empty body, fixed
   it. Confirm the cause with a small test before writing a rule.
-
-## 18. Clearer OCIR username
-
-User feedback (2026-10-12): step 5 of Getting started asks for
-`OCIR_USERNAME` as `<namespace>/<your-username>` or
-`<namespace>/<identity-domain>/<your-username>`, but users outside the
-`Default` identity domain do not know how to find their domain. Explain where
-the Console shows it, with a federated-user example, and consider deriving the
-value automatically from the OCI CLI profile (setup check or a setup script).
-Verify the Console path before documenting it.
-
-Done on 2026-10-12, documentation part: [Logging in to OCIR](docs/ocir-login.md)
-(username from the Console's Profile menu, auth token, login, errors), linked
-from Getting started steps 5 and 9. Still open: deriving the value
-automatically.
 
 ## 2. Verify PowerShell parity
 

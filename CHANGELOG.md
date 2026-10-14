@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* 2026-10-14: New note [Managed ADB storage spike](docs/managed-storage-adb-spike.md)
+  with the results of a live test of the managed Autonomous Database storage
+  of Hosted Applications. The tool does not support managed storage yet.
+
 * 2026-10-14: The project is now **OCI Agent Shipyard**: repository, tool home
   folder, and Conda environment `oci-agent-shipyard` (Spec 025). Existing
   workstations: uninstall the skills, rename the folder, create the new

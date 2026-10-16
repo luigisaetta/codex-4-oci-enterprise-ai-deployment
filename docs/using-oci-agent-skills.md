@@ -249,8 +249,18 @@ change; the verifier waits within its timeout while the deployment is
 
 ## Clean up old artifacts
 
-Cleanup is manual and outside the skills: only inactive artifacts may be
-removed. An application has a limit of 20 artifacts.
+Cleanup of old artifacts is manual and outside the skills: only inactive
+artifacts may be removed. An application has a limit of 20 artifacts.
+
+## Remove an agent completely
+
+Invoke **`oci-agent-teardown`** with the manifest
+([Spec 029](../specs/029-skill-oci-agent-teardown.md)). It plans first: the
+Hosted Application and its deployment, the managed storage (`deploy.storage`),
+the OCIR repository with its images, and the local images, each with its
+action, and the resources it never touches. It deletes only after explicit
+approval of that plan and the typed application name (`--confirm`). A rerun
+skips what is already deleted.
 
 ## Step 4: verify the deployed release
 
@@ -340,8 +350,10 @@ For a new release of one selected agent, the conversation follows this shape:
 
 Never reuse a release tag for a different image. If any step fails, report the
 observed state and correct the specific issue before deciding whether to retry.
-Never delete or recreate an application or a deployment, except a `FAILED`
-deployment on the user's explicit replacement request and approval of its plan.
+Never delete or recreate an application or a deployment during a release,
+except a `FAILED` deployment on the user's explicit replacement request and
+approval of its plan. Removing an agent is a separate request, handled only by
+`oci-agent-teardown`.
 
 ## Windows workstations
 

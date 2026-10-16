@@ -127,7 +127,7 @@ def test_skill_content_uses_user_scope_instructions() -> None:
 
 def test_mutating_skills_require_explicit_authorization() -> None:
     """Push and deploy require explicit authorization before OCI mutations."""
-    for name in ("oci-agent-push", "oci-agent-deploy"):
+    for name in ("oci-agent-push", "oci-agent-deploy", "oci-agent-teardown"):
         content = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
         workflow = content.split("## Workflow", maxsplit=1)[1].lower()
         assert "explicit" in workflow
@@ -315,3 +315,18 @@ def test_idcs_skill_guidance_uses_placeholders_and_required_exit_codes() -> None
         content = path.read_text(encoding="utf-8")
         assert re.search(r"idcs-[0-9a-f]{8,}", content, re.IGNORECASE) is None
         assert "hostedApplications/" not in content or "eu-" not in content
+
+
+def test_teardown_skill_requires_plan_authorization_and_typed_name() -> None:
+    """The teardown skill shows the full plan and needs the typed name (Spec 029)."""
+    content = (SKILLS / "oci-agent-teardown" / "SKILL.md").read_text(encoding="utf-8")
+    workflow = " ".join(content.split("## Workflow", maxsplit=1)[1].split())
+    assert "Show the **complete** plan output to the user, never a summary" in workflow
+    assert "ask the user to type the application name" in workflow
+    assert "--apply --confirm <application-name>" in workflow
+    assert "Never run teardown to fix a failed release" in workflow
+    for kept in ("IAM policies", "confidential application", "Vault secrets"):
+        assert kept in content
+    assert "../../specs/029-skill-oci-agent-teardown.md" in MARKDOWN_LINK.findall(
+        content
+    )

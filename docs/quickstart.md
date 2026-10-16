@@ -20,8 +20,8 @@ To check the workstation, run `scripts/check_setup.sh` from the tool home
 (`scripts/check_setup.ps1` on Windows): every line must say `PASS`.
 
 To check the skills, open Codex and type `$`: the list must include
-`oci-agent-new`, `oci-agent-build`, `oci-agent-push`, `oci-agent-deploy`, and
-`oci-agent-verify-deployment`. If
+`oci-agent-new`, `oci-agent-build`, `oci-agent-push`, `oci-agent-deploy`,
+`oci-agent-verify-deployment`, and `oci-agent-teardown`. If
 they are missing, start a new Codex session; if they are still missing, ask
 whoever prepared the workstation.
 
@@ -159,11 +159,17 @@ its health, readiness, and functional checks.
 
 ## Cleaning up
 
-The deploy skill deletes only a `FAILED` deployment, after you request a new
-deploy of that failed release and approve its replacement plan. When you no
-longer need an agent online, remove its Hosted Application from the OCI
-Console, or ask an administrator. Old versions stay stored inside the
-application (up to 20); only inactive ones can be removed, from the Console.
+When you no longer need an agent, ask Codex: "Remove this agent and all its
+resources from OCI." The `oci-agent-teardown` skill shows a plan of what it
+deletes (the Hosted Application and its deployment, the managed storage, the
+OCIR repository with its images, and the local images) and what it keeps
+(IAM, the identity-domain application, Vault secrets). It deletes only after you
+approve the plan and type the application name. Deleting is permanent.
+
+The deploy skill itself deletes only a `FAILED` deployment, after you request a
+new deploy of that failed release and approve its replacement plan. Old
+versions stay stored inside the application (up to 20); only inactive ones can
+be removed, from the Console.
 
 ## If something goes wrong
 

@@ -1,6 +1,6 @@
 # Spec 029: skill `oci-agent-teardown`, remove an agent completely
 
-Status: draft.
+Status: implemented; offline checks passed (2026-10-16); live acceptance pending.
 Date: 2026-10-16.
 Implements the teardown part of TODO item 13. Revises the rule of
 [Spec 009](009-release-new-version.md) "No command of the skills deletes a
@@ -169,4 +169,45 @@ storage survives the application, and forgotten resources keep costing.
 
 ## Verification record
 
-None yet.
+### 2026-10-16, macOS, local
+
+* Decision: the teardown logic is one Python module,
+  `scripts/teardown_agent.py`, and `teardown_agent.sh` and `teardown_agent.ps1`
+  are thin wrappers that select the Python interpreter and pass the options
+  (the pattern of `new_agent.py`). The two shells therefore cannot diverge in
+  behavior, output, or exit codes. The module reads the tenancy settings
+  through `tool_config.py` (environment first, then the tool's `.env`) and
+  calls the OCI CLI and the container engine as subprocesses.
+* Decision: with `--container-engine auto`, every usable engine (Docker and
+  Podman, CLI on PATH and `info` succeeding) is cleaned; an image that a
+  container uses, or any image that the engine refuses to remove, is kept and
+  reported, and the teardown still ends with exit 0.
+* Skill `skills/oci-agent-teardown` (`SKILL.md`, `agents/openai.yaml`) with
+  the target platform check of Spec 028, the full-plan and typed-name rules,
+  and the table of deleted and kept resources.
+* Documentation: README (flow diagram, skill table, "Talk to Codex"),
+  `skills/README.md`, both Getting started guides, the quickstart, the usage
+  guide, the deploy skill's cleanup paragraph, the migration note (skill
+  count), Spec 009 criterion 5, `TODO.md` item 13, `CHANGELOG.md`. The
+  overview image is unchanged (decided by the user).
+* Read-only plan against OCI (eu-frankfurt-1, OCI CLI 3.95.0) for
+  `demos/hello_world`: compartment resolved; `hello-world` application not
+  found; repository `agents/hello-world` found with 3 images and planned for
+  deletion; no other application of the compartment uses it; the container
+  engine (Rancher Desktop) was not running, so the local images were
+  reported as not removable. Nothing was deleted.
+* Offline: `tests/test_teardown.py` (plan without mutations; exact
+  confirmation before any OCI call; full teardown in order; rerun with
+  nothing to delete; manifest without storage; repository and storage kept
+  when used by another application; busy states, exit 20; permission error
+  with the IAM rule; partial failure and rerun; wait timeout, exit 26; image
+  in use; engine unavailable; Bash wrapper; PowerShell wrapper, skipped
+  without `pwsh`) and `tests/test_skills.py` (the teardown workflow rules).
+* `tests/test_script_parity.py`: `--container-engine` is excluded from the
+  Bash/PowerShell comparison, because the teardown offers it in both shells.
+* Full suite: 459 passed, 158 skipped (all `pwsh is unavailable`); Black and
+  Pylint (10.00/10) passed; links resolve.
+* Not verified: Windows execution of the module through `teardown_agent.ps1`
+  (the OCI CLI is called from Python, not from PowerShell, so the PowerShell
+  hooks of the OCI CLI are not involved).
+* Pending: acceptance criteria 2 and 3 (live).

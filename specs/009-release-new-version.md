@@ -176,7 +176,9 @@ A fake `oci` executable first on `PATH`, driven by a scenario file, for Bash
 3. The endpoint URL is the same before and after every change.
 4. The plan for an existing application never announces a deployment
    creation.
-5. No command of the skills deletes a resource.
+5. No command of the skills deletes a resource. (Revised on 2026-10-16 by
+   [Spec 029](029-skill-oci-agent-teardown.md) for `oci-agent-teardown` only;
+   it still holds for every release skill.)
 6. Documentation and skills describe the four cases and the manual cleanup.
 
 ## Open questions, to settle during implementation

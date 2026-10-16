@@ -103,8 +103,8 @@ home.
 
    Expected: every line says `PASS`.
 
-8. Start a **new** Codex session and type `$`: the list must include the six
-   `oci-agent-*` skills.
+8. Start a **new** Codex session and type `$`: the list must include every
+   `oci-agent-*` skill of the tool home's `skills/` folder.
 
 9. Optional, when everything works, remove the old environment:
 
@@ -183,8 +183,8 @@ folder that contains your tool home.
 
    Expected: every line says `PASS`.
 
-8. Start a **new** Codex session and type `$`: the six `oci-agent-*` skills
-   must be listed.
+8. Start a **new** Codex session and type `$`: every `oci-agent-*` skill of
+   the tool home's `skills/` folder must be listed.
 
 9. Optional, when everything works:
 

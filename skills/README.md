@@ -25,6 +25,7 @@ tool's `.env` or the operator's shell (for verification) and in the agent's
 | [oci-agent-push](oci-agent-push/SKILL.md) | Prepare and, with explicit authorization, push a verified image to OCIR in the OC1 realm. | Implemented; remote acceptance passed for Frankfurt; see [Spec 002](../specs/002-skill-oci-agent-push.md). |
 | [oci-agent-deploy](oci-agent-deploy/SKILL.md) | Plan or, with explicit authorization, deploy a verified OCIR image, resume creation, or replace a `FAILED` deployment on request. | Bash and PowerShell implemented; a Podman-backed Windows release and verification passed for an existing Hosted Application. See [Spec 007](../specs/007-windows-powershell-support.md) and [Spec 012](../specs/012-reliable-deploy-wait.md). |
 | [oci-agent-verify-deployment](oci-agent-verify-deployment/SKILL.md) | Verify an active Hosted Application release with OCI state checks and health/readiness probes. | Implemented; static and live Frankfurt verification passed for `hello-world:0.2.0`; see [Spec 005](../specs/005-skill-oci-agent-verify-deployment.md). |
+| [oci-agent-teardown](oci-agent-teardown/SKILL.md) | Plan or, with explicit authorization and the typed application name, remove an agent completely: Hosted Application and deployment, managed storage, OCIR repository, local images. | Implemented; offline checks passed; live acceptance pending; see [Spec 029](../specs/029-skill-oci-agent-teardown.md). |
 
 ## Choosing the platform
 

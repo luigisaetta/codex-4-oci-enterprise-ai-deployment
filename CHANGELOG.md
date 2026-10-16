@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+* 2026-10-16: New skill `oci-agent-teardown` (Spec 029). It removes an agent
+  completely: the Hosted Application and its deployment, the managed storage,
+  the OCIR repository with its images, and the local container images. It
+  plans first and deletes only after explicit approval and the typed
+  application name (`--confirm`); it keeps a repository or a storage used by
+  another application, and never touches IAM, identity domains, Vault secrets,
+  or Generative AI projects. Install it with `scripts/install_skills.sh` (or
+  `.ps1`) and start a new Codex session.
+
 * 2026-10-14: New `UNPLANNED.md` lists the features that the project
   deliberately does not plan to support, with the reason and the workaround.
   First entry: private endpoints and custom networking (formerly TODO

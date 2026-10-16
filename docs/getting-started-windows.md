@@ -311,7 +311,8 @@ Expected: one `created:` line per skill (`unchanged:` if they were already
 installed). Then **start a new Codex session** (close and reopen Codex, or
 reload VS Code), so that Codex discovers them. To check, type `$` in Codex: the
 list must include `oci-agent-new`, `oci-agent-build`, `oci-agent-push`,
-`oci-agent-deploy`, `oci-agent-verify-deployment`, and `oci-agent-ui`.
+`oci-agent-deploy`, `oci-agent-verify-deployment`, `oci-agent-ui`, and
+`oci-agent-teardown`.
 
 ## 7. Check the setup
 

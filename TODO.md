@@ -22,7 +22,7 @@ follow the numbers unless a dependency says otherwise.
 | 10 | [IAM pre-flight check (advisory)](#10-iam-pre-flight-check-advisory) | 5, 7 | Medium | Short term |
 | 11 | [Diagnostics for a failed deployment](#11-diagnostics-for-a-failed-deployment) | — | Medium | Short term |
 | 12 | [Configuration drift and update: scaling and runtime environment](#12-configuration-drift-and-update-scaling-and-runtime-environment) | 5 | Medium-high | Medium term |
-| 13 | [Artifact pruning and application teardown](#13-artifact-pruning-and-application-teardown) | — | Low-medium | Medium term |
+| 13 | [Artifact pruning](#13-artifact-pruning-and-application-teardown) (teardown done, Spec 029) | — | Low | Medium term |
 | 14 | [Multiple environments](#14-multiple-environments) | 12 | Medium | Medium term |
 
 Phases:
@@ -231,7 +231,9 @@ limit is handled manually.
   active artifact is protected.
 * A `prune` option or skill: `--keep N`, inactive artifacts only, plan then
   apply.
-* A `teardown` for test environments, with double confirmation.
+* Teardown: done by the `oci-agent-teardown` skill
+  ([Spec 029](specs/029-skill-oci-agent-teardown.md)), with a typed
+  confirmation of the application name.
 
 ## 14. Multiple environments
 

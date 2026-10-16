@@ -234,14 +234,10 @@ Deployment runtime to pull a private image. It activates or adds artifacts in
 an existing deployment. It deletes only a `FAILED` deployment on an explicitly
 requested and approved replacement plan.
 
-Removing an agent with managed storage is a manual step, done only when the
-user asks for it: deleting the application loses its data. Delete the Hosted
-Application (this also deletes its deployments; the active deployment cannot be
-deleted alone), then the storage, which otherwise stays active:
-`oci --region <region> generative-ai hosted-application delete
---hosted-application-id <application-ocid>`, then `oci --region <region>
-generative-ai hosted-application-storage delete --hosted-application-storage-id
-<storage-ocid>`. A failed storage request with `NotAuthorizedOrNotFound` is a
+Removing an agent, including its managed storage and its OCIR repository, is
+not a release: it belongs to the `oci-agent-teardown` skill
+([Spec 029](../../specs/029-skill-oci-agent-teardown.md)), only when the user
+asks for it. A failed storage request with `NotAuthorizedOrNotFound` is a
 missing permission: report it and stop, as for any IAM problem.
 
 IAM belongs to the tenancy administrator. When a release fails on permissions,

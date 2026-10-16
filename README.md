@@ -53,6 +53,7 @@ flowchart LR
     Deploy --> Verify["<b>oci-agent-verify-deployment</b><br/>check the release"]
     Verify --> Live(["Agent live on OCI"])
     Live -. "optional" .-> UI["<b>oci-agent-ui</b><br/>demo page for its users"]
+    Live -. "when no longer needed" .-> Teardown["<b>oci-agent-teardown</b><br/>remove everything"]
 ```
 
 | Skill | What it does | Changes |
@@ -63,6 +64,7 @@ flowchart LR
 | [oci-agent-deploy](skills/oci-agent-deploy/SKILL.md) | Plans the release from the state in OCI, then deploys it and waits for the outcome. | Creates or updates OCI resources only with your approval. |
 | [oci-agent-verify-deployment](skills/oci-agent-verify-deployment/SKILL.md) | Checks the deployed release: OCI state, `/health`, `/ready`, and optional functional checks. | Read-only OCI calls and approved endpoint calls. |
 | [oci-agent-ui](skills/oci-agent-ui/SKILL.md) | Creates a local demo web page (Next.js) for the agent's users, in business language, from its specification. | Local files only; runs on your computer. |
+| [oci-agent-teardown](skills/oci-agent-teardown/SKILL.md) | Removes an agent completely: Hosted Application and deployment, managed storage, OCIR repository with its images, and local images. | Deletes, only with your approval and the typed application name. |
 
 The [skill catalog](skills/README.md) explains discovery, installation, and the
 Bash/PowerShell mapping; each `SKILL.md` is the authoritative instruction.
@@ -78,6 +80,7 @@ Open your agent's repository in Codex and ask:
 | "Release version 0.2.0 of this agent on OCI Hosted Applications." | The new version replaces the old one in the same application; the endpoint stays the same. |
 | "Deploy version 0.1.0 of this agent again. Deploy only: do not build or push." | Rollback: the earlier version becomes active again. |
 | "Verify the deployment of this agent, version 0.2.0, and also run its functional checks." | Read-only checks of OCI state, probes, and functional checks. |
+| "Remove this agent and all its resources from OCI." | `oci-agent-teardown` shows what it would delete and what it keeps, then deletes only after your approval and the typed application name. |
 | "Create a demo UI for this agent, for its users." | `oci-agent-ui` drafts the page's specification, then, after your approval, creates a local demo page with example requests. |
 
 You can also call a skill by name, for example

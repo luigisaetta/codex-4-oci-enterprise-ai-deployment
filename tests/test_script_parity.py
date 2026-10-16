@@ -1,6 +1,6 @@
 """
 Author: L. Saetta
-Date last modified: 2026-09-23
+Date last modified: 2026-10-16
 License: MIT
 Description: Keep the Bash and PowerShell lifecycle scripts interchangeable.
 
@@ -20,7 +20,9 @@ BASH_SCRIPTS = sorted(SCRIPTS.glob("*.sh"))
 
 # Parameters that exist only on one side by design.
 POWERSHELL_ONLY = {"container-engine", "help"}
-BASH_ONLY = {"help"}
+# The engine choice is a PowerShell option of the lifecycle scripts; the
+# teardown (Spec 029) offers it in both shells, so it is never compared.
+BASH_ONLY = {"help", "container-engine"}
 
 
 def bash_options(script: Path) -> set[str]:

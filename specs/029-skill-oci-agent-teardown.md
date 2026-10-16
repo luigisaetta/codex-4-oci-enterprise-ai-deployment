@@ -1,6 +1,6 @@
 # Spec 029: skill `oci-agent-teardown`, remove an agent completely
 
-Status: implemented; offline checks passed (2026-10-16); live acceptance pending.
+Status: implemented; offline checks passed and live acceptance reported passed (2026-10-16).
 Date: 2026-10-16.
 Implements the teardown part of TODO item 13. Revises the rule of
 [Spec 009](009-release-new-version.md) "No command of the skills deletes a
@@ -211,3 +211,10 @@ storage survives the application, and forgotten resources keep costing.
   (the OCI CLI is called from Python, not from PowerShell, so the PowerShell
   hooks of the OCI CLI are not involved).
 * Pending: acceptance criteria 2 and 3 (live).
+
+### 2026-10-16, live acceptance (operator-reported)
+
+* The operator ran the teardown live after the commit and reported that
+  everything worked. No detailed output was recorded in this specification;
+  criterion 3 (repository kept because another application uses it) and the
+  Windows execution are not confirmed separately.
